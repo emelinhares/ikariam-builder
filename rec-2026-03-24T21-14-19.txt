@@ -1,0 +1,745 @@
+[0001] 18:13:29 [CLICK  ] div#js_citySelectContainer.select_container city_select shorten_text replaced "BAD M" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0002] 18:13:29 [CLICK  ] div#?.bg "BAD C BAD E BAD VINHO BAD M BAD M2" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0003] 18:13:29 [NET    ] POST header
+  REQ: action=header function=changeCurrentCity oldView=city cityId=6580 islandX=0 islandY=0 oldBackgroundView=island mainbox_x=709 mainbox_y=0 mainbox_z=19 sidebar_x=263 sidebar_y=0 sidebar_z=358 containerWidth=2515px containerHeight=1318px worldviewWidth=2515px worldviewHeight=1272px islandTop=-218px islandLeft=-1524px islandWorldviewScale=1 currentCityId=6583
+  ← [custom, updateBacklink, popupData]
+────────────────────────────────────────────────────────────────────────────────
+[0004] 18:13:33 [CLICK  ] a#js_CityPosition10Link.hoverable "" href=?view=academy&cityId=6580&position=10&currentCityId=6580&oldBackgroundView=city&mainbox_x=709&mainbox_y=0&mainbox_z=19&sidebar_x=263&sidebar_y=0&sidebar_z=358&containerWidth=2515px&containerHeight=1318px&worldviewWidth=2515px&worldviewHeight=1272px&cityTop=-38px&cityLeft=-1419px&cityWorldviewScale=1&backgroundView=city&actionRequest=59a86f9ebf2994bebfb8bf1032f3c286
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0005] 18:13:33 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#academy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#academy.mainContentBox.contentBox01h.toggleMenu> (10058 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0006] 18:13:33 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#academy_c.templateView.focusable.focus>
+    HTML: <div#academy_c.templateView.focusable.focus> (10166 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0007] 18:13:33 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#sidebar.focusable.focus>
+    HTML: <div#sidebar.focusable.focus> (3317 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0008] 18:13:33 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0009] 18:13:33 [NET    ] POST academy
+  REQ: view=academy cityId=6580 position=10 currentCityId=6580 oldBackgroundView=city mainbox_x=709 mainbox_y=0 mainbox_z=19 sidebar_x=263 sidebar_y=0 sidebar_z=358 containerWidth=2515px containerHeight=1318px worldviewWidth=2515px worldviewHeight=1272px cityTop=-38px cityLeft=-1419px cityWorldviewScale=1
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0010] 18:13:33 [VIEW   ] academy
+  HTML (13342 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=4"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=59a86f9ebf2994bebfb8bf1032f3c286&cityId=6580&position=10&level=19" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>19                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=10&level=19&actionRequest=59a86f9ebf2994bebfb8bf1032f3c286&templatePosition=10"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 20:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 20.958"><span class="accesshint">Material de construção: </span>20.958</li>
+  <li class="crystal  red bold"
+                               title="Cristal: 53.484"><span class="accesshint">Cristal: </span>53.484</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>9h 55m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 9h 55m 16s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Academia</h1>
+                      <p>A Academia é um lugar cheio de conhecimentos que combina as antigas tradições com as tecnologias modernas. Os sábios da tua cidade encontram-se aqui! Considera que cada cientista tem o seu próprio laboratório e isto custa dinheiro.
+  Quanto maior a academia mais cientistas poderás empregar ao mesmo tempo.</p>
+              </div>
+  
+      <form onsubmit="ajaxHandlerCallFromForm(this);return false;" id="setScientists" action="index.php" method="POST">
+          <input type="hidden" name="action" value="IslandScreen"/>
+          <input type="hidden" name="function" value="workerPlan"/>
+          <input type="hidden" name="screen" value="academy"/>
+          <input type="hidden" name="position" value="10" />
+          <div class="contentBox01h">
+              <h3 class="header">Contratar trabalhadores</h3>
+              <div class="content">
+                                  <ul class="assign_workers" style="z-index:2">
+                      <li class="citizens">Cidadãos: <span class="value scroll_view"
+                                                                                          id="valueCitizens">1.177</span>
+                      </li>
+                      <li class="scientists">Cientistas: <span class="value scroll_view"
+                                                                                               id="valueWorkers">0</span>
+                      </li>
+                      <li class="gain">
+                          <span class="smallFont">Rendimento científico: </span>
+                          <div id="gainPoints">
+                              <img id="lightbulb" src="//gf2.geo.gfsrv.net/cdn73/ea3669e6d0b43730c117e3b66f489c.png" style="width: 14px; height: 21px;"/>
+                          </div>
+                          <div
+                              style="position:absolute; top:22px; left:145px;">
+                              <span id="valueResearch"
+                                    class="positive overcharged">+0</span> <span
+                                  class="timeUnit">por hora</span>
+                          </div>
+                                                      <div class="tooltip" style="line-height:13px;">
+                                  <table class="breakdown_table">
+                                      <tr>
+                                          <td class="description">Produção Base:</td>
+                                          <td class="value"
+                                              id="js_academy_research_tooltip_basic_production">0,00</td>
+                                      </tr>
+                                      <tr>
+                                          <td class="description">Mundo:</td>
+                                          <td class="value"
+                                              id="js_academy_research_tooltip_world_bonus">+ 0%</td>
+                                      </tr>
+                                                                              <tr>
+                                              <td>Bónus do Premium:</td>
+                                              <td class="value">+ 0%</td>
+                                          </tr>
+                                                                          <tr>
+                                          <td>Pesquisas:</td>
+                                          <td class="value">+ 14.000000000000001776%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>Tipo de Governo:</td>
+                                          <td class="value">+ 0%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>Corrupção:</td>
+                                          <td class="value">- 0%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>&nbsp;</td>
+                                          <td></td>
+                                      </tr>
+                                      <tr>
+                                          <td>Total:</td>
+                                          <td id="js_academy_research_tooltip_total_production"
+                                              class="value">0</td>
+                                      </tr>
+                                  </table>
+                              </div>
+                                              </li>
+                      <li>
+                          <div id="info_research_breakdown"
+                               class="researchAdvisorTabletHelpButton invisible questionMark"
+                               onclick=""></div>
+                      </li>
+                      <li class="costs"><span
+                              class="smallFont">Renda da cidade: </span><br/><span
+                              id="valueWorkCosts" class="negative"></span> <img
+                              src="//gf3.geo.gfsrv.net/cdnbd/1d0793553a024873cd0fe1ae750848.png" title="Ouro"
+                              alt="Ouro"/><span
+                              class="timeUnit"> por hora</span></li>
+  
+                  </ul>
+                  <div id="overchargeMsg" class="status nooc ocready oced">Sobrecarregado                    !
+                  </div>
+                  <div id="js_AcademySlider" class="sliderinput slider_big" style="z-index:1">
+                      <div class="sliderbg" id="sliderbg">
+                          <div class="actualValue" id="actualValue"></div>
+                          <div class="overcharge" id="overcharge"></div>
+                          <div class="sliderthumb" id="sliderthumb"></div>
+                      </div>
+                      <a class="setMin" href="#reset"
+                         onClick="ikariam.controller.sliders['slider_academy'].setActualValue(0); return false;"
+                         title="Nenhum cientista"><span
+                              class="accesshint">min</span></a>
+                      <a class="setMax" href="#max"
+                         onClick="ikariam.controller.sliders['slider_academy'].setActualValue(171); return false;"
+                         title="quantidade máxima de cientistas"><span
+                              class="accesshint">máx</span></a>
+                  </div>
+                  <input type="hidden" name="cityId" value="6580">
+                  <div class="centerButton">
+                      <input autocomplete="off" id="inputScientists" name="s"
+                             class="textfield" type="text" maxlength="4"/>
+                      <input type="submit" id="inputWorkersSubmit" class="button action_bubble" title=""
+                             value="Confirmar"/>
+                  </div>
+              </div>
+              <div class="footer"></div>
+          </div>
+      </form>
+  
+              <form onsubmit="return false;" id="accelResearchForm" action="index.php"
+                method="POST"/>
+          <input type=hidden name="action" value="CityScreen"/>
+          <input type=hidden name="function" value="buyResearch"/>
+          <input id="useAthenasScroll" type=hidden name="useAthenasScroll" value="0"/>
+          <input id="payWithAmbrosia" type=hidden name="payWithAmbrosia" value="0"/>
+          <input type=hidden name="cityId" value="6580"/>
+          <input type=hidden name="position" value="10"/>
+          <div id="accelerateResearch" class="contentBox01h">
+              <h3 class="header">Conduzir ensaio</h3>
+              <p>Após imensas pesquisas conduzidas pelos nossos cientistas eles finalmente descobriram uma forma de criar 29.184 pontos de pesquisa. Para isso precisamos de 58.368 cristal para realizar os ensaios. Mas cuidado! As reacções químicas que têm acontecido durante estes ensaios são bem ruidosas e impressionantes! Por isso os cientistas precisam de 4h para organizar o laboratório e continuar com as experiências com cristal.</p>
+              
+                      <!-- Research Achievement -->
+                      <div class="research-achievement">
+                          <div class="achievement-content">
+                              <span>Rendimento científico:</span>
+                              <span>29.184</span>
+                              <div class="icon-research">
+                                  <img src="//gf2.geo.gfsrv.net/cdn1d/03938d85c3f6e71cc89704bf47de02.png"/>
+                              </div>
+                          </div>
+                      </div>
+  
+                      <!-- Costs -->
+                                              <div class="experiment-options">
+  
+                              <div class="experiment">
+                                  <div class="cost-info">
+                                      <span>Custos:</span>
+                                      <span>58.368</span>
+                                      <img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png"/>
+                                  </div>
+                                  <input type="button" onclick="conductExperiment(0)" class="button" value="Conduzir ensaio" />
+                              </div>
+  
+                              <div class="experiment" style="text-align: center; flex: 1;">
+                                  <div class="cost-info">
+                                      <span>Custos:</span>
+                                      <span class="striked-cost">58.368</span>
+                                      <span class="discounted-cost">46.695</span>
+                                      <img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png"/>
+                                  </div>
+                                  <input type="button" onclick="conductExperiment(1)" class="button" value="Usar Pergaminho de Atena" />
+                              </div>
+  
+                          </div>
+                                                  <div class="footer"></div>
+          </div>
+          </form>
+      
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0011] 18:13:37 [CLICK  ] div#sliderbg.sliderbg "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0012] 18:13:38 [CLICK  ] div#sliderbg.sliderbg "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0013] 18:13:38 [CLICK  ] input#inputWorkersSubmit.button action_bubble buttonChanged "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0014] 18:13:39 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0015] 18:13:39 [NET    ] POST IslandScreen
+  REQ: action=IslandScreen function=workerPlan screen=academy position=10 cityId=6580 s=49 currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, provideFeedback, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0016] 18:13:40 [CLICK  ] div#actualValue.actualValue "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0017] 18:13:41 [CLICK  ] input#inputWorkersSubmit.button action_bubble buttonChanged "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0018] 18:13:42 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0019] 18:13:42 [NET    ] POST IslandScreen
+  REQ: action=IslandScreen function=workerPlan screen=academy position=10 cityId=6580 s=12 currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, provideFeedback, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0020] 18:13:44 [CLICK  ] div#sliderbg.sliderbg "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0021] 18:13:44 [MODEL  ] currentResources, actionRequest, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50358,\"4\":23876,\"citizens\":1177.3230210480233,\"population\":1591.2438688696466,\"resource\":983}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1165.3276587386365,\"population\":1591.2485065602598,\"resource\":984}"
+    },
+    "actionRequest": {
+      "old": "\"59a86f9ebf2994bebfb8bf1032f3c286\"",
+      "new": "\"d0dc49b23f92a479feccef5ef47baaad\""
+    },
+    "serverTime": {
+      "old": "1774386813",
+      "new": "1774386822"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0022] 18:13:45 [CLICK  ] input#inputWorkersSubmit.button action_bubble buttonChanged "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0023] 18:13:45 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0024] 18:13:45 [NET    ] POST IslandScreen
+  REQ: action=IslandScreen function=workerPlan screen=academy position=10 cityId=6580 s=171 currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, provideFeedback, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0025] 18:13:47 [CLICK  ] a#js_buildingUpgradeButton.action_btn "Melhorar" href=?action=UpgradeExistingBuilding&actionRequest=025ea1a6bbadb2774bc4afa24b86d3e1&cityId=6580&position=10&level=19&backgroundView=city&currentCityId=6580&templateView=academy
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0026] 18:13:48 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#confirmResourcePremiumBuy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#confirmResourcePremiumBuy.mainContentBox.contentBox01h.toggleMenu> (2492 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0027] 18:13:48 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#confirmResourcePremiumBuy_c.templateView.focusable.focus>
+    HTML: <div#confirmResourcePremiumBuy_c.templateView.focusable.focus> (2618 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0028] 18:13:48 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0029] 18:13:48 [NET    ] POST UpgradeExistingBuilding
+  REQ: action=UpgradeExistingBuilding cityId=6580 position=10 level=19 currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0030] 18:13:48 [VIEW   ] confirmResourcePremiumBuy
+  HTML (1558 chars):
+  
+  <div id="mainview" class="size420">
+      <div class="buildingDescription">
+          <h1>Ainda te faltam alguns recursos!</h1>
+          <p id="js_description" style="margin: 10px 0; text-align: center"></p>
+          <br>
+          <center>
+              <table class="search table01 margin10center" style="width: auto; border: 1px solid #bc575d">
+                                      <tr>
+                          <td><img src="//gf2.geo.gfsrv.net/cdn19/c3527b2f694fb882563c04df6d8972.png">&nbsp;</td>
+                          <td>19.974</td>
+                      </tr>
+                                          <tr>
+                          <td><img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png">&nbsp;</td>
+                          <td>3.125</td>
+                      </tr>
+                                  </table>
+          </center>
+          <br>
+          <br>
+          <div id="js_confirmButton">
+              <center>
+                                          <div id="js_buyAmbrosiaButton" class="buy_ambrosia red_box center" style="width: 200px;">
+                              <a class="smallFont red center" onclick="ajaxHandlerCall(this.href); return false;"
+                                 href="?view=premiumPayment&oldView=premium">
+                                  <span id="js_buyAmbrosiaText" class="bold smallFont"></span>
+                                  <span class="bold center">Adquirir agora!!</span>
+                              </a>
+                          </div>
+                                      </center>
+          </div>
+      </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0031] 18:13:49 [MODEL  ] currentResources, actionRequest, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1165.3276587386365,\"population\":1591.2485065602598,\"resource\":984}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1006.3307504035565,\"population\":1591.2515982251798,\"resource\":984}"
+    },
+    "actionRequest": {
+      "old": "\"d0dc49b23f92a479feccef5ef47baaad\"",
+      "new": "\"f06511fc8b17b252bbf2f07a200324f9\""
+    },
+    "serverTime": {
+      "old": "1774386822",
+      "new": "1774386828"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0032] 18:13:51 [CLICK  ] div#confirmResourcePremiumBuy.mainContentBox contentBox01h toggleMenu mainContentBox500 "Ainda te faltam alguns recursos!
+    
+        Ainda te faltam alguns recursos!
+ " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0033] 18:13:52 [CLICK  ] a#js_CityPosition10Link.hoverable "" href=?view=academy&cityId=6580&position=10
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0034] 18:13:53 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#academy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#academy.mainContentBox.contentBox01h.toggleMenu> (10070 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0035] 18:13:53 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#academy_c.templateView.focusable.focus>
+    HTML: <div#academy_c.templateView.focusable.focus> (10178 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0036] 18:13:53 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0037] 18:13:53 [NET    ] POST academy
+  REQ: view=academy cityId=6580 position=10 currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0038] 18:13:53 [VIEW   ] academy
+  HTML (13350 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=4"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=f06511fc8b17b252bbf2f07a200324f9&cityId=6580&position=10&level=19" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>19                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=10&level=19&actionRequest=f06511fc8b17b252bbf2f07a200324f9&templatePosition=10"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 20:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 20.958"><span class="accesshint">Material de construção: </span>20.958</li>
+  <li class="crystal  red bold"
+                               title="Cristal: 53.484"><span class="accesshint">Cristal: </span>53.484</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>9h 55m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 9h 55m 16s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Academia</h1>
+                      <p>A Academia é um lugar cheio de conhecimentos que combina as antigas tradições com as tecnologias modernas. Os sábios da tua cidade encontram-se aqui! Considera que cada cientista tem o seu próprio laboratório e isto custa dinheiro.
+  Quanto maior a academia mais cientistas poderás empregar ao mesmo tempo.</p>
+              </div>
+  
+      <form onsubmit="ajaxHandlerCallFromForm(this);return false;" id="setScientists" action="index.php" method="POST">
+          <input type="hidden" name="action" value="IslandScreen"/>
+          <input type="hidden" name="function" value="workerPlan"/>
+          <input type="hidden" name="screen" value="academy"/>
+          <input type="hidden" name="position" value="10" />
+          <div class="contentBox01h">
+              <h3 class="header">Contratar trabalhadores</h3>
+              <div class="content">
+                                  <ul class="assign_workers" style="z-index:2">
+                      <li class="citizens">Cidadãos: <span class="value scroll_view"
+                                                                                          id="valueCitizens">1.006</span>
+                      </li>
+                      <li class="scientists">Cientistas: <span class="value scroll_view"
+                                                                                               id="valueWorkers">171</span>
+                      </li>
+                      <li class="gain">
+                          <span class="smallFont">Rendimento científico: </span>
+                          <div id="gainPoints">
+                              <img id="lightbulb" src="//gf2.geo.gfsrv.net/cdn73/ea3669e6d0b43730c117e3b66f489c.png" style="width: 14px; height: 21px;"/>
+                          </div>
+                          <div
+                              style="position:absolute; top:22px; left:145px;">
+                              <span id="valueResearch"
+                                    class="positive overcharged">+194</span> <span
+                                  class="timeUnit">por hora</span>
+                          </div>
+                                                      <div class="tooltip" style="line-height:13px;">
+                                  <table class="breakdown_table">
+                                      <tr>
+                                          <td class="description">Produção Base:</td>
+                                          <td class="value"
+                                              id="js_academy_research_tooltip_basic_production">171,00</td>
+                                      </tr>
+                                      <tr>
+                                          <td class="description">Mundo:</td>
+                                          <td class="value"
+                                              id="js_academy_research_tooltip_world_bonus">+ 0%</td>
+                                      </tr>
+                                                                              <tr>
+                                              <td>Bónus do Premium:</td>
+                                              <td class="value">+ 0%</td>
+                                          </tr>
+                                                                          <tr>
+                                          <td>Pesquisas:</td>
+                                          <td class="value">+ 14.000000000000001776%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>Tipo de Governo:</td>
+                                          <td class="value">+ 0%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>Corrupção:</td>
+                                          <td class="value">- 0%</td>
+                                      </tr>
+                                      <tr>
+                                          <td>&nbsp;</td>
+                                          <td></td>
+                                      </tr>
+                                      <tr>
+                                          <td>Total:</td>
+                                          <td id="js_academy_research_tooltip_total_production"
+                                              class="value">194</td>
+                                      </tr>
+                                  </table>
+                              </div>
+                                              </li>
+                      <li>
+                          <div id="info_research_breakdown"
+                               class="researchAdvisorTabletHelpButton invisible questionMark"
+                               onclick=""></div>
+                      </li>
+                      <li class="costs"><span
+                              class="smallFont">Renda da cidade: </span><br/><span
+                              id="valueWorkCosts" class="negative"></span> <img
+                              src="//gf3.geo.gfsrv.net/cdnbd/1d0793553a024873cd0fe1ae750848.png" title="Ouro"
+                              alt="Ouro"/><span
+                              class="timeUnit"> por hora</span></li>
+  
+                  </ul>
+                  <div id="overchargeMsg" class="status nooc ocready oced">Sobrecarregado                    !
+                  </div>
+                  <div id="js_AcademySlider" class="sliderinput slider_big" style="z-index:1">
+                      <div class="sliderbg" id="sliderbg">
+                          <div class="actualValue" id="actualValue"></div>
+                          <div class="overcharge" id="overcharge"></div>
+                          <div class="sliderthumb" id="sliderthumb"></div>
+                      </div>
+                      <a class="setMin" href="#reset"
+                         onClick="ikariam.controller.sliders['slider_academy'].setActualValue(0); return false;"
+                         title="Nenhum cientista"><span
+                              class="accesshint">min</span></a>
+                      <a class="setMax" href="#max"
+                         onClick="ikariam.controller.sliders['slider_academy'].setActualValue(171); return false;"
+                         title="quantidade máxima de cientistas"><span
+                              class="accesshint">máx</span></a>
+                  </div>
+                  <input type="hidden" name="cityId" value="6580">
+                  <div class="centerButton">
+                      <input autocomplete="off" id="inputScientists" name="s"
+                             class="textfield" type="text" maxlength="4"/>
+                      <input type="submit" id="inputWorkersSubmit" class="button action_bubble" title=""
+                             value="Confirmar"/>
+                  </div>
+              </div>
+              <div class="footer"></div>
+          </div>
+      </form>
+  
+              <form onsubmit="return false;" id="accelResearchForm" action="index.php"
+                method="POST"/>
+          <input type=hidden name="action" value="CityScreen"/>
+          <input type=hidden name="function" value="buyResearch"/>
+          <input id="useAthenasScroll" type=hidden name="useAthenasScroll" value="0"/>
+          <input id="payWithAmbrosia" type=hidden name="payWithAmbrosia" value="0"/>
+          <input type=hidden name="cityId" value="6580"/>
+          <input type=hidden name="position" value="10"/>
+          <div id="accelerateResearch" class="contentBox01h">
+              <h3 class="header">Conduzir ensaio</h3>
+              <p>Após imensas pesquisas conduzidas pelos nossos cientistas eles finalmente descobriram uma forma de criar 29.184 pontos de pesquisa. Para isso precisamos de 58.368 cristal para realizar os ensaios. Mas cuidado! As reacções químicas que têm acontecido durante estes ensaios são bem ruidosas e impressionantes! Por isso os cientistas precisam de 4h para organizar o laboratório e continuar com as experiências com cristal.</p>
+              
+                      <!-- Research Achievement -->
+                      <div class="research-achievement">
+                          <div class="achievement-content">
+                              <span>Rendimento científico:</span>
+                              <span>29.184</span>
+                              <div class="icon-research">
+                                  <img src="//gf2.geo.gfsrv.net/cdn1d/03938d85c3f6e71cc89704bf47de02.png"/>
+                              </div>
+                          </div>
+                      </div>
+  
+                      <!-- Costs -->
+                                              <div class="experiment-options">
+  
+                              <div class="experiment">
+                                  <div class="cost-info">
+                                      <span>Custos:</span>
+                                      <span>58.368</span>
+                                      <img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png"/>
+                                  </div>
+                                  <input type="button" onclick="conductExperiment(0)" class="button" value="Conduzir ensaio" />
+                              </div>
+  
+                              <div class="experiment" style="text-align: center; flex: 1;">
+                                  <div class="cost-info">
+                                      <span>Custos:</span>
+                                      <span class="striked-cost">58.368</span>
+                                      <span class="discounted-cost">46.695</span>
+                                      <img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png"/>
+                                  </div>
+                                  <input type="button" onclick="conductExperiment(1)" class="button" value="Usar Pergaminho de Atena" />
+                              </div>
+  
+                          </div>
+                                                  <div class="footer"></div>
+          </div>
+          </form>
+      
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0039] 18:13:54 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1006.3307504035565,\"population\":1591.2515982251798,\"resource\":984}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1006.333326712268,\"population\":1591.2541745338913,\"resource\":985}"
+    },
+    "serverTime": {
+      "old": "1774386828",
+      "new": "1774386833"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0040] 18:13:58 [CLICK  ] div#accelerateResearch.contentBox01h "Conduzir ensaio
+            Após imensas pesquisas conduzidas pelos nossos cient" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0041] 18:13:59 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#confirmResourcePremiumBuy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#confirmResourcePremiumBuy.mainContentBox.contentBox01h.toggleMenu> (2274 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0042] 18:13:59 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#confirmResourcePremiumBuy_c.templateView.focusable.focus>
+    HTML: <div#confirmResourcePremiumBuy_c.templateView.focusable.focus> (2400 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0043] 18:13:59 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0044] 18:13:59 [NET    ] POST CityScreen
+  REQ: action=CityScreen function=buyResearch useAthenasScroll=0 payWithAmbrosia=0 cityId=6580 position=10 currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0045] 18:13:59 [VIEW   ] confirmResourcePremiumBuy
+  HTML (1335 chars):
+  
+  <div id="mainview" class="size420">
+      <div class="buildingDescription">
+          <h1>Ainda te faltam alguns recursos!</h1>
+          <p id="js_description" style="margin: 10px 0; text-align: center"></p>
+          <br>
+          <center>
+              <table class="search table01 margin10center" style="width: auto; border: 1px solid #bc575d">
+                                      <tr>
+                          <td><img src="//gf2.geo.gfsrv.net/cdn1e/417b4059940b2ae2680c070a197d8c.png">&nbsp;</td>
+                          <td>8.008</td>
+                      </tr>
+                                  </table>
+          </center>
+          <br>
+          <br>
+          <div id="js_confirmButton">
+              <center>
+                                          <div id="js_buyAmbrosiaButton" class="buy_ambrosia red_box center" style="width: 200px;">
+                              <a class="smallFont red center" onclick="ajaxHandlerCall(this.href); return false;"
+                                 href="?view=premiumPayment&oldView=premium">
+                                  <span id="js_buyAmbrosiaText" class="bold smallFont"></span>
+                                  <span class="bold center">Adquirir agora!!</span>
+                              </a>
+                          </div>
+                                      </center>
+          </div>
+      </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0046] 18:13:59 [MODEL  ] currentResources, actionRequest, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50359,\"4\":23876,\"citizens\":1006.333326712268,\"population\":1591.2541745338913,\"resource\":985}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50360,\"4\":23876,\"citizens\":1006.3364181882587,\"population\":1591.257266009882,\"resource\":985}"
+    },
+    "actionRequest": {
+      "old": "\"f06511fc8b17b252bbf2f07a200324f9\"",
+      "new": "\"289fcee1fbf040a94e6d54c0986c8a4e\""
+    },
+    "serverTime": {
+      "old": "1774386833",
+      "new": "1774386839"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0047] 18:14:01 [CLICK  ] div#confirmResourcePremiumBuy.mainContentBox contentBox01h toggleMenu mainContentBox500 "Ainda te faltam alguns recursos!
+    
+        Ainda te faltam alguns recursos!
+ " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0048] 18:14:06 [CLICK  ] div#erp-rec-host.? "" href=
+  data: {}

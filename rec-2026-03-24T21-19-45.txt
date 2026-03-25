@@ -1,0 +1,1630 @@
+[0001] 18:18:10 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50371,\"4\":23876,\"citizens\":1006.4095530491961,\"population\":1591.3304008708194,\"resource\":996}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50378,\"4\":23876,\"citizens\":1006.414701217253,\"population\":1591.3355490388763,\"resource\":1003}"
+    },
+    "serverTime": {
+      "old": "1774386981",
+      "new": "1774386991"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0002] 18:18:10 [CLICK  ] span#js_GlobalMenu_maxTransporters.? "106" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0003] 18:18:11 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#merchantNavy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div id="merchantNavy" class="mainContentBox contentBox01h toggleMenu"><div class="hd header mainHeader draggable"><h3 id="js_mainBoxHeaderTitle">Frota de Comércio        </h3><div id="js_backlinkButton" class="back" title="Museu"></div><div class="close"></div></div><div class="bd mainContentScroll" style="height: 350px;"><div class="scroll_area scroll_disabled"><div class="scroll_arrow_top"></div><div class="scroller" style="width: 5px; top: 0px; left: 0px;"></div><div class="scroll_arrow_bottom"></div></div><div class="mainContent minimizableContent" style="top: 0px;"><div class="center" style="height: 60px; padding-bottom: 8px;"><a onclick="ajaxHandlerCall('?view=premium');return false;"><img class="clickable" src="//gf3.geo.gfsrv.net/cdne4/6f2ec712bec335d402d14bc46c07fc.jpg"></a></div>
+    <div class="buildingDescription">
+        <h1>Frota de Comércio        </h1>
+        <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+
+    </div>
+
+    
+
+    
+            <div class="contentBox01h">
+            <h3 class="header">Nenhum transporte a decorrer</h3>
+            <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+            <div class="footer"></div>
+        </div>
+    
+</div></div><div class="ft footer"></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0004] 18:18:11 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#merchantNavy_c.templateView.focusable.focus>
+    HTML: <div id="merchantNavy_c" class="templateView focusable focus" style="left: 709px; top: 19px; right: auto;"><div id="merchantNavy" class="mainContentBox contentBox01h toggleMenu"><div class="hd header mainHeader draggable"><h3 id="js_mainBoxHeaderTitle">Frota de Comércio        </h3><div id="js_backlinkButton" class="back" title="Museu"></div><div class="close"></div></div><div class="bd mainContentScroll" style="height: 350px;"><div class="scroll_area scroll_disabled"><div class="scroll_arrow_top"></div><div class="scroller" style="width: 5px; top: 0px; left: 0px;"></div><div class="scroll_arrow_bottom"></div></div><div class="mainContent minimizableContent" style="top: 0px;"><div class="center" style="height: 60px; padding-bottom: 8px;"><a onclick="ajaxHandlerCall('?view=premium');return false;"><img class="clickable" src="//gf3.geo.gfsrv.net/cdne4/6f2ec712bec335d402d14bc46c07fc.jpg"></a></div>
+    <div class="buildingDescription">
+        <h1>Frota de Comércio        </h1>
+        <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+
+    </div>
+
+    
+
+    
+            <div class="contentBox01h">
+            <h3 class="header">Nenhum transporte a decorrer</h3>
+            <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+            <div class="footer"></div>
+        </div>
+    
+</div></div><div class="ft footer"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0005] 18:18:11 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0006] 18:18:11 [NET    ] POST merchantNavy
+  REQ: view=merchantNavy position=4 currentCityId=6580 currentTab=tab_museum
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0007] 18:18:11 [VIEW   ] merchantNavy
+  HTML (2949 chars):
+  <script type="text/javascript">
+      $(document).ready(function () {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].contentHeight = children[0].offsetHeight;
+              children[0].style.height = children[0].contentHeight + 'px';
+              children[0].style.position = "relative";
+              children[0].style.overflow = "hidden";
+              children[1].onmouseover = function (e) {
+                  this.style.background = "url(//gf1.geo.gfsrv.net/cdnf9/95a7ffc5afe7b42d57bcbcb3975c7f.png)";
+              };
+              children[1].onmouseout = function (e) {
+                  this.style.background = "url(//gf1.geo.gfsrv.net/cdn06/f83c74802e2918af2d096a1f5c4849.png)";
+              };
+              children[1].onclick = function (e) {
+                  var pulldown = $(this).prev()[0];
+                  if (pulldown.offsetHeight > 0) pulldown.style.height = "0px";
+                  else pulldown.style.height = pulldown.contentHeight + 'px';
+              };
+          });
+          pullupAll();
+              });
+  
+      function pulldownAll() {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].style.height = children[0].contentHeight + 'px';
+          });
+      }
+      function pullupAll() {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].style.height = '0px';
+          });
+      }
+  </script>
+  
+  <div id="grantedTransporters" class="dynamic">
+      <h3 class="header">Barcos de Carga Bónus</h3>
+      <div class="content">
+          <ul id="invitationList">
+                                                                  <li class="small noBottomBorder ">
+                      <div class="dailyActivityBonusSymbol"></div>
+                      <div class="amountSmall dailyActivityBonus"><span
+                              class="textLabel">7 º dia de bónus</span></div>
+                      <div class="shipCount">5</div>
+                      <div class="transporters"></div>
+                  </li>
+                          <li class="small noBottomBorder last">
+                  <div class="amountSum"><img alt="Summe" src="//gf2.geo.gfsrv.net/cdnd4/a09dc31d7a1f1ec2f83bd61fdcf898.png"></div>
+                  <div
+                      class="shipCountSum">5</div>
+                  <div class="transporters"></div>
+              </li>
+          </ul>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Frota de Comércio        </h1>
+          <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+  
+      </div>
+  
+      
+  
+      
+              <div class="contentBox01h">
+              <h3 class="header">Nenhum transporte a decorrer</h3>
+              <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+              <div class="footer"></div>
+          </div>
+      
+  </div>
+  
+  
+────────────────────────────────────────────────────────────────────────────────
+[0008] 18:18:13 [CLICK  ] a#js_GlobalMenu_cities.normalactive "Cidades" href=?view=tradeAdvisor&oldView=merchantNavy&cityId=6580&backgroundView=city&currentCityId=6580&templateView=merchantNavy&actionRequest=d685a74d87a15a359d8e7b7c36a85715
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0009] 18:18:14 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#tradeAdvisor.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#tradeAdvisor.mainContentBox.contentBox01h.toggleMenu> (25299 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0010] 18:18:14 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#tradeAdvisor_c.templateView.focusable.focus>
+    HTML: <div#tradeAdvisor_c.templateView.focusable.focus> (25412 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0011] 18:18:14 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0012] 18:18:15 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50378,\"4\":23876,\"citizens\":1006.414701217253,\"population\":1591.3355490388763,\"resource\":1003}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50379,\"4\":23876,\"citizens\":1006.4677107072523,\"population\":1591.3885585288756,\"resource\":1004}"
+    },
+    "serverTime": {
+      "old": "1774386991",
+      "new": "1774387094"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0013] 18:18:18 [CLICK  ] div#tradeAdvisor.mainContentBox contentBox01h toggleMenu ikaeasy-premium-wrap "Intendente
+    
+        Intendente
+    
+
+    
+    
+                    Noticias " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0014] 18:18:19 [CLICK  ] span#js_GlobalMenu_freeTransporters.? "106" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0015] 18:18:20 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#merchantNavy.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div id="merchantNavy" class="mainContentBox contentBox01h toggleMenu"><div class="hd header mainHeader draggable"><h3 id="js_mainBoxHeaderTitle">Frota de Comércio        </h3><div id="js_backlinkButton" class="back" title="Porto Mercantil"></div><div class="close"></div></div><div class="bd mainContentScroll" style="height: 350px;"><div class="scroll_area scroll_disabled"><div class="scroll_arrow_top"></div><div class="scroller" style="width: 5px; top: 0px; left: 0px;"></div><div class="scroll_arrow_bottom"></div></div><div class="mainContent minimizableContent" style="top: 0px;"><div class="center" style="height: 60px; padding-bottom: 8px;"><a onclick="ajaxHandlerCall('?view=premium');return false;"><img class="clickable" src="//gf3.geo.gfsrv.net/cdne4/6f2ec712bec335d402d14bc46c07fc.jpg"></a></div>
+    <div class="buildingDescription">
+        <h1>Frota de Comércio        </h1>
+        <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+
+    </div>
+
+    
+
+    
+            <div class="contentBox01h">
+            <h3 class="header">Nenhum transporte a decorrer</h3>
+            <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+            <div class="footer"></div>
+        </div>
+    
+</div></div><div class="ft footer"></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0016] 18:18:20 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#merchantNavy_c.templateView.focusable.focus>
+    HTML: <div id="merchantNavy_c" class="templateView focusable focus" style="left: 709px; top: 19px; right: auto;"><div id="merchantNavy" class="mainContentBox contentBox01h toggleMenu"><div class="hd header mainHeader draggable"><h3 id="js_mainBoxHeaderTitle">Frota de Comércio        </h3><div id="js_backlinkButton" class="back" title="Porto Mercantil"></div><div class="close"></div></div><div class="bd mainContentScroll" style="height: 350px;"><div class="scroll_area scroll_disabled"><div class="scroll_arrow_top"></div><div class="scroller" style="width: 5px; top: 0px; left: 0px;"></div><div class="scroll_arrow_bottom"></div></div><div class="mainContent minimizableContent" style="top: 0px;"><div class="center" style="height: 60px; padding-bottom: 8px;"><a onclick="ajaxHandlerCall('?view=premium');return false;"><img class="clickable" src="//gf3.geo.gfsrv.net/cdne4/6f2ec712bec335d402d14bc46c07fc.jpg"></a></div>
+    <div class="buildingDescription">
+        <h1>Frota de Comércio        </h1>
+        <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+
+    </div>
+
+    
+
+    
+            <div class="contentBox01h">
+            <h3 class="header">Nenhum transporte a decorrer</h3>
+            <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+            <div class="footer"></div>
+        </div>
+    
+</div></div><div class="ft footer"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0017] 18:18:20 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0018] 18:18:20 [NET    ] POST merchantNavy
+  REQ: view=merchantNavy currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0019] 18:18:20 [VIEW   ] merchantNavy
+  HTML (2949 chars):
+  <script type="text/javascript">
+      $(document).ready(function () {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].contentHeight = children[0].offsetHeight;
+              children[0].style.height = children[0].contentHeight + 'px';
+              children[0].style.position = "relative";
+              children[0].style.overflow = "hidden";
+              children[1].onmouseover = function (e) {
+                  this.style.background = "url(//gf1.geo.gfsrv.net/cdnf9/95a7ffc5afe7b42d57bcbcb3975c7f.png)";
+              };
+              children[1].onmouseout = function (e) {
+                  this.style.background = "url(//gf1.geo.gfsrv.net/cdn06/f83c74802e2918af2d096a1f5c4849.png)";
+              };
+              children[1].onclick = function (e) {
+                  var pulldown = $(this).prev()[0];
+                  if (pulldown.offsetHeight > 0) pulldown.style.height = "0px";
+                  else pulldown.style.height = pulldown.contentHeight + 'px';
+              };
+          });
+          pullupAll();
+              });
+  
+      function pulldownAll() {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].style.height = children[0].contentHeight + 'px';
+          });
+      }
+      function pullupAll() {
+          $(".pulldown").each(function () {
+              var children = $(this).children();
+              children[0].style.height = '0px';
+          });
+      }
+  </script>
+  
+  <div id="grantedTransporters" class="dynamic">
+      <h3 class="header">Barcos de Carga Bónus</h3>
+      <div class="content">
+          <ul id="invitationList">
+                                                                  <li class="small noBottomBorder ">
+                      <div class="dailyActivityBonusSymbol"></div>
+                      <div class="amountSmall dailyActivityBonus"><span
+                              class="textLabel">7 º dia de bónus</span></div>
+                      <div class="shipCount">5</div>
+                      <div class="transporters"></div>
+                  </li>
+                          <li class="small noBottomBorder last">
+                  <div class="amountSum"><img alt="Summe" src="//gf2.geo.gfsrv.net/cdnd4/a09dc31d7a1f1ec2f83bd61fdcf898.png"></div>
+                  <div
+                      class="shipCountSum">5</div>
+                  <div class="transporters"></div>
+              </li>
+          </ul>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Frota de Comércio        </h1>
+          <p>Aqui poderás ter uma ideia geral de toda a tua Frota Mercantil que se encontra nos sete mares.</p>
+  
+      </div>
+  
+      
+  
+      
+              <div class="contentBox01h">
+              <h3 class="header">Nenhum transporte a decorrer</h3>
+              <div class="content"><p>Não existem barcos de carga a caminho.</p></div>
+              <div class="footer"></div>
+          </div>
+      
+  </div>
+  
+  
+────────────────────────────────────────────────────────────────────────────────
+[0020] 18:18:21 [CLICK  ] div#merchantNavy.mainContentBox contentBox01h toggleMenu "Frota de Comércio        
+    
+        Frota de Comércio        
+        Aqui po" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0021] 18:18:23 [CLICK  ] a#js_GlobalMenu_gold.noViewParameters "3,64M+8,468" href=?view=finances
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0022] 18:18:24 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#finances.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#finances.mainContentBox.contentBox01h.toggleMenu> (19118 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0023] 18:18:24 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#finances_c.templateView.focusable.focus>
+    HTML: <div#finances_c.templateView.focusable.focus> (19227 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0024] 18:18:24 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0025] 18:18:24 [NET    ] POST finances
+  REQ: view=finances currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0026] 18:18:24 [VIEW   ] finances
+  HTML (8056 chars):
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Quantias</h1>
+      </div>
+      <table class="table01 border left">
+          <tr>
+              <td class="sigma">Quantidade de ouro</td>
+              <td class="nowrap res">
+                  3,64M                <div class="tooltip">
+                      3.637.751,89                </div>
+              </td>
+              <td rowspan="1"
+                  class="premiumOffer">
+                          <div id="js_BadTaxAccountantOffer">
+              <div class="offerBox">
+                  <div class="offerWrapper">
+                      <div class="offer">
+                          <div class="offerIcon"></div>
+                                                      <div class="tooltip">
+                                  <span class="textLabel"></span>
+                              </div>
+                                              </div>
+  
+                      <div class="options">
+                          <div class="optionButton">
+                              <div class="icon"></div>
+                          </div>
+                          <div class="optionButton">
+                              <div class="icon"></div>
+                          </div>
+                          <div class="optionButton">
+                              <div class="icon"></div>
+                          </div>
+                      </div>
+  
+                      <div class="orderButton inventory">
+                          <div class="orderButtonIcon"></div>
+                          <div class="orderPrice center"></div>
+                      </div>
+  
+                      <div class="clear"></div>
+                      
+                      <div class="amountAndActiveBox">
+                          <div class="amountBox smallFont bold center"><span></span></div>
+                          <div class="activeBox smallFont bold center"><span></span></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+                      </td>
+          </tr>
+              </table>
+  
+      <hr/>
+      <table class="table01 border left">
+          <tr>
+              <th class="city left"><img style="padding-left:10px"
+                                         src="//gf1.geo.gfsrv.net/cdn60/2734158a542d93bcf8f86526cb4046.png"
+                                         alt="Cidade"/></th>
+              <th class="left">Rendimento</th>
+              <th class="left">Cientistas</th>
+              <th class="left">Quantia</th>
+          </tr>
+          
+              <tr >
+                  <td class="city">BAD C</td>
+                  <td class="nowrap res">
+                      3.019                    <div class="tooltip">
+                          3.019,42                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      <span class="nowrap red bold">-1.026</span>                    <div class="tooltip">
+                          -1.026,00                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      1.993                    <div class="tooltip">
+                          1.993,42                    </div>
+                  </td>
+              </tr>
+          
+              <tr class='alt'>
+                  <td class="city">BAD E</td>
+                  <td class="nowrap res">
+                      1.783                    <div class="tooltip">
+                          1.782,79                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      0                    <div class="tooltip">
+                          0,00                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      1.783                    <div class="tooltip">
+                          1.782,79                    </div>
+                  </td>
+              </tr>
+          
+              <tr >
+                  <td class="city">BAD VINHO</td>
+                  <td class="nowrap res">
+                      3.122                    <div class="tooltip">
+                          3.122,02                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      <span class="nowrap red bold">-186</span>                    <div class="tooltip">
+                          -185,62                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      2.936                    <div class="tooltip">
+                          2.936,40                    </div>
+                  </td>
+              </tr>
+          
+              <tr class='alt'>
+                  <td class="city">BAD M</td>
+                  <td class="nowrap res">
+                      3.049                    <div class="tooltip">
+                          3.049,42                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      0                    <div class="tooltip">
+                          0,00                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      3.049                    <div class="tooltip">
+                          3.049,42                    </div>
+                  </td>
+              </tr>
+          
+              <tr >
+                  <td class="city">BAD M2</td>
+                  <td class="nowrap res">
+                      1.913                    <div class="tooltip">
+                          1.913,38                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      0                    <div class="tooltip">
+                          0,00                    </div>
+                  </td>
+                  <td class="nowrap res">
+                      1.913                    <div class="tooltip">
+                          1.913,38                    </div>
+                  </td>
+              </tr>
+                  <tr class="result">
+              <td>Recibos de Ouro Aumentados</td>
+              <td class="nowrap res">
+                  0                <div class="tooltip">
+                      0,00                </div>
+              </td>
+              <td class="nowrap res"></td>
+              <td class="nowrap res"></td>
+          </tr>
+          <tr class="result">
+              <td>Deuses (Pluto)</td>
+              <td class="nowrap res">
+                  0                <div class="tooltip">
+                      0,00                </div>
+              </td>
+              <td class="nowrap res"></td>
+              <td class="nowrap res"></td>
+          </tr>
+          <tr class="result">
+              <td class="sigma"><img src="//gf2.geo.gfsrv.net/cdnd4/a09dc31d7a1f1ec2f83bd61fdcf898.png"
+                                     alt="Soma"/></td>
+              <td class="nowrap bold res">
+                  12.887                <div class="tooltip">
+                      12.887,03                </div>
+              </td>
+              <td class="nowrap bold res">
+                  <span class="nowrap red bold">-1.212</span>                <div class="tooltip">
+                      -1.211,62                </div>
+              </td>
+              <td class="nowrap bold res">
+                  11.675                <div class="tooltip">
+                      11.675,41                </div>
+              </td>
+          </tr>
+  
+      </table>
+  
+      
+          <hr/>
+          <table class="table01 border upkeepReductionTable">
+              <tr>
+                  <th colspan="4">Custos Base</th>
+              </tr>
+                                  <tr >
+                          <td class="left reason">Tropas</td>
+                          <td class="nowrap costs">
+                              2.258                            <div class="tooltip">
+                                  2.258,00                            </div>
+                          </td>
+                          <td class="left bar">
+                              <div class="greenBarDiv barBorder" style="width:99%"
+                                   title="Custos">
+                                  <div class="brownBarDiv" style="width:100%"
+                                     
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0027] 18:18:25 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50379,\"4\":23876,\"citizens\":1006.4677107072523,\"population\":1591.3885585288756,\"resource\":1004}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50380,\"4\":23876,\"citizens\":1006.4728556444179,\"population\":1591.3937034660412,\"resource\":1005}"
+    },
+    "serverTime": {
+      "old": "1774387094",
+      "new": "1774387104"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0028] 18:18:31 [CLICK  ] div#finances.mainContentBox contentBox01h toggleMenu ikaeasy-premium-wrap "Quantias
+    
+        Quantias
+    
+    
+        
+            Quantidade de ouro" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0029] 18:18:31 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0030] 18:18:31 [NET    ] POST updateGlobalData
+  REQ: view=updateGlobalData currentCityId=6580
+  ← [updateGlobalData, popupData]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0031] 18:18:32 [CLICK  ] a#?.smallFont "Mostrar Mundo" href=?view=worldmap_iso&oldBackgroundView=city&mainbox_x=709&mainbox_y=NaN&mainbox_z=19&sidebar_x=263&sidebar_y=NaN&sidebar_z=358&containerWidth=2515px&containerHeight=1318px&worldviewWidth=2515px&worldviewHeight=1272px&cityTop=-38px&cityLeft=-1419px&cityRight=&cityWorldviewScale=1
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0032] 18:18:37 [CLICK  ] a#linkurl_11_10.linkurl "" href=javascript:ikariam.getScreen().clickIsland('tile_11_10');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0033] 18:18:37 [CLICK  ] a#linkurl_11_10.linkurl linkIslandMarked "" href=javascript:ikariam.getScreen().clickIsland('tile_11_10');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0034] 18:18:47 [CLICK  ] div#map1.? "--0-
+                                                --0-
+                      " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0035] 18:18:48 [CLICK  ] div#tile_3_0.oceanTile "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0036] 18:18:49 [CLICK  ] a#linkurl_1_21.linkurl "" href=javascript:ikariam.getScreen().clickIsland('tile_1_21');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0037] 18:18:50 [CLICK  ] a#linkurl_1_21.linkurl linkIslandMarked "" href=javascript:ikariam.getScreen().clickIsland('tile_1_21');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0038] 18:18:51 [CONSOLE] [log] [ERP:DataCollector] initFullCapture() — captura total ativa 
+────────────────────────────────────────────────────────────────────────────────
+[0039] 18:18:58 [CLICK  ] a#js_cityLocation9Link.link_img island_feature_img "" href=?view=cityDetails&isMission=1&destinationCityId=5584&islandId=436&mainbox_x=709&mainbox_y=0&mainbox_z=19&sidebar_x=263&sidebar_y=0&sidebar_z=358&backgroundView=island&currentIslandId=436&actionRequest=d685a74d87a15a359d8e7b7c36a85715
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0040] 18:18:59 [MODEL  ] currentResources mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50382,\"4\":23876,\"citizens\":1006.4867455471292,\"population\":1591.4075933687525,\"resource\":1007}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50383,\"4\":23876,\"citizens\":1006.4867455471292,\"population\":1591.4075933687525,\"resource\":1008}"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0041] 18:19:00 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#sidebar.focusable.focus>
+    HTML: <div#sidebar.focusable.focus> (11645 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0042] 18:19:00 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0043] 18:19:00 [NET    ] POST cityDetails
+  REQ: view=cityDetails isMission=1 destinationCityId=5584 islandId=436 mainbox_x=709 mainbox_y=0 mainbox_z=19 sidebar_x=263 sidebar_y=0 sidebar_z=358 currentIslandId=436
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:436
+────────────────────────────────────────────────────────────────────────────────
+[0044] 18:19:00 [VIEW   ] cityDetails
+  HTML (8056 chars):
+  
+  <div class="dynamic">
+      <h3 class="header">Info</h3>
+      <div class="content">
+          <div class="js_abyssalAmbushBanner"></div>
+          <table class="cityinfo">
+              <tr class="layoutHelper">
+                  <td class="col1"></td>
+                  <td class="col2"></td>
+                  <td class="col3"></td>
+                  <td class="col4"></td>
+              </tr>
+              <tr class="name alt">
+                  <td class="nameValue">
+                      <span>Nome: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityName">P-POLIS</span>
+                      (<span id="js_selectedCityLevel">11</span>)
+                  </td>
+              </tr>
+              <tr class="name">
+                  <td class="nameValue">
+                      <span>Título: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityOwnerTitle"></span>
+                  </td>
+              </tr>
+              <tr class="owner alt">
+                  <td class="nameValue">
+                      <span>Jogador:</span>
+                  </td>
+                  <td colspan="2"><a id="js_selectedCityOwnerName" href=""
+                                     onclick="ajaxHandlerCall(this.href);return false;"><span class='flag br'><span class='img'></span><span class='avatarName'>Baralho</span></span></a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCitySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&receiverId=102751&isMission=1&closeView=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+  
+                                          <a id="js_selectedCityReportPlayer" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=reportPlayer&avatarName=Baralho&isMission=1&closeView=1&avatarId=102751&target=5584"
+                         class="playerIcon reportPlayer"
+                         title="Denunciar este jogador a um Operador de Jogo...">
+                          
+                      </a>
+                  </td>
+              </tr>
+              <tr id="js_selectedCityAlly" class="">
+                  <td class="nameValue">
+                      <span>Aliança: </span>
+                  </td>
+                  <td colspan="2">
+                      <a id="js_selectedCityAllyName" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="javascript:void(0);">
+                          -                    </a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCityAllySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""
+                         class="invisible"
+                         title="Enviar Mensagem"></a>
+                  </td>
+              </tr>
+              <tr class="score alt">
+                  <td colspan="2" class="nameScoreValue"><span>Pontos: </span></td>
+                  <td class="scoreValue" colspan="2"
+                      id="js_selectedCityScore">0 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Mestres de Alvenaria:</td>
+                  <td id="js_selectedCityScoreBuildings" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Cientistas:</td>
+                  <td id="js_selectedCityScoreResearch" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Generais:</td>
+                  <td id="js_selectedCityScoreArmy" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Ouro:</td>
+                  <td id="js_selectedCityScoreGold" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr id="js_selectedCityNoobMode" class="invisible">
+                  <td colspan="4">Jogador protegido pela protecção dos deuses.</td>
+              </tr>
+              <tr id="js_selectedCityActiveSpies" class="invisible">
+                  <td colspan="4">
+                      <div class="green_box green bold smallFont">Temos um espião nesta cidade!</div>
+                  </td>
+              </tr>
+          </table>
+          
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div class="dynamic">
+      <h3 class="header">Acções</h3>
+      <div class="content">
+          <ul class="cityactions">
+                              <li id="js_selectedCityAction1" class="invisible" title="">
+                      <a id="js_selectedCityAction1Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction1_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction2" class="invisible" title="">
+                      <a id="js_selectedCityAction2Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction2_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction3" class="invisible" title="">
+                      <a id="js_selectedCityAction3Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction3_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction4" class="invisible" title="">
+                      <a id="js_selectedCityAction4Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction4_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction5" class="invisible" title="">
+                      <a id="js_selectedCityAction5Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction5_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction6" class="invisible" title="">
+                      <a id="js_selectedCityAction6Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction6_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+         
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0045] 18:19:00 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#playerMarkerMenu>
+    HTML: <div id="playerMarkerMenu">
+    <div id="markerMenuTitle">Player marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div><p class="markerAllys">EmE776</p></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0046] 18:19:03 [CLICK  ] ul#sidebarWidget.? "Info
+        
+        
+            
+                
+                
+          " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0047] 18:19:04 [MODEL  ] currentResources, freeTransporters, wineSpendings, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50383,\"4\":23876,\"citizens\":1006.4867455471292,\"population\":1591.4075933687525,\"resource\":1008}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50383,\"4\":23876,\"citizens\":1006.4913750517221,\"population\":1591.4122228733454,\"resource\":1008}"
+    },
+    "freeTransporters": {
+      "old": "0",
+      "new": "106"
+    },
+    "wineSpendings": {
+      "old": "123",
+      "new": "111"
+    },
+    "serverTime": {
+      "old": "1774387131",
+      "new": "1774387140"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0048] 18:19:04 [CLICK  ] div#cityLocation2.cityLocation city animated level1 "1" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0049] 18:19:05 [CLICK  ] div#cityLocation2.cityLocation city animated level1 "1" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0050] 18:19:05 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0051] 18:19:05 [NET    ] POST cityDetails
+  REQ: view=cityDetails isMission=1 destinationCityId=6521 currentIslandId=436
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:436
+────────────────────────────────────────────────────────────────────────────────
+[0052] 18:19:05 [VIEW   ] cityDetails
+  HTML (8056 chars):
+  
+  <div class="dynamic">
+      <h3 class="header">Info</h3>
+      <div class="content">
+          <div class="js_abyssalAmbushBanner"></div>
+          <table class="cityinfo">
+              <tr class="layoutHelper">
+                  <td class="col1"></td>
+                  <td class="col2"></td>
+                  <td class="col3"></td>
+                  <td class="col4"></td>
+              </tr>
+              <tr class="name alt">
+                  <td class="nameValue">
+                      <span>Nome: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityName">Polis</span>
+                      (<span id="js_selectedCityLevel">1</span>)
+                  </td>
+              </tr>
+              <tr class="name">
+                  <td class="nameValue">
+                      <span>Título: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityOwnerTitle"></span>
+                  </td>
+              </tr>
+              <tr class="owner alt">
+                  <td class="nameValue">
+                      <span>Jogador:</span>
+                  </td>
+                  <td colspan="2"><a id="js_selectedCityOwnerName" href=""
+                                     onclick="ajaxHandlerCall(this.href);return false;"><span class='flag br'><span class='img'></span><span class='avatarName'>ACE</span></span></a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCitySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&receiverId=102743&isMission=1&closeView=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+  
+                                          <a id="js_selectedCityReportPlayer" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=reportPlayer&avatarName=ACE&isMission=1&closeView=1&avatarId=102743&target=6521"
+                         class="playerIcon reportPlayer"
+                         title="Denunciar este jogador a um Operador de Jogo...">
+                          
+                      </a>
+                  </td>
+              </tr>
+              <tr id="js_selectedCityAlly" class="">
+                  <td class="nameValue">
+                      <span>Aliança: </span>
+                  </td>
+                  <td colspan="2">
+                      <a id="js_selectedCityAllyName" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="javascript:void(0);">
+                          -                    </a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCityAllySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""
+                         class="invisible"
+                         title="Enviar Mensagem"></a>
+                  </td>
+              </tr>
+              <tr class="score alt">
+                  <td colspan="2" class="nameScoreValue"><span>Pontos: </span></td>
+                  <td class="scoreValue" colspan="2"
+                      id="js_selectedCityScore">11.675 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Mestres de Alvenaria:</td>
+                  <td id="js_selectedCityScoreBuildings" colspan="2"
+                      class="scoreValue">6.681 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Cientistas:</td>
+                  <td id="js_selectedCityScoreResearch" colspan="2"
+                      class="scoreValue">2.744 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Generais:</td>
+                  <td id="js_selectedCityScoreArmy" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Ouro:</td>
+                  <td id="js_selectedCityScoreGold" colspan="2"
+                      class="scoreValue">4.513.882 </td>
+              </tr>
+              <tr id="js_selectedCityNoobMode" class="invisible">
+                  <td colspan="4">Jogador protegido pela protecção dos deuses.</td>
+              </tr>
+              <tr id="js_selectedCityActiveSpies" class="invisible">
+                  <td colspan="4">
+                      <div class="green_box green bold smallFont">Temos um espião nesta cidade!</div>
+                  </td>
+              </tr>
+          </table>
+          
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div class="dynamic">
+      <h3 class="header">Acções</h3>
+      <div class="content">
+          <ul class="cityactions">
+                              <li id="js_selectedCityAction1" class="invisible" title="">
+                      <a id="js_selectedCityAction1Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction1_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction2" class="invisible" title="">
+                      <a id="js_selectedCityAction2Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction2_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction3" class="invisible" title="">
+                      <a id="js_selectedCityAction3Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction3_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction4" class="invisible" title="">
+                      <a id="js_selectedCityAction4Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction4_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction5" class="invisible" title="">
+                      <a id="js_selectedCityAction5Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction5_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction6" class="invisible" title="">
+                      <a id="js_selectedCityAction6Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction6_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></di
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0053] 18:19:05 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#playerMarkerMenu>
+    HTML: <div id="playerMarkerMenu">
+    <div id="markerMenuTitle">Player marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div><p class="markerAllys">EmE776</p></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0054] 18:19:06 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0055] 18:19:06 [NET    ] POST cityDetails
+  REQ: view=cityDetails isMission=1 destinationCityId=6521 currentIslandId=436
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:436
+────────────────────────────────────────────────────────────────────────────────
+[0056] 18:19:06 [VIEW   ] cityDetails
+  HTML (8056 chars):
+  
+  <div class="dynamic">
+      <h3 class="header">Info</h3>
+      <div class="content">
+          <div class="js_abyssalAmbushBanner"></div>
+          <table class="cityinfo">
+              <tr class="layoutHelper">
+                  <td class="col1"></td>
+                  <td class="col2"></td>
+                  <td class="col3"></td>
+                  <td class="col4"></td>
+              </tr>
+              <tr class="name alt">
+                  <td class="nameValue">
+                      <span>Nome: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityName">Polis</span>
+                      (<span id="js_selectedCityLevel">1</span>)
+                  </td>
+              </tr>
+              <tr class="name">
+                  <td class="nameValue">
+                      <span>Título: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityOwnerTitle"></span>
+                  </td>
+              </tr>
+              <tr class="owner alt">
+                  <td class="nameValue">
+                      <span>Jogador:</span>
+                  </td>
+                  <td colspan="2"><a id="js_selectedCityOwnerName" href=""
+                                     onclick="ajaxHandlerCall(this.href);return false;"><span class='flag br'><span class='img'></span><span class='avatarName'>ACE</span></span></a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCitySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&receiverId=102743&isMission=1&closeView=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+  
+                                          <a id="js_selectedCityReportPlayer" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=reportPlayer&avatarName=ACE&isMission=1&closeView=1&avatarId=102743&target=6521"
+                         class="playerIcon reportPlayer"
+                         title="Denunciar este jogador a um Operador de Jogo...">
+                          
+                      </a>
+                  </td>
+              </tr>
+              <tr id="js_selectedCityAlly" class="">
+                  <td class="nameValue">
+                      <span>Aliança: </span>
+                  </td>
+                  <td colspan="2">
+                      <a id="js_selectedCityAllyName" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="javascript:void(0);">
+                          -                    </a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCityAllySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""
+                         class="invisible"
+                         title="Enviar Mensagem"></a>
+                  </td>
+              </tr>
+              <tr class="score alt">
+                  <td colspan="2" class="nameScoreValue"><span>Pontos: </span></td>
+                  <td class="scoreValue" colspan="2"
+                      id="js_selectedCityScore">11.675 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Mestres de Alvenaria:</td>
+                  <td id="js_selectedCityScoreBuildings" colspan="2"
+                      class="scoreValue">6.681 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Cientistas:</td>
+                  <td id="js_selectedCityScoreResearch" colspan="2"
+                      class="scoreValue">2.744 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Generais:</td>
+                  <td id="js_selectedCityScoreArmy" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Ouro:</td>
+                  <td id="js_selectedCityScoreGold" colspan="2"
+                      class="scoreValue">4.513.882 </td>
+              </tr>
+              <tr id="js_selectedCityNoobMode" class="invisible">
+                  <td colspan="4">Jogador protegido pela protecção dos deuses.</td>
+              </tr>
+              <tr id="js_selectedCityActiveSpies" class="invisible">
+                  <td colspan="4">
+                      <div class="green_box green bold smallFont">Temos um espião nesta cidade!</div>
+                  </td>
+              </tr>
+          </table>
+          
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div class="dynamic">
+      <h3 class="header">Acções</h3>
+      <div class="content">
+          <ul class="cityactions">
+                              <li id="js_selectedCityAction1" class="invisible" title="">
+                      <a id="js_selectedCityAction1Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction1_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction2" class="invisible" title="">
+                      <a id="js_selectedCityAction2Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction2_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction3" class="invisible" title="">
+                      <a id="js_selectedCityAction3Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction3_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction4" class="invisible" title="">
+                      <a id="js_selectedCityAction4Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction4_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction5" class="invisible" title="">
+                      <a id="js_selectedCityAction5Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction5_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction6" class="invisible" title="">
+                      <a id="js_selectedCityAction6Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction6_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></di
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0057] 18:19:06 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#playerMarkerMenu>
+    HTML: <div id="playerMarkerMenu">
+    <div id="markerMenuTitle">Player marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div><p class="markerAllys">EmE776</p></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0058] 18:19:09 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50383,\"4\":23876,\"citizens\":1006.4913750517221,\"population\":1591.4122228733454,\"resource\":1008}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50383,\"4\":23876,\"citizens\":1006.4944612595227,\"population\":1591.415309081146,\"resource\":1008}"
+    },
+    "serverTime": {
+      "old": "1774387140",
+      "new": "1774387146"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0059] 18:19:13 [CLICK  ] a#?.smallFont "Mostrar Mundo" href=?view=worldmap_iso&oldBackgroundView=island&mainbox_x=709&mainbox_y=0&mainbox_z=19&sidebar_x=263&sidebar_y=0&sidebar_z=358&containerWidth=2515px&containerHeight=1318px&worldviewWidth=2515px&worldviewHeight=1272px&islandTop=-221px&islandLeft=-1536px&islandRight=&islandWorldviewScale=1
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0060] 18:19:16 [CLICK  ] div#tile_7_11.oceanTile "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0061] 18:19:17 [CLICK  ] div#tile_4_5.oceanTile "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0062] 18:19:18 [CLICK  ] div#tile_20_22.oceanTile "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0063] 18:19:19 [CLICK  ] a#linkurl_21_20.linkurl "" href=javascript:ikariam.getScreen().clickIsland('tile_21_20');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0064] 18:19:20 [CLICK  ] a#linkurl_21_20.linkurl linkIslandMarked "" href=javascript:ikariam.getScreen().clickIsland('tile_21_20');
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0065] 18:19:24 [CLICK  ] a#js_cityLocation2Link.link_img island_feature_img "" href=?view=cityDetails&isMission=1&destinationCityId=1497&islandId=432&mainbox_x=709&mainbox_y=0&mainbox_z=19&sidebar_x=263&sidebar_y=0&sidebar_z=358&backgroundView=island&currentIslandId=432&actionRequest=d685a74d87a15a359d8e7b7c36a85715
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0066] 18:19:27 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#sidebar.focusable.focus>
+    HTML: <div#sidebar.focusable.focus> (11749 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0067] 18:19:27 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0068] 18:19:27 [NET    ] POST cityDetails
+  REQ: view=cityDetails isMission=1 destinationCityId=1497 islandId=432 mainbox_x=709 mainbox_y=0 mainbox_z=19 sidebar_x=263 sidebar_y=0 sidebar_z=358 currentIslandId=432
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:432
+────────────────────────────────────────────────────────────────────────────────
+[0069] 18:19:27 [VIEW   ] cityDetails
+  HTML (8056 chars):
+  
+  <div class="dynamic">
+      <h3 class="header">Info</h3>
+      <div class="content">
+          <div class="js_abyssalAmbushBanner"></div>
+          <table class="cityinfo">
+              <tr class="layoutHelper">
+                  <td class="col1"></td>
+                  <td class="col2"></td>
+                  <td class="col3"></td>
+                  <td class="col4"></td>
+              </tr>
+              <tr class="name alt">
+                  <td class="nameValue">
+                      <span>Nome: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityName">E-IMPERIO</span>
+                      (<span id="js_selectedCityLevel">9</span>)
+                  </td>
+              </tr>
+              <tr class="name">
+                  <td class="nameValue">
+                      <span>Título: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityOwnerTitle"></span>
+                  </td>
+              </tr>
+              <tr class="owner alt">
+                  <td class="nameValue">
+                      <span>Jogador:</span>
+                  </td>
+                  <td colspan="2"><a id="js_selectedCityOwnerName" href=""
+                                     onclick="ajaxHandlerCall(this.href);return false;"><span class='flag br'><span class='img'></span><span class='avatarName'>HuanG</span></span></a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCitySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&receiverId=100312&isMission=1&closeView=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+  
+                                          <a id="js_selectedCityReportPlayer" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=reportPlayer&avatarName=HuanG&isMission=1&closeView=1&avatarId=100312&target=1497"
+                         class="playerIcon reportPlayer"
+                         title="Denunciar este jogador a um Operador de Jogo...">
+                          
+                      </a>
+                  </td>
+              </tr>
+              <tr id="js_selectedCityAlly" class="">
+                  <td class="nameValue">
+                      <span>Aliança: </span>
+                  </td>
+                  <td colspan="2">
+                      <a id="js_selectedCityAllyName" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=allyPage&allyId=7&oldView=island&islandId=432">
+                          TRUPE                    </a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCityAllySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&allyId=7&isMission=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+                  </td>
+              </tr>
+              <tr class="score alt">
+                  <td colspan="2" class="nameScoreValue"><span>Pontos: </span></td>
+                  <td class="scoreValue" colspan="2"
+                      id="js_selectedCityScore">0 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Mestres de Alvenaria:</td>
+                  <td id="js_selectedCityScoreBuildings" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Cientistas:</td>
+                  <td id="js_selectedCityScoreResearch" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Generais:</td>
+                  <td id="js_selectedCityScoreArmy" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Ouro:</td>
+                  <td id="js_selectedCityScoreGold" colspan="2"
+                      class="scoreValue">0 </td>
+              </tr>
+              <tr id="js_selectedCityNoobMode" class="invisible">
+                  <td colspan="4">Jogador protegido pela protecção dos deuses.</td>
+              </tr>
+              <tr id="js_selectedCityActiveSpies" class="invisible">
+                  <td colspan="4">
+                      <div class="green_box green bold smallFont">Temos um espião nesta cidade!</div>
+                  </td>
+              </tr>
+          </table>
+          
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div class="dynamic">
+      <h3 class="header">Acções</h3>
+      <div class="content">
+          <ul class="cityactions">
+                              <li id="js_selectedCityAction1" class="invisible" title="">
+                      <a id="js_selectedCityAction1Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction1_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction2" class="invisible" title="">
+                      <a id="js_selectedCityAction2Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction2_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction3" class="invisible" title="">
+                      <a id="js_selectedCityAction3Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction3_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction4" class="invisible" title="">
+                      <a id="js_selectedCityAction4Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction4_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction5" class="invisible" title="">
+                      <a id="js_selectedCityAction5Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction5_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction6" class="invisible" title="">
+                      <a id="js_selectedCityAction6Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction6_tooltip" class="invisible" styl
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0070] 18:19:27 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#allyMarkerMenu>
+    HTML: <div id="allyMarkerMenu">
+    <div id="markerMenuTitle">Alliance marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0071] 18:19:27 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#playerMarkerMenu>
+    HTML: <div id="playerMarkerMenu">
+    <div id="markerMenuTitle">Player marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div><p class="markerAllys">EmE776</p></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0072] 18:19:29 [MODEL  ] currentResources, freeTransporters, wineSpendings, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50384,\"4\":23876,\"citizens\":1006.5021763289669,\"population\":1591.4230241505902,\"resource\":1009}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50385,\"4\":23876,\"citizens\":1006.5052621767306,\"population\":1591.426109998354,\"resource\":1010}"
+    },
+    "freeTransporters": {
+      "old": "0",
+      "new": "106"
+    },
+    "wineSpendings": {
+      "old": "123",
+      "new": "111"
+    },
+    "serverTime": {
+      "old": "1774387161",
+      "new": "1774387167"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0073] 18:19:33 [CLICK  ] a#js_cityLocation16Link.link_img island_feature_img "" href=?view=cityDetails&isMission=1&destinationCityId=3742&backgroundView=island&currentIslandId=432&templateView=cityDetails&actionRequest=d685a74d87a15a359d8e7b7c36a85715
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0074] 18:19:35 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0075] 18:19:35 [NET    ] POST cityDetails
+  REQ: view=cityDetails isMission=1 destinationCityId=3742 currentIslandId=432
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:432
+────────────────────────────────────────────────────────────────────────────────
+[0076] 18:19:35 [VIEW   ] cityDetails
+  HTML (8056 chars):
+  
+  <div class="dynamic">
+      <h3 class="header">Info</h3>
+      <div class="content">
+          <div class="js_abyssalAmbushBanner"></div>
+          <table class="cityinfo">
+              <tr class="layoutHelper">
+                  <td class="col1"></td>
+                  <td class="col2"></td>
+                  <td class="col3"></td>
+                  <td class="col4"></td>
+              </tr>
+              <tr class="name alt">
+                  <td class="nameValue">
+                      <span>Nome: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityName">x44x</span>
+                      (<span id="js_selectedCityLevel">26</span>)
+                  </td>
+              </tr>
+              <tr class="name">
+                  <td class="nameValue">
+                      <span>Título: </span>
+                  </td>
+                  <td colspan="3">
+                      <span id="js_selectedCityOwnerTitle"><i>Imperador</i></span>
+                  </td>
+              </tr>
+              <tr class="owner alt">
+                  <td class="nameValue">
+                      <span>Jogador:</span>
+                  </td>
+                  <td colspan="2"><a id="js_selectedCityOwnerName" href=""
+                                     onclick="ajaxHandlerCall(this.href);return false;"><span class='flag hideFlag'><span class='img'></span><span class='avatarName'>ΩFooLΩ</span></span></a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCitySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&receiverId=102127&isMission=1&closeView=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+  
+                                          <a id="js_selectedCityReportPlayer" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=reportPlayer&avatarName=ΩFooLΩ&isMission=1&closeView=1&avatarId=102127&target=3742"
+                         class="playerIcon reportPlayer"
+                         title="Denunciar este jogador a um Operador de Jogo...">
+                          
+                      </a>
+                  </td>
+              </tr>
+              <tr id="js_selectedCityAlly" class="">
+                  <td class="nameValue">
+                      <span>Aliança: </span>
+                  </td>
+                  <td colspan="2">
+                      <a id="js_selectedCityAllyName" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=allyPage&allyId=25&oldView=island&islandId=432">
+                          ΩRENΩ                    </a>
+                  </td>
+                  <td class="icons">
+                      <a id="js_selectedCityAllySendMessage" onclick="ajaxHandlerCall(this.href);return false;"
+                         href="?view=sendIKMessage&allyId=25&isMission=1"
+                         class="playerIcon sendMessage"
+                         title="Enviar Mensagem"></a>
+                  </td>
+              </tr>
+              <tr class="score alt">
+                  <td colspan="2" class="nameScoreValue"><span>Pontos: </span></td>
+                  <td class="scoreValue" colspan="2"
+                      id="js_selectedCityScore">5.622.386 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Mestres de Alvenaria:</td>
+                  <td id="js_selectedCityScoreBuildings" colspan="2"
+                      class="scoreValue">5.284.671 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Cientistas:</td>
+                  <td id="js_selectedCityScoreResearch" colspan="2"
+                      class="scoreValue">297.046 </td>
+              </tr>
+              <tr class="score sub">
+                  <td colspan="2" class="nameValue">Generais:</td>
+                  <td id="js_selectedCityScoreArmy" colspan="2"
+                      class="scoreValue">12.681 </td>
+              </tr>
+              <tr class="score sub alt">
+                  <td colspan="2" class="nameValue">Ouro:</td>
+                  <td id="js_selectedCityScoreGold" colspan="2"
+                      class="scoreValue">30.311.355 </td>
+              </tr>
+              <tr id="js_selectedCityNoobMode" class="invisible">
+                  <td colspan="4">Jogador protegido pela protecção dos deuses.</td>
+              </tr>
+              <tr id="js_selectedCityActiveSpies" class="invisible">
+                  <td colspan="4">
+                      <div class="green_box green bold smallFont">Temos um espião nesta cidade!</div>
+                  </td>
+              </tr>
+          </table>
+          
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div class="dynamic">
+      <h3 class="header">Acções</h3>
+      <div class="content">
+          <ul class="cityactions">
+                              <li id="js_selectedCityAction1" class="invisible" title="">
+                      <a id="js_selectedCityAction1Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction1_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction2" class="invisible" title="">
+                      <a id="js_selectedCityAction2Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction2_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction3" class="invisible" title="">
+                      <a id="js_selectedCityAction3Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction3_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction4" class="invisible" title="">
+                      <a id="js_selectedCityAction4Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction4_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction5" class="invisible" title="">
+                      <a id="js_selectedCityAction5Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div id="js_selectedCityAction5_tooltip" class="invisible" style="line-height:13px;">
+                          <div id="tooltip_header"></div>
+                          <span id="tooltip_message"></span><img src="" title="" alt=""/>
+                      </div>
+                  </li>
+                              <li id="js_selectedCityAction6" class="invisible" title="">
+                      <a id="js_selectedCityAction6Link" class="smallFont"
+                         onclick="ajaxHandlerCall(this.href);return false;"
+                         href=""></a>
+                      <div 
+  …[truncado no storage — use Exportar para ver completo]
+────────────────────────────────────────────────────────────────────────────────
+[0077] 18:19:36 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#allyMarkerMenu>
+    HTML: <div id="allyMarkerMenu">
+    <div id="markerMenuTitle">Alliance marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0078] 18:19:36 [DOM    ] childList on <body#island> added=1 removed=0
+  <div#playerMarkerMenu>
+    HTML: <div id="playerMarkerMenu">
+    <div id="markerMenuTitle">Player marking</div>
+    <div id="markerLeft"></div>
+    <div id="markerRight"></div>
+<div class="ikaeasy_marker_ally_list"><div class="cityBox marker_orange" id="marker_orange"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_bordo" id="marker_bordo"></div><p class="markerAllys">EmE776</p></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_pink" id="marker_pink"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_purple" id="marker_purple"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_turquoise" id="marker_turquoise"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_black" id="marker_black"></div></div><div class="ikaeasy_marker_ally_list"><div class="cityBox marker_white" id="marker_white"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0079] 18:19:41 [CLICK  ] div#erp-rec-host.? "" href=
+  data: {}

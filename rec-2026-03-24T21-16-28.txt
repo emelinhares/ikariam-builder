@@ -1,0 +1,2240 @@
+[0001] 18:15:19 [MODEL  ] currentResources mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50360,\"4\":23876,\"citizens\":1006.3364181882587,\"population\":1591.257266009882,\"resource\":985}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50366,\"4\":23876,\"citizens\":1006.3364181882587,\"population\":1591.257266009882,\"resource\":991}"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0002] 18:15:21 [CLICK  ] a#js_GlobalMenu_research.normal "Pesquisas" href=?view=researchAdvisor&oldView=confirmResourcePremiumBuy&additionalParams=%7B%22cityId%22%3A6580%2C%22position%22%3A10%2C%22useAthenasScroll%22%3A0%2C%22payWithAmbrosia%22%3A0%7D&resources=%7B%223%22%3A8008%7D&price=20&cityId=6580&backgroundView=city&currentCityId=6580&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0003] 18:15:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#researchAdvisor.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#researchAdvisor.mainContentBox.contentBox01h.toggleMenu> (8058 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0004] 18:15:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#researchAdvisor_c.templateView.focusable.focus>
+    HTML: <div#researchAdvisor_c.templateView.focusable.focus> (8174 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0005] 18:15:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0006] 18:15:24 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50366,\"4\":23876,\"citizens\":1006.3364181882587,\"population\":1591.257266009882,\"resource\":991}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50366,\"4\":23876,\"citizens\":1006.3786580339365,\"population\":1591.2995058555598,\"resource\":991}"
+    },
+    "serverTime": {
+      "old": "1774386839",
+      "new": "1774386921"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0007] 18:15:25 [CLICK  ] a#js_researchAdvisorChangeResearchType0.? "Aríete Maciço
+                                    
+                             " href=?view=noViewChange&researchType=seafaring&backgroundView=city&currentCityId=6580&templateView=researchAdvisor&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0008] 18:15:26 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0009] 18:15:26 [NET    ] POST noViewChange
+  REQ: view=noViewChange researchType=seafaring currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0010] 18:15:26 [CLICK  ] a#js_researchAdvisorChangeResearchType1.? "Burocracia
+                                    
+                                " href=?view=noViewChange&researchType=economy&backgroundView=city&currentCityId=6580&templateView=researchAdvisor&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0011] 18:15:27 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0012] 18:15:27 [NET    ] POST noViewChange
+  REQ: view=noViewChange researchType=economy currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0013] 18:15:29 [CLICK  ] a#js_researchAdvisorChangeResearchType2.? "Arquivamento
+                                    
+                              " href=?view=noViewChange&researchType=knowledge&backgroundView=city&currentCityId=6580&templateView=researchAdvisor&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0014] 18:15:29 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50366,\"4\":23876,\"citizens\":1006.3786580339365,\"population\":1591.2995058555598,\"resource\":991}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50367,\"4\":23876,\"citizens\":1006.3817479989084,\"population\":1591.3025958205317,\"resource\":992}"
+    },
+    "serverTime": {
+      "old": "1774386921",
+      "new": "1774386927"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0015] 18:15:29 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0016] 18:15:29 [NET    ] POST noViewChange
+  REQ: view=noViewChange researchType=knowledge currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0017] 18:15:30 [CLICK  ] a#js_researchAdvisorChangeResearchType3.? "Construção de Canhões
+                                    
+                     " href=?view=noViewChange&researchType=military&backgroundView=city&currentCityId=6580&templateView=researchAdvisor&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0018] 18:15:31 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0019] 18:15:31 [NET    ] POST noViewChange
+  REQ: view=noViewChange researchType=military currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0020] 18:15:31 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0021] 18:15:31 [NET    ] POST updateGlobalData
+  REQ: view=updateGlobalData currentCityId=6580
+  ← [updateGlobalData, popupData]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0022] 18:15:32 [CLICK  ] a#js_researchAdvisorChangeResearchType4.? "Hora da Festa!
+                                    
+                            " href=?view=noViewChange&researchType=mythology&backgroundView=city&currentCityId=6580&templateView=researchAdvisor&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0023] 18:15:32 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0024] 18:15:32 [NET    ] POST noViewChange
+  REQ: view=noViewChange researchType=mythology currentCityId=6580
+  ← [updateGlobalData, updateViewScriptData, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0025] 18:15:34 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50367,\"4\":23876,\"citizens\":1006.3817479989084,\"population\":1591.3025958205317,\"resource\":992}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50367,\"4\":23876,\"citizens\":1006.3843228910398,\"population\":1591.305170712663,\"resource\":992}"
+    },
+    "serverTime": {
+      "old": "1774386927",
+      "new": "1774386932"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0026] 18:15:41 [CLICK  ] div#researchAdvisor.mainContentBox contentBox01h toggleMenu ikaeasy-premium-wrap "Conselheiro Científico
+    
+        Conselheiro Científico
+    
+
+    
+        
+ " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0027] 18:15:43 [CLICK  ] a#js_GlobalMenu_diplomacy.normal "Diplomacia" href=?view=diplomacyAdvisor&oldView=noViewChange&cityId=6580&position=0&backgroundView=city&currentCityId=6580&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0028] 18:15:44 [MODEL  ] currentResources mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50367,\"4\":23876,\"citizens\":1006.3843228910398,\"population\":1591.305170712663,\"resource\":992}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3843228910398,\"population\":1591.305170712663,\"resource\":993}"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0029] 18:15:44 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyAdvisor.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#diplomacyAdvisor.mainContentBox.contentBox01h.toggleMenu> (14921 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0030] 18:15:44 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyAdvisor_c.templateView.focusable.focus>
+    HTML: <div#diplomacyAdvisor_c.templateView.focusable.focus> (15038 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0031] 18:15:44 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0032] 18:15:47 [CLICK  ] tr#message50861.entry alt "Orlov                                            
+                              " href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0033] 18:15:49 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3843228910398,\"population\":1591.305170712663,\"resource\":993}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3905023403415,\"population\":1591.3113501619648,\"resource\":993}"
+    },
+    "serverTime": {
+      "old": "1774386932",
+      "new": "1774386944"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0034] 18:15:50 [CLICK  ] li#js_tab_diplomacyIslandBoard.tab "Agora (0)" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0035] 18:15:51 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyIslandBoard.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#diplomacyIslandBoard.mainContentBox.contentBox01h.toggleMenu> (3506 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0036] 18:15:51 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyIslandBoard_c.templateView.focusable.focus>
+    HTML: <div#diplomacyIslandBoard_c.templateView.focusable.focus> (3627 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0037] 18:15:51 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0038] 18:15:51 [NET    ] POST diplomacyIslandBoard
+  REQ: view=diplomacyIslandBoard activeTab=tab_diplomacyIslandBoard currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0039] 18:15:51 [VIEW   ] diplomacyIslandBoard
+  HTML (4997 chars):
+  <div class="dynamic" id="premiumAdvisorSidebar">
+      <h3 class="header">Vista Geral de Diplomacia</h3>
+      <div class="content">
+                      <img src="/cdn/all/both/premium/sideAd_premiumDiplomacyAdvisor.jpg" width="203" height="85"/>
+              <p>As palavras não te saem assim tão facilmente? De certo que acharás que é muito mais fácil negociar quando sabes mais sobre os teus oponentes!</p>
+              <div class="centerButton">
+                  <a onclick="ajaxHandlerCall(this.href);return false;" href="?view=premiumDetails"
+                     class="button">Dá uma espreitadela agora!</a>
+              </div>
+                  </div>
+      <div class="footer"></div>
+  </div>
+      <div class="dynamic" id="islandBoardOverviewSidebar">
+          <h3 class="header">Ágora</h3>
+          <div class="content">
+              <ul class="sidebar_list_scrolls">
+                                      <li  class="current ">
+                          <a onclick="ajaxHandlerCall(this.href);return false;"
+                             href="?view=diplomacyIslandBoard&islandId=1030"> Thraenuios                            [BAD C]</a>
+                      </li>
+                                          <li class="">
+                          <a onclick="ajaxHandlerCall(this.href);return false;"
+                             href="?view=diplomacyIslandBoard&islandId=1032"> Schinios                            [BAD E]</a>
+                      </li>
+                                          <li class="">
+                          <a onclick="ajaxHandlerCall(this.href);return false;"
+                             href="?view=diplomacyIslandBoard&islandId=1035"> Meedios                            [BAD VINHO]</a>
+                      </li>
+                                          <li class="">
+                          <a onclick="ajaxHandlerCall(this.href);return false;"
+                             href="?view=diplomacyIslandBoard&islandId=1469"> Lubios                            [BAD M, BAD M2]</a>
+                      </li>
+                                  </ul>
+          </div>
+          <div class="footer"></div>
+      </div>
+      
+  <div id="mainview">
+      <div class="buildingDescription heightLessBuildingDescription">
+          <h1>Diplomata conselheiro - Ágora</h1>
+      </div>
+  
+      
+  <ul class="tabmenu" id="tabMenu">
+  
+          <li class="tab tabPrevPage invisible"
+          onclick="switchPage(-1, this, 4);"></li>
+              <li onclick="ajaxHandlerCall('?view=diplomacyAdvisor&activeTab=tab_diplomacyAdvisor'); return false;" id="js_tab_diplomacyAdvisor"
+              index="0"
+              class="tab  ">
+              <b class="tab_diplomacyAdvisor">Mensagens (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyIslandBoard&activeTab=tab_diplomacyIslandBoard'); return false;" id="js_tab_diplomacyIslandBoard"
+              index="1"
+              class="tab  selected ">
+              <b class="tab_diplomacyIslandBoard">Ágora (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyTreaty&activeTab=tab_diplomacyTreaty'); return false;" id="js_tab_diplomacyTreaty"
+              index="2"
+              class="tab  ">
+              <b class="tab_diplomacyTreaty">Tratado</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyAlly&activeTab=tab_diplomacyAlly'); return false;" id="js_tab_diplomacyAlly"
+              index="3"
+              class="tab  ">
+              <b class="tab_diplomacyAlly">Aliança (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyAdvisorSearchUser&activeTab=tab_diplomacyAdvisorSearchUser'); return false;" id="js_tab_diplomacyAdvisorSearchUser"
+              index="4"
+              class="tab  invisible">
+              <b class="tab_diplomacyAdvisorSearchUser">Pesquisa de jogador</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=ignoreList&activeTab=tab_ignoreList'); return false;" id="js_tab_ignoreList"
+              index="5"
+              class="tab  invisible">
+              <b class="tab_ignoreList">Jogadores ignorados</b>
+          </li>
+              <li class="tab tabNextPage "
+          onclick="switchPage(1, this, 4);"></li>
+  </ul>
+  
+      <div id="tab_diplomacyIslandBoard">
+  
+                              <div class="clearfix">
+                  <a onclick="ajaxHandlerCall(this.href);return false;"
+                                                        class="button new_msg_btn"
+                                                        href="?view=diplomacyIslandBoard&islandId=1030&show=1">Nova mensagem</a>                            </div>
+              
+              <div class="contentBox01h">
+                  <h3 class="header"> Ágora</h3>
+                  <div class="content">
+  
+  
+                      <div>
+                          <p class="warning red_box">Não há mensagens na Ágora. Contacta os teus vizinhos criando um novo post.</p>
+                      </div>
+  
+                  </div>
+  
+                  <div class="footer"></div>
+  
+              </div>
+  
+  
+              </div>
+  </div>
+────────────────────────────────────────────────────────────────────────────────
+[0040] 18:15:54 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3905023403415,\"population\":1591.3113501619648,\"resource\":993}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3941068288586,\"population\":1591.314954650482,\"resource\":993}"
+    },
+    "serverTime": {
+      "old": "1774386944",
+      "new": "1774386951"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0041] 18:15:54 [CLICK  ] li#js_tab_diplomacyTreaty.tab "Tratado" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0042] 18:15:55 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyTreaty.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#diplomacyTreaty.mainContentBox.contentBox01h.toggleMenu> (8572 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0043] 18:15:55 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#diplomacyTreaty_c.templateView.focusable.focus>
+    HTML: <div#diplomacyTreaty_c.templateView.focusable.focus> (8688 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0044] 18:15:55 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0045] 18:15:55 [NET    ] POST diplomacyTreaty
+  REQ: view=diplomacyTreaty activeTab=tab_diplomacyTreaty currentCityId=6580 currentTab=tab_diplomacyIslandBoard
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0046] 18:15:55 [VIEW   ] diplomacyTreaty
+  HTML (10128 chars):
+  <div class="dynamic" id="premiumAdvisorSidebar">
+      <h3 class="header">Vista Geral de Diplomacia</h3>
+      <div class="content">
+                      <img src="/cdn/all/both/premium/sideAd_premiumDiplomacyAdvisor.jpg" width="203" height="85"/>
+              <p>As palavras não te saem assim tão facilmente? De certo que acharás que é muito mais fácil negociar quando sabes mais sobre os teus oponentes!</p>
+              <div class="centerButton">
+                  <a onclick="ajaxHandlerCall(this.href);return false;" href="?view=premiumDetails"
+                     class="button">Dá uma espreitadela agora!</a>
+              </div>
+                  </div>
+      <div class="footer"></div>
+  </div>
+              <div class="dynamic" id="diplomaticInfluenceSidebar">
+                  <h3 class="header">Influência</h3>
+                  <div class="content">
+                      <p>Pontos de diplomacia                        : 6</p>
+                  </div>
+                  <div class="footer"></div>
+              </div>
+              
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Diplomata conselheiro</h1>
+      </div>
+  
+      
+  <ul class="tabmenu" id="tabMenu">
+  
+          <li class="tab tabPrevPage invisible"
+          onclick="switchPage(-1, this, 4);"></li>
+              <li onclick="ajaxHandlerCall('?view=diplomacyAdvisor&activeTab=tab_diplomacyAdvisor'); return false;" id="js_tab_diplomacyAdvisor"
+              index="0"
+              class="tab  ">
+              <b class="tab_diplomacyAdvisor">Mensagens (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyIslandBoard&activeTab=tab_diplomacyIslandBoard'); return false;" id="js_tab_diplomacyIslandBoard"
+              index="1"
+              class="tab  ">
+              <b class="tab_diplomacyIslandBoard">Ágora (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyTreaty&activeTab=tab_diplomacyTreaty'); return false;" id="js_tab_diplomacyTreaty"
+              index="2"
+              class="tab  selected ">
+              <b class="tab_diplomacyTreaty">Tratado</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyAlly&activeTab=tab_diplomacyAlly'); return false;" id="js_tab_diplomacyAlly"
+              index="3"
+              class="tab  ">
+              <b class="tab_diplomacyAlly">Aliança (0)</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=diplomacyAdvisorSearchUser&activeTab=tab_diplomacyAdvisorSearchUser'); return false;" id="js_tab_diplomacyAdvisorSearchUser"
+              index="4"
+              class="tab  invisible">
+              <b class="tab_diplomacyAdvisorSearchUser">Pesquisa de jogador</b>
+          </li>
+                  <li onclick="ajaxHandlerCall('?view=ignoreList&activeTab=tab_ignoreList'); return false;" id="js_tab_ignoreList"
+              index="5"
+              class="tab  invisible">
+              <b class="tab_ignoreList">Jogadores ignorados</b>
+          </li>
+              <li class="tab tabNextPage "
+          onclick="switchPage(1, this, 4);"></li>
+  </ul>
+  
+      <div id="tab_diplomacyTreaty">
+  
+  
+                      <div class="contentBox01h">
+                  <h3 class="header">Tratados culturais (3/27)</h3>
+  
+                  <div class="content">
+                      <table class="table01 left embassyTable" id="culturalTreaties">
+                          <tr>
+                              <th>Cidade</th>
+                              <th>Bens culturais</th>
+                              <th>Nível do Museu</th>
+                              <th>Satisfação</th>
+                              <th>Acção</th>
+                          </tr>
+                                                      <tr >
+                                  <td class="city">
+                                      BAD C                                </td>
+                                  <td>0</td>
+                                  <td>6</td>
+                                  <td>
+                                      <img
+                                          src="//gf2.geo.gfsrv.net/cdn7c/8767b774e94fd99dfc2c6ef9cf0d6e.png"
+                                          alt="contente"
+                                          title="contente"/>
+                                  </td>
+                                  <td class="actions">
+                                                                              <a onclick='ajaxHandlerCall(this.href);return false;' class="museum"
+                                             title="Para o Museu"
+                                             href="?view=city&dialog=museum&cityId=6580&position=4"><img
+                                                  src="//gf1.geo.gfsrv.net/cdnf0/a4541f161858ee7ef1267b91cc0561.png"/></a>
+                                                                      </td>
+                              </tr>
+                                                          <tr class="alt">
+                                  <td class="city">
+                                      BAD E                                </td>
+                                  <td>0</td>
+                                  <td>4</td>
+                                  <td>
+                                      <img
+                                          src="//gf3.geo.gfsrv.net/cdn2f/30d6c8ebaf16e22323b060b61a8dd2.png"
+                                          alt="eufórico"
+                                          title="eufórico"/>
+                                  </td>
+                                  <td class="actions">
+                                                                              <a onclick='ajaxHandlerCall(this.href);return false;' class="museum"
+                                             title="Para o Museu"
+                                             href="?view=city&dialog=museum&cityId=6581&position=9"><img
+                                                  src="//gf1.geo.gfsrv.net/cdnf0/a4541f161858ee7ef1267b91cc0561.png"/></a>
+                                                                      </td>
+                              </tr>
+                                                          <tr >
+                                  <td class="city">
+                                      BAD VINHO                                </td>
+                                  <td>2</td>
+                                  <td>3</td>
+                                  <td>
+                                      <img
+                                          src="//gf3.geo.gfsrv.net/cdnb2/51ba763f35af1458820484da9f2c14.png"
+                                          alt="indiferente"
+                                          title="indiferente"/>
+                                  </td>
+                                  <td class="actions">
+                                                                              <a onclick='ajaxHandlerCall(this.href);return false;' class="museum"
+                                             title="Para o Museu"
+                                             href="?view=city&dialog=museum&cityId=6582&position=9"><img
+                                                  src="//gf1.geo.gfsrv.net/cdnf0/a4541f161858ee7ef1267b91cc0561.png"/></a>
+                                                                      </td>
+                              </tr>
+                                                          <tr class="alt">
+                                  <td class="city">
+                                      BAD M                                </td>
+                                  <td>1</td>
+                                  <td>7</td>
+                                  <td>
+                                      <img
+                                          src="//gf2.geo.gfsrv.net/cdn7c/8767b774e94fd99dfc2c6ef9cf0d6e.png"
+                                          alt="contente"
+                                          title="contente"/>
+                                  </td>
+                                  <td class="actions">
+                                                                              <a onclick='ajaxHandlerCall(this.href);return false;' class="museum"
+                                             title="Para o Museu"
+                                             href="?view=city&dialog=museum&cityId=6583&position=9"><img
+                                                  src="//gf1.geo.gfsrv.net/cdnf0/a4541f161858ee7ef1267b91cc0561.png"/></a>
+                                                                      </td>
+                              </tr>
+                                                          <tr >
+                                  <td class="city">
+                                      BAD M2                                </td>
+                                  <td>0</td>
+                                  <td>7</td>
+                                  <td>
+                                      <img
+                                          src="//gf2.geo.gfsrv.net/cdn7c/8767b774e94fd99dfc2c6ef9cf0d6e.png"
+                                          alt="contente"
+                                          title="contente"/>
+                                  </td>
+                                  <td class="actions">
+                                                                              <a onclick='ajaxHandlerCall(this.href);return false;' class="museum"
+                                             title="Para o Museu"
+                                             href="?view=city&dialog=museum&cityId=6584&position=4"><img
+                                                  src="//gf1.geo.gfsrv.net/cdnf0/a4541f161858ee7ef1267b91cc0561.png"/></a>
+                                                                      </td>
+                              </tr>
+                                                  </table>
+                      <div class="centerButton">
+                          <a class="button" onclick='ajaxHandlerCall(this.href);return false;'
+                             href="?view=culturalPossessions_assign&cityId=6580&position=4">Distribuir bens culturais(0)</a>
+                      </div>
+                  </div>
+                  <div class="footer"></div>
+              </div>
+                  </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0047] 18:15:59 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50368,\"4\":23876,\"citizens\":1006.3941068288586,\"population\":1591.314954650482,\"resource\":993}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50369,\"4\":23876,\"citizens\":1006.396166473648,\"population\":1591.3170142952713,\"resource\":994}"
+    },
+    "serverTime": {
+      "old": "1774386951",
+      "new": "1774386955"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0048] 18:16:02 [CLICK  ] a#?.button "Distribuir bens culturais(0)" href=?view=culturalPossessions_assign&cityId=6580&position=4&backgroundView=city&currentCityId=6580&templateView=diplomacyTreaty&currentTab=tab_diplomacyTreaty&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0049] 18:16:03 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#culturalPossessions_assign.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#culturalPossessions_assign.mainContentBox.contentBox01h.toggleMenu> (31083 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0050] 18:16:03 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#culturalPossessions_assign_c.templateView.focusable.focus>
+    HTML: <div#culturalPossessions_assign_c.templateView.focusable.focus> (31210 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0051] 18:16:03 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0052] 18:16:03 [NET    ] POST culturalPossessions_assign
+  REQ: view=culturalPossessions_assign cityId=6580 position=4 currentCityId=6580 currentTab=tab_diplomacyTreaty
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0053] 18:16:03 [VIEW   ] culturalPossessions_assign
+  HTML (36996 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=10"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e&cityId=6580&position=4&level=6" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>6                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=4&level=6&actionRequest=289fcee1fbf040a94e6d54c0986c8a4e&templatePosition=4"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 7:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 6.822"><span class="accesshint">Material de construção: </span>6.822</li>
+  <li class="marble  red bold"
+                               title="Mármore: 9.519"><span class="accesshint">Mármore: </span>9.519</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>3h 36m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 3h 36m 19s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  
+  <div class="dynamic" id="findTreatyPartner">
+      <h3 class="header">Encontra parceiros para tratados.</h3>
+      <div class="content ">
+          <div class="center"><img src="//gf1.geo.gfsrv.net/cdnc4/654e381b60e0bbbe1afc93de5d0de3.jpg" width="203" height="85"/></div>
+          <p>Com pouca Ambrósia podes procurar sistematicamente os jogadores com Tratados Culturais disponíveis.</p>
+          <div class="centerButton">
+              <a onclick="ajaxHandlerCall(this.href);return false;" class="button"
+                 href="?view=culturalPossessions_search&activeTab=culturalPossessions_assign&cityId=6580&position=4">Encontra parceiro para um Tratado</a>
+          </div>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <script type="text/javascript">
+  
+          /* TODO:
+           maybe live-update happiness-smiley-faces.
+           track freeGoods
+           expand/contract each slider to min(museum level, currentValue+freeGoods).
+           */
+  
+          var satisfactionPerTreaty = 50;
+  
+          var satisfactionLevels = new Array(
+              -1000,
+              -50,
+              0,
+              50,
+              300        );
+  
+          var satisfactionClasses = new Array(
+              'satisfaction outraged',
+              'satisfaction sad',
+              'satisfaction neutral',
+              'satisfaction happy',
+              'satisfaction ecstatic'
+          );
+  
+          var satisfactionTexts = new Array(
+              'furioso',
+              'miserável',
+              'indiferente',
+              'contente',
+              'eufórico'
+          );
+  
+          var basicSatisfaction = new Array();
+  
+  
+          function getHappyness(satisfaction) {
+  
+              if (satisfaction > satisfactionLevels[4]) {
+                  return 4;
+              }
+              else if (satisfaction > satisfactionLevels[3] && satisfaction <= satisfactionLevels[4]) {
+                  return 3;
+              }
+              else if (satisfaction >= satisfactionLevels[2] && satisfaction <= satisfactionLevels[3]) {
+                  return 2;
+              }
+              else if (satisfaction > satisfactionLevels[1] && satisfaction < satisfactionLevels[2]) {
+                  return 1;
+              }
+              else {
+                  return 0;
+              }
+          }
+  
+  
+          function cDisplay() {
+              var that = this;
+              var registeredSliders = new Array();
+              var iniValues = new Array();
+              var iniMaxValues = new Array();
+              var freeGoods =0;
+              var totalAmount = freeGoods;
+              var displayTotal = $("#cgAmount");
+              var errorP = $("#moveCulturalGoodsFormError");
+              var errorMsg = "Atenção! Não distribuiste todos os bens culturais!";
+              var errorMsgTooMany = "Não podes dar mais bens do que aqueles que tens!";
+              var submitBtn = $("#moveCulturalGoodsFormSubmit");
+              this.registerSlider = function (s) {
+                  registeredSliders.push(s);
+                  s.subscribe("change", that.sliderChanged);
+                  s.subscribe("slideEnd", that.sliderEnd);
+                  iniValues.push(s.actualValue);
+                  iniMaxValues.push(s.maxValue);
+                  s.adjustSliderRange(Math.min(s.actualValue + freeGoods, s.maxValue));
+                  totalAmount += s.actualValue;
+              };
+              this.sliderChanged = function () {
+                  var tmp = 0;
+  
+                  for (i = 0; i < registeredSliders.length; i++) {
+                      tmp = tmp + registeredSliders[i].actualValue;
+                      /*
+                       var diff = registeredSliders[i].actualValue-iniValues[i];
+  
+                       if(diff==0) {
+                       registeredSliders[i].diffField.innerHTML="";
+                       }
+                       else if(diff>0) {
+                       registeredSliders[i].diffField.innerHTML="(+"+diff+")";
+                       }
+                       else {
+                       registeredSliders[i].diffField.innerHTML="("+diff+")";
+                       }*/
+                      var slider = registeredSliders[i];
+                      var satisfaction = basicSatisfaction[slider.sliderName] + slider.actualValue * satisfactionPerTreaty;
+                      var satisfactionLevel = getHappyness(satisfaction);
+                      var smily = $("#" + slider.sliderName + "_satisfaction");
+  
+                      smily.attr('class', satisfactionClasses[satisfactionLevel]);
+                      smily.html(satisfactionTexts[satisfactionLevel]);
+  
+                  }
+  
+                  freeGoods = totalAmount - tmp;
+                  displayTotal.html(freeGoods);
+  
+                  for (var k = 0; k < registeredSliders.length; k++) {
+                      registeredSliders[k].adjustSliderRange(Math.min(registeredSliders[k].actualValue + freeGoods, iniMaxValues[k]));
+                  }
+              };
+              this.sliderEnd = function () {
+                  if (freeGoods == 0) {
+                      //unlock submit, hide warning
+                      submitBtn.removeClass("gray").removeAttr('disabled');
+                      errorP.html("");
+                  } else if (freeGoods < 0) {
+                      //lock submit, show warning
+                      submitBtn.addClass("gray").attr('disabled', true);
+                      errorP.html(errorMsgTooMany);
+                  } else {
+                      submitBtn.removeClass("disabled").attr('disabled', false);
+                      errorP.html(errorMsg);
+                  }
+              };
+  
+          }
+          var cultureDisplay;
+          $(document).ready(function () {
+              cultureDisplay = new cDisplay();
+          });
+      </script>
+  
+      <div class="buildingDescription heightLessBuildingDescription">
+                      <h1>Bens culturais</h1>
+              <p>Bens culturais são obras únicas. Sejam magníficas pinturas, estátuas ou vasos decorados.Os teus cidadãos terão vaga no museu para cada exposição e ficarem encantados com as tuas obras.</p>
+                  </div>
+  
+      
+      <ul class="tabmenu">
+                      <li onclick="ajaxHandlerCall('?view=museum&activeTab=tab_museum&cityId=6580&position=4'); return false;" id="js_tab_museum"
+                  class="tab "><b class="tab_museum">Museu</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=museumTreaties&activeTab=tab_museumTreaties&cityId=6580&position=4'); return false;" id="js_tab_museumTreaties"
+                  class="tab "><b class="tab_museumTreaties">Parceiros de Tratados</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=culturalPossessions_assign&activeTab=tab_culturalPossessions_assign&cityId=6580&position=4'); return false;" id="js_tab_culturalPossessions_assign"
+                  class="tab  selected"><b class="tab_culturalPossessions_assign">Distribuir bens culturais</b>
+              </li>
+                  </ul>
+  
+  
+      <div id="tab_culturalPossessions_assign">
+  
+          <form onsubmit="ajaxHandlerCallFromForm(this);return false;" id="moveCulturalGoodsForm" method="post">
+              <input type="hidden" name="action" value="culturalPossessions"/>
+              <input type="hidden" name="function" value="assign"/>
+                          <div id="moveCulturalGoods" class="contentBox01h">
+                  <h3 class="header">Redistribuir bens culturais</h3>
+                  <div class="content">
+                      <p>No total já assinaste 3 Tratados de Bens Culturais. Poderás distribui-los pelos teus museus aumentando assim a satisfação dos cidadãos do teu Império. Deves distribuir todos os Bens Culturais que possuis!</p>
+                      <div class="headline_huge center"><img class="vertical_top"
+                                                             src="//gf1.geo.gfsrv.net/cdnc1/bc7b6bf2a9526c3705ab8da1b8b96f.png"
+                                                             alt="Bens culturais:"/><span
+                              id="cgAmount">0</span>
+                          (<span
+                              id="cgAvailable">3</span>)
+                      </div>
+                      <ul>
+                                                          <li>
+                                      <div class="city bold center">BAD C</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6580">
+                                              <div class="actualValue" id="actualValue_city_6580"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6580"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6580() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6580",
+                                                      maxValue: 6,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6580",
+                                                      thumb: "sliderthumb_city_6580",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6580",
+                                                      textfield: "textfield_city_6580"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6580"]);
+                                                  basicSatisfaction["slider_city_6580"] = 92                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6580();
+                                              $('#js_museum_setmin_city_6580').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6580();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6580']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6580').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6580();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6580']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6580'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6580"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6580"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6580"
+                                                                                type="text"
+                                                                                name="goodscity_6580"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6580" class="changeAmount">
+                                              (máx                                            &nbsp;<span>6</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6580_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD E</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6581">
+                                              <div class="actualValue" id="actualValue_city_6581"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6581"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6581() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6581",
+                                                      maxValue: 4,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6581",
+                                                      thumb: "sliderthumb_city_6581",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6581",
+                                                      textfield: "textfield_city_6581"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6581"]);
+                                                  basicSatisfaction["slider_city_6581"] = 360                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6581();
+                                              $('#js_museum_setmin_city_6581').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6581();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6581']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6581').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6581();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6581']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6581'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6581"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6581"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6581"
+                                                                                type="text"
+                                                                                name="goodscity_6581"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6581" class="changeAmount">
+                                              (máx                                            &nbsp;<span>4</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6581_satisfaction"
+                                           class="satisfaction ecstatic">eufórico</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD VINHO</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6582">
+                                              <div class="actualValue" id="actualValue_city_6582"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6582"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6582() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6582",
+                                                      maxValue: 3,
+                                                      overcharge: 0,
+                                                      iniValue: 2,
+                                                      bg: "sliderbg_city_6582",
+                                                      thumb: "sliderthumb_city_6582",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6582",
+                                                      textfield: "textfield_city_6582"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6582"]);
+                                                  basicSatisfaction["slider_city_6582"] = -90                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6582();
+                                              $('#js_museum_setmin_city_6582').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6582();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6582']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6582').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6582();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6582']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6582'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6582"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6582"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6582"
+                                                                                type="text"
+                                                                                name="goodscity_6582"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6582" class="changeAmount">
+                                              (máx                                            &nbsp;<span>3</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6582_satisfaction"
+                                           class="satisfaction neutral">indiferente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD M</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6583">
+                                              <div class="actualValue" id="actualValue_city_6583"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6583"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6583() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6583",
+                                                      maxValue: 7,
+                                                      overcharge: 0,
+                                                      iniValue: 1,
+                                                      bg: "sliderbg_city_6583",
+                                                      thumb: "sliderthumb_city_6583",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6583",
+                                                      textfield: "textfield_city_6583"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6583"]);
+                                                  basicSatisfaction["slider_city_6583"] = 96                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6583();
+                                              $('#js_museum_setmin_city_6583').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6583();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6583']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6583').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6583();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6583']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6583'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6583"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6583"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6583"
+                                                                                type="text"
+                                                                                name="goodscity_6583"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6583" class="changeAmount">
+                                              (máx                                            &nbsp;<span>7</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6583_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD M2</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6584">
+                                              <div class="actualValue" id="actualValue_city_6584"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6584"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6584() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6584",
+                                                      maxValue: 7,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6584",
+                                                      thumb: "sliderthumb_city_6584",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6584",
+                                                      textfield: "textfield_city_6584"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6584"]);
+                                                  basicSatisfaction["slider_city_6584"] = 71                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6584();
+                                              $('#js_museum_setmin_city_6584').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6584();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6584']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6584').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6584();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6584']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6584'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6584"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6584"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6584"
+                                                                                type="text"
+                                                                                name="goodscity_6584"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6584" class="changeAmount">
+                                              (máx                                            &nbsp;<span>7</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6584_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                  </ul>
+  
+                      <p id="moveCulturalGoodsFormError"
+                         class="red center bold"></p>
+                      <div class="centerButton">
+                          <input id="moveCulturalGoodsFormSubmit" type="submit" class="button"
+                                 value="Confirmar alterações"/>
+                      </div>
+                  </div>
+                  <div class="footer"></div>
+              </div>
+          </form>
+  
+      </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0054] 18:16:04 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50369,\"4\":23876,\"citizens\":1006.396166473648,\"population\":1591.3170142952713,\"resource\":994}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50369,\"4\":23876,\"citizens\":1006.4002856259199,\"population\":1591.3211334475432,\"resource\":994}"
+    },
+    "serverTime": {
+      "old": "1774386955",
+      "new": "1774386963"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0055] 18:16:08 [CLICK  ] div#sliderbg_city_6583.sliderbg "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0056] 18:16:11 [CLICK  ] div#moveCulturalGoods.contentBox01h "Redistribuir bens culturais
+                
+                    No total já ass" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0057] 18:16:13 [CLICK  ] input#moveCulturalGoodsFormSubmit.button "" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0058] 18:16:14 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0059] 18:16:14 [NET    ] POST culturalPossessions
+  REQ: action=culturalPossessions function=assign goodscity_6580=0 goodscity_6581=0 goodscity_6582=3 goodscity_6583=0 goodscity_6584=0 position=4 currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, provideFeedback, popupData, updateBacklink]
+  cityId:6580 feedback:A tua ordem foi executada.
+────────────────────────────────────────────────────────────────────────────────
+[0060] 18:16:14 [VIEW   ] culturalPossessions_assign
+  HTML (36991 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=10"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=d685a74d87a15a359d8e7b7c36a85715&cityId=6580&position=4&level=6" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>6                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=4&level=6&actionRequest=d685a74d87a15a359d8e7b7c36a85715&templatePosition=4"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 7:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 6.822"><span class="accesshint">Material de construção: </span>6.822</li>
+  <li class="marble  red bold"
+                               title="Mármore: 9.519"><span class="accesshint">Mármore: </span>9.519</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>3h 36m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 3h 36m 19s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  
+  <div class="dynamic" id="findTreatyPartner">
+      <h3 class="header">Encontra parceiros para tratados.</h3>
+      <div class="content ">
+          <div class="center"><img src="//gf1.geo.gfsrv.net/cdnc4/654e381b60e0bbbe1afc93de5d0de3.jpg" width="203" height="85"/></div>
+          <p>Com pouca Ambrósia podes procurar sistematicamente os jogadores com Tratados Culturais disponíveis.</p>
+          <div class="centerButton">
+              <a onclick="ajaxHandlerCall(this.href);return false;" class="button"
+                 href="?view=culturalPossessions_search&activeTab=culturalPossessions_assign&cityId=6580&position=4">Encontra parceiro para um Tratado</a>
+          </div>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <script type="text/javascript">
+  
+          /* TODO:
+           maybe live-update happiness-smiley-faces.
+           track freeGoods
+           expand/contract each slider to min(museum level, currentValue+freeGoods).
+           */
+  
+          var satisfactionPerTreaty = 50;
+  
+          var satisfactionLevels = new Array(
+              -1000,
+              -50,
+              0,
+              50,
+              300        );
+  
+          var satisfactionClasses = new Array(
+              'satisfaction outraged',
+              'satisfaction sad',
+              'satisfaction neutral',
+              'satisfaction happy',
+              'satisfaction ecstatic'
+          );
+  
+          var satisfactionTexts = new Array(
+              'furioso',
+              'miserável',
+              'indiferente',
+              'contente',
+              'eufórico'
+          );
+  
+          var basicSatisfaction = new Array();
+  
+  
+          function getHappyness(satisfaction) {
+  
+              if (satisfaction > satisfactionLevels[4]) {
+                  return 4;
+              }
+              else if (satisfaction > satisfactionLevels[3] && satisfaction <= satisfactionLevels[4]) {
+                  return 3;
+              }
+              else if (satisfaction >= satisfactionLevels[2] && satisfaction <= satisfactionLevels[3]) {
+                  return 2;
+              }
+              else if (satisfaction > satisfactionLevels[1] && satisfaction < satisfactionLevels[2]) {
+                  return 1;
+              }
+              else {
+                  return 0;
+              }
+          }
+  
+  
+          function cDisplay() {
+              var that = this;
+              var registeredSliders = new Array();
+              var iniValues = new Array();
+              var iniMaxValues = new Array();
+              var freeGoods =0;
+              var totalAmount = freeGoods;
+              var displayTotal = $("#cgAmount");
+              var errorP = $("#moveCulturalGoodsFormError");
+              var errorMsg = "Atenção! Não distribuiste todos os bens culturais!";
+              var errorMsgTooMany = "Não podes dar mais bens do que aqueles que tens!";
+              var submitBtn = $("#moveCulturalGoodsFormSubmit");
+              this.registerSlider = function (s) {
+                  registeredSliders.push(s);
+                  s.subscribe("change", that.sliderChanged);
+                  s.subscribe("slideEnd", that.sliderEnd);
+                  iniValues.push(s.actualValue);
+                  iniMaxValues.push(s.maxValue);
+                  s.adjustSliderRange(Math.min(s.actualValue + freeGoods, s.maxValue));
+                  totalAmount += s.actualValue;
+              };
+              this.sliderChanged = function () {
+                  var tmp = 0;
+  
+                  for (i = 0; i < registeredSliders.length; i++) {
+                      tmp = tmp + registeredSliders[i].actualValue;
+                      /*
+                       var diff = registeredSliders[i].actualValue-iniValues[i];
+  
+                       if(diff==0) {
+                       registeredSliders[i].diffField.innerHTML="";
+                       }
+                       else if(diff>0) {
+                       registeredSliders[i].diffField.innerHTML="(+"+diff+")";
+                       }
+                       else {
+                       registeredSliders[i].diffField.innerHTML="("+diff+")";
+                       }*/
+                      var slider = registeredSliders[i];
+                      var satisfaction = basicSatisfaction[slider.sliderName] + slider.actualValue * satisfactionPerTreaty;
+                      var satisfactionLevel = getHappyness(satisfaction);
+                      var smily = $("#" + slider.sliderName + "_satisfaction");
+  
+                      smily.attr('class', satisfactionClasses[satisfactionLevel]);
+                      smily.html(satisfactionTexts[satisfactionLevel]);
+  
+                  }
+  
+                  freeGoods = totalAmount - tmp;
+                  displayTotal.html(freeGoods);
+  
+                  for (var k = 0; k < registeredSliders.length; k++) {
+                      registeredSliders[k].adjustSliderRange(Math.min(registeredSliders[k].actualValue + freeGoods, iniMaxValues[k]));
+                  }
+              };
+              this.sliderEnd = function () {
+                  if (freeGoods == 0) {
+                      //unlock submit, hide warning
+                      submitBtn.removeClass("gray").removeAttr('disabled');
+                      errorP.html("");
+                  } else if (freeGoods < 0) {
+                      //lock submit, show warning
+                      submitBtn.addClass("gray").attr('disabled', true);
+                      errorP.html(errorMsgTooMany);
+                  } else {
+                      submitBtn.removeClass("disabled").attr('disabled', false);
+                      errorP.html(errorMsg);
+                  }
+              };
+  
+          }
+          var cultureDisplay;
+          $(document).ready(function () {
+              cultureDisplay = new cDisplay();
+          });
+      </script>
+  
+      <div class="buildingDescription heightLessBuildingDescription">
+                      <h1>Bens culturais</h1>
+              <p>Bens culturais são obras únicas. Sejam magníficas pinturas, estátuas ou vasos decorados.Os teus cidadãos terão vaga no museu para cada exposição e ficarem encantados com as tuas obras.</p>
+                  </div>
+  
+      
+      <ul class="tabmenu">
+                      <li onclick="ajaxHandlerCall('?view=museum&activeTab=tab_museum&cityId=6580&position=4'); return false;" id="js_tab_museum"
+                  class="tab "><b class="tab_museum">Museu</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=museumTreaties&activeTab=tab_museumTreaties&cityId=6580&position=4'); return false;" id="js_tab_museumTreaties"
+                  class="tab "><b class="tab_museumTreaties">Parceiros de Tratados</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=culturalPossessions_assign&activeTab=tab_culturalPossessions_assign&cityId=6580&position=4'); return false;" id="js_tab_culturalPossessions_assign"
+                  class="tab  selected"><b class="tab_culturalPossessions_assign">Distribuir bens culturais</b>
+              </li>
+                  </ul>
+  
+  
+      <div id="tab_culturalPossessions_assign">
+  
+          <form onsubmit="ajaxHandlerCallFromForm(this);return false;" id="moveCulturalGoodsForm" method="post">
+              <input type="hidden" name="action" value="culturalPossessions"/>
+              <input type="hidden" name="function" value="assign"/>
+                          <div id="moveCulturalGoods" class="contentBox01h">
+                  <h3 class="header">Redistribuir bens culturais</h3>
+                  <div class="content">
+                      <p>No total já assinaste 3 Tratados de Bens Culturais. Poderás distribui-los pelos teus museus aumentando assim a satisfação dos cidadãos do teu Império. Deves distribuir todos os Bens Culturais que possuis!</p>
+                      <div class="headline_huge center"><img class="vertical_top"
+                                                             src="//gf1.geo.gfsrv.net/cdnc1/bc7b6bf2a9526c3705ab8da1b8b96f.png"
+                                                             alt="Bens culturais:"/><span
+                              id="cgAmount">0</span>
+                          (<span
+                              id="cgAvailable">3</span>)
+                      </div>
+                      <ul>
+                                                          <li>
+                                      <div class="city bold center">BAD C</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6580">
+                                              <div class="actualValue" id="actualValue_city_6580"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6580"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6580() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6580",
+                                                      maxValue: 6,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6580",
+                                                      thumb: "sliderthumb_city_6580",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6580",
+                                                      textfield: "textfield_city_6580"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6580"]);
+                                                  basicSatisfaction["slider_city_6580"] = 92                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6580();
+                                              $('#js_museum_setmin_city_6580').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6580();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6580']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6580').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6580();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6580']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6580'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6580"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6580"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6580"
+                                                                                type="text"
+                                                                                name="goodscity_6580"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6580" class="changeAmount">
+                                              (máx                                            &nbsp;<span>6</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6580_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD E</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6581">
+                                              <div class="actualValue" id="actualValue_city_6581"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6581"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6581() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6581",
+                                                      maxValue: 4,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6581",
+                                                      thumb: "sliderthumb_city_6581",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6581",
+                                                      textfield: "textfield_city_6581"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6581"]);
+                                                  basicSatisfaction["slider_city_6581"] = 359                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6581();
+                                              $('#js_museum_setmin_city_6581').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6581();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6581']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6581').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6581();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6581']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6581'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6581"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6581"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6581"
+                                                                                type="text"
+                                                                                name="goodscity_6581"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6581" class="changeAmount">
+                                              (máx                                            &nbsp;<span>4</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6581_satisfaction"
+                                           class="satisfaction ecstatic">eufórico</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD VINHO</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6582">
+                                              <div class="actualValue" id="actualValue_city_6582"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6582"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6582() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6582",
+                                                      maxValue: 3,
+                                                      overcharge: 0,
+                                                      iniValue: 3,
+                                                      bg: "sliderbg_city_6582",
+                                                      thumb: "sliderthumb_city_6582",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6582",
+                                                      textfield: "textfield_city_6582"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6582"]);
+                                                  basicSatisfaction["slider_city_6582"] = -90                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6582();
+                                              $('#js_museum_setmin_city_6582').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6582();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6582']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6582').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6582();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6582']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6582'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6582"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6582"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6582"
+                                                                                type="text"
+                                                                                name="goodscity_6582"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6582" class="changeAmount">
+                                              (máx                                            &nbsp;<span>3</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6582_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD M</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6583">
+                                              <div class="actualValue" id="actualValue_city_6583"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6583"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6583() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6583",
+                                                      maxValue: 7,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6583",
+                                                      thumb: "sliderthumb_city_6583",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6583",
+                                                      textfield: "textfield_city_6583"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6583"]);
+                                                  basicSatisfaction["slider_city_6583"] = 96                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6583();
+                                              $('#js_museum_setmin_city_6583').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6583();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6583']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6583').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6583();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6583']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6583'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6583"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6583"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6583"
+                                                                                type="text"
+                                                                                name="goodscity_6583"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6583" class="changeAmount">
+                                              (máx                                            &nbsp;<span>7</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6583_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                              <li>
+                                      <div class="city bold center">BAD M2</div>
+                                      <label class="accesshint"
+                                             for="textfield_crystal">Distribuir bens culturais                                        :</label>
+                                      <div class="sliderinput">
+                                          <div class="sliderbg" id="sliderbg_city_6584">
+                                              <div class="actualValue" id="actualValue_city_6584"></div>
+                                              <div class="sliderthumb" id="sliderthumb_city_6584"></div>
+                                          </div>
+                                          <script type="text/javascript">
+                                              function initializeSlider_city_6584() {
+                                                  create_slider({
+                                                      dir: 'ltr',
+                                                      id: "slider_city_6584",
+                                                      maxValue: 7,
+                                                      overcharge: 0,
+                                                      iniValue: 0,
+                                                      bg: "sliderbg_city_6584",
+                                                      thumb: "sliderthumb_city_6584",
+                                                      topConstraint: -10,
+                                                      bottomConstraint: 326,
+                                                      bg_value: "actualValue_city_6584",
+                                                      textfield: "textfield_city_6584"
+                                                  });
+                                                  cultureDisplay.registerSlider(ikariam.controller.sliders["slider_city_6584"]);
+                                                  basicSatisfaction["slider_city_6584"] = 71                                            }
+                                              $(document).ready(function () {
+                                                  initializeSlider_city_6584();
+                                              $('#js_museum_setmin_city_6584').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6584();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6584']
+                                                      .setValue(0);
+                                              });
+  
+                                              $('#js_museum_setmax_city_6584').on('click', function (e) {
+                                                  e.preventDefault();
+                                                  if(ikariam.controller.sliders.length === 0) {
+                                                      initializeSlider_city_6584();
+                                                  }
+                                                  ikariam.controller.sliders['slider_city_6584']
+                                                      .setValue(ikariam.controller.sliders['slider_city_6584'].maxValue);
+                                              });
+  
+                                              });
+  
+                                          </script>
+                                          <a class="setMin" href="#reset" id="js_museum_setmin_city_6584"
+                                             title="Reajuste entrada"></a>
+                                          <a class="setMax" href="#max" id="js_museum_setmax_city_6584"
+                                             title="muitos bens"></a>
+                                      </div>
+                                      <div class="assignedCulturalGoods"><input class="textfield center"
+                                                                                id="textfield_city_6584"
+                                                                                type="text"
+                                                                                name="goodscity_6584"
+                                                                                value="0" size="2" maxlength="2">
+                                          <div id="val_change_city_6584" class="changeAmount">
+                                              (máx                                            &nbsp;<span>7</span>)
+                                          </div>
+                                      </div>
+                                      <div id="slider_city_6584_satisfaction"
+                                           class="satisfaction happy">contente</div>
+                                  </li>
+                                                  </ul>
+  
+                      <p id="moveCulturalGoodsFormError"
+                         class="red center bold"></p>
+                      <div class="centerButton">
+                          <input id="moveCulturalGoodsFormSubmit" type="submit" class="button"
+                                 value="Confirmar alterações"/>
+                      </div>
+                  </div>
+                  <div class="footer"></div>
+              </div>
+          </form>
+  
+      </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0061] 18:16:14 [MODEL  ] currentResources, actionRequest, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50369,\"4\":23876,\"citizens\":1006.4002856259199,\"population\":1591.3211334475432,\"resource\":994}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50370,\"4\":23876,\"citizens\":1006.4059491613771,\"population\":1591.3267969830003,\"resource\":995}"
+    },
+    "actionRequest": {
+      "old": "\"289fcee1fbf040a94e6d54c0986c8a4e\"",
+      "new": "\"d685a74d87a15a359d8e7b7c36a85715\""
+    },
+    "serverTime": {
+      "old": "1774386963",
+      "new": "1774386974"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0062] 18:16:17 [CLICK  ] li#js_tab_museumTreaties.tab "Parceiros de Tratados" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0063] 18:16:17 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#museumTreaties.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#museumTreaties.mainContentBox.contentBox01h.toggleMenu> (7218 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0064] 18:16:17 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#museumTreaties_c.templateView.focusable.focus>
+    HTML: <div#museumTreaties_c.templateView.focusable.focus> (7333 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0065] 18:16:17 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0066] 18:16:17 [NET    ] POST museumTreaties
+  REQ: view=museumTreaties activeTab=tab_museumTreaties cityId=6580 position=4 currentCityId=6580
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0067] 18:16:17 [VIEW   ] museumTreaties
+  HTML (11494 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=10"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=d685a74d87a15a359d8e7b7c36a85715&cityId=6580&position=4&level=6" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>6                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=4&level=6&actionRequest=d685a74d87a15a359d8e7b7c36a85715&templatePosition=4"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 7:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 6.822"><span class="accesshint">Material de construção: </span>6.822</li>
+  <li class="marble  red bold"
+                               title="Mármore: 9.519"><span class="accesshint">Mármore: </span>9.519</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>3h 36m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 3h 36m 19s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  <div class="dynamic" id="findTreatyPartner">
+      <h3 class="header">Encontra parceiros para tratados.</h3>
+      <div class="content">
+  
+          <div class="center"><img src="//gf1.geo.gfsrv.net/cdnc4/654e381b60e0bbbe1afc93de5d0de3.jpg" width="203" height="85"/></div>
+          <p>Com pouca Ambrósia podes procurar sistematicamente os jogadores com Tratados Culturais disponíveis.</p>
+          <div class="centerButton">
+              <a onclick="ajaxHandlerCall(this.href);return false;" class="button"
+                 href="?view=culturalPossessions_search&activeTab=museum&cityId=6580&position=4">Encontra parceiro para um Tratado</a>
+          </div>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Museu</h1>
+                      <p>No museu os teus cidadãos poderão verificar como as outras nações tentam copiar a nossa arte superior. Para  conseguir albergar mais peças deverás melhorar o teu museu.
+  
+  Cada expansão do teu Museu permite-te albergar mais peças de grande importância cultural.</p>
+              </div>
+  
+      
+      <ul class="tabmenu">
+                      <li onclick="ajaxHandlerCall('?view=museum&activeTab=tab_museum&cityId=6580&position=4'); return false;" id="js_tab_museum"
+                  class="tab "><b class="tab_museum">Museu</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=museumTreaties&activeTab=tab_museumTreaties&cityId=6580&position=4'); return false;" id="js_tab_museumTreaties"
+                  class="tab  selected"><b class="tab_museumTreaties">Parceiros de Tratados</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=culturalPossessions_assign&activeTab=tab_culturalPossessions_assign&cityId=6580&position=4'); return false;" id="js_tab_culturalPossessions_assign"
+                  class="tab "><b class="tab_culturalPossessions_assign">Distribuir bens culturais</b>
+              </li>
+                  </ul>
+  
+  
+      <div id="tab_museumTreaties">
+          <div class="contentBox01h">
+              <h3 class="header">Parceiros de Tratados</h3>
+              <div class="content">
+                  <table class="table01 center">
+                      <tr>
+                          <th class="player center" scope="col">Nome do jogador</th>
+                          <th class="player center" scope="col">Aliança</th>
+                          <th class="capital center" scope="col">Capital</th>
+                          <th class="actions center" scope="col">Acções</th>
+                      </tr>
+                                                  <tr >
+                                  <td class="player center " >
+                                      <span class='flag br'><span class='img'></span><span class='avatarName'>Herakles-0561</span></span>                                                                            <img src="//gf1.geo.gfsrv.net/cdnf5/04aea893a2e5d7289583f44927db2f.png"/>
+                                                                          </td>
+                                  <td class="ally center" >EMPs</td>
+                                  <td class="capital center" >Tyranus</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=101981"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=101981&msgType=81"
+                                             title="Cancelar tratado"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Cancelar tratado"/></a>
+                                                                      </td>
+                              </tr>
+                                                      <tr class='alt'>
+                                  <td class="player center " >
+                                      <span class='flag br'><span class='img'></span><span class='avatarName'>M A T A D O R</span></span>                                                                            <img src="//gf1.geo.gfsrv.net/cdnf5/04aea893a2e5d7289583f44927db2f.png"/>
+                                                                          </td>
+                                  <td class="ally center" >OTT</td>
+                                  <td class="capital center" >Enxôfe</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=101492"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=101492&msgType=81"
+                                             title="Cancelar tratado"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Cancelar tratado"/></a>
+                                                                      </td>
+                              </tr>
+                                                      <tr >
+                                  <td class="player center " >
+                                      <span class='flag br'><span class='img'></span><span class='avatarName'>Orlov</span></span>                                                                    </td>
+                                  <td class="ally center" >UBF</td>
+                                  <td class="capital center" >Roma</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=100021"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=100021&msgType=81"
+                                             title="Cancelar tratado"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Cancelar tratado"/></a>
+                                                                      </td>
+                              </tr>
+                                          </table>
+                                      <div class="center">
+                          <div class="paginator">
+                                      <div colspan="3" class="page_bar center">
+                          <span class="page_link">1</span>
+                                  </div>
+                                  </div>
+                      </div>
+                              </div>
+              <div class="footer"></div>
+          </div>
+      </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0068] 18:16:19 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50370,\"4\":23876,\"citizens\":1006.4059491613771,\"population\":1591.3267969830003,\"resource\":995}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50370,\"4\":23876,\"citizens\":1006.4074937018895,\"population\":1591.3283415235128,\"resource\":995}"
+    },
+    "serverTime": {
+      "old": "1774386974",
+      "new": "1774386977"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0069] 18:16:20 [CLICK  ] li#js_tab_museum.tab "Museu" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0070] 18:16:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#museum.mainContentBox.contentBox01h.toggleMenu>
+    HTML: <div#museum.mainContentBox.contentBox01h.toggleMenu> (7826 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0071] 18:16:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#museum_c.templateView.focusable.focus>
+    HTML: <div#museum_c.templateView.focusable.focus> (7933 chars — ver VIEW entry para HTML completo)
+────────────────────────────────────────────────────────────────────────────────
+[0072] 18:16:21 [DOM    ] childList on <div#container> added=1 removed=0
+  <div#dropDown_js_citySelectContainer.dropdownContainer.city_select.shorten_text>
+    HTML: <div id="dropDown_js_citySelectContainer" class="dropdownContainer city_select shorten_text" style="height: 127.323px; width: 177px; overflow: hidden; top: 96px; left: 174px;"><div class="bg" style="height: 127.333px; margin-top: 0px; width: 158px;"><ul style="width: 158px;"><li selectvalue="6580" class="ownCity tradegood crystal first-child"><a title="BAD C"> BAD C</a></li><li selectvalue="6581" class="ownCity tradegood sulfur"><a title="BAD E"> BAD E</a></li><li selectvalue="6582" class="ownCity tradegood wine"><a title="BAD VINHO"> BAD VINHO</a></li><li selectvalue="6583" class="ownCity tradegood marble"><a title="BAD M"> BAD M</a></li><li selectvalue="6584" class="ownCity tradegood marble last-child"><a title="BAD M2"> BAD M2</a></li></ul></div><div class="scrollArea"><div class="scrollArrowTop"></div><div class="dropdownScroller" style="height: 95px; left: 0px; top: 0px;"></div><div class="scrollArrowBottom" style="top: 0.323px;"></div></div></div>
+────────────────────────────────────────────────────────────────────────────────
+[0073] 18:16:21 [NET    ] POST museum
+  REQ: view=museum activeTab=tab_museum cityId=6580 position=4 currentCityId=6580 currentTab=tab_museumTreaties
+  ← [updateGlobalData, changeView, updateTemplateData, popupData, updateBacklink]
+  cityId:6580
+────────────────────────────────────────────────────────────────────────────────
+[0074] 18:16:21 [VIEW   ] museum
+  HTML (12127 chars):
+      <div id="buildingUpgrade" class="dynamic">
+          <h3 class="header">Melhorar </h3>
+          <a class="help" onclick="ajaxHandlerCall(this.href);return false;" href="?view=buildingDetail&buildingId=10"
+             title="Ajuda"></a>
+          <div class="content">
+              <div class="buildingLevel">
+                  <ul class="actions">
+                      <li class="upgrade">
+                                                      <a id="js_buildingUpgradeButton" class="action_btn "
+                                 onclick="ajaxHandlerCall(this.href); return false;" href="?action=UpgradeExistingBuilding&actionRequest=d685a74d87a15a359d8e7b7c36a85715&cityId=6580&position=4&level=6" title="Em fila de construção!">
+                                  <span class="textLabel">Melhorar</span>
+                              </a>
+                                                  </li>
+                      <li class="showLevel">
+                          <div class="textLabel">Nível </div>6                    </li>
+                                              <li class="downgrade">
+                                                              <a class="action_btn" onclick="ajaxHandlerCall(this.href); return false;"
+                                     href="?view=buildings_demolition&cityId=6580&position=4&level=6&actionRequest=d685a74d87a15a359d8e7b7c36a85715&templatePosition=4"
+                                     title="Demolir edifício">
+                                      <span class="textLabel">Demolir</span>
+                                  </a>
+                                                          </li>
+                                          </ul>
+              </div>
+                          <h4>Necessário para o nível 7:</h4>
+              <ul class="resources "><li class="wood  red bold"
+                               title="Material de construção: 6.822"><span class="accesshint">Material de construção: </span>6.822</li>
+  <li class="marble  red bold"
+                               title="Mármore: 9.519"><span class="accesshint">Mármore: </span>9.519</li>
+              <li class="time">
+                  <span class="accesshint">Tempo de construção: </span>3h 36m                <div class="tooltip" id="buildingTimeToolTipSidebar">
+                      <div id="buildingTimeToolTipSidebarContents">
+                          <div>Tempo de construção: 3h 36m 19s</div>
+                          <hr />
+                          <table>
+                              <tr class="altTooltip">
+                                  <td>Servidor</td>
+                                  <td class="rightText">1x</td>
+                              </tr>
+                              <tr class="altTooltip">
+                                  <td>Bónus do mundo</td>
+                                  <td class="rightText">-25%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Tipo de Governo</td>
+                                  <td class="rightText">0%</td></tr>
+                              <tr class="altTooltip">
+                                  <td>Forja de Cronos</td>
+                                  <td class="rightText">0,000%</td></tr>
+                          </table>
+                      </div>
+                  </div>
+              </li>
+  
+              </ul>
+                      </div>
+          <div class="footer"></div>
+      </div>
+  
+  <div class="dynamic" id="findTreatyPartner">
+      <h3 class="header">Encontra parceiros para tratados.</h3>
+      <div class="content">
+  
+          <div class="center"><img src="//gf1.geo.gfsrv.net/cdnc4/654e381b60e0bbbe1afc93de5d0de3.jpg" width="203" height="85"/></div>
+          <p>Com pouca Ambrósia podes procurar sistematicamente os jogadores com Tratados Culturais disponíveis.</p>
+          <div class="centerButton">
+              <a onclick="ajaxHandlerCall(this.href);return false;" class="button"
+                 href="?view=culturalPossessions_search&activeTab=museum&cityId=6580&position=4">Encontra parceiro para um Tratado</a>
+          </div>
+      </div>
+      <div class="footer"></div>
+  </div>
+  
+  <div id="mainview">
+      <div class="buildingDescription">
+          <h1>Museu</h1>
+                      <p>No museu os teus cidadãos poderão verificar como as outras nações tentam copiar a nossa arte superior. Para  conseguir albergar mais peças deverás melhorar o teu museu.
+  
+  Cada expansão do teu Museu permite-te albergar mais peças de grande importância cultural.</p>
+                  </div>
+  
+      
+      <ul class="tabmenu">
+                      <li onclick="ajaxHandlerCall('?view=museum&activeTab=tab_museum&cityId=6580&position=4'); return false;" id="js_tab_museum"
+                  class="tab  selected"><b class="tab_museum">Museu</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=museumTreaties&activeTab=tab_museumTreaties&cityId=6580&position=4'); return false;" id="js_tab_museumTreaties"
+                  class="tab "><b class="tab_museumTreaties">Parceiros de Tratados</b>
+              </li>
+                          <li onclick="ajaxHandlerCall('?view=culturalPossessions_assign&activeTab=tab_culturalPossessions_assign&cityId=6580&position=4'); return false;" id="js_tab_culturalPossessions_assign"
+                  class="tab "><b class="tab_culturalPossessions_assign">Distribuir bens culturais</b>
+              </li>
+                  </ul>
+  
+  
+      <div id="tab_museum">
+          <div class="contentBox01h culturalGoods">
+              <h3 class="header">Bens culturais no museu de BAD C</h3>
+              <div class="content">
+                  <p class="desc">Ao expor os bens culturais dos outros povos, no teu museu, irá agradar os teus cidadãos. Faz tratados culturais com os outros jogadores.</p>
+                  <div class="goods"><p>Bens culturais no museu:                        <span class="headline_huge value vertical_middle"><span id="val_culturalGoodsDeposit"></span>
+                              0/6</span></p>
+                  </div>
+                  <p class="result">
+                                              Neste momento todas as salas de exposição estão vazias!<br/><br/>
+                          O museu aumenta a satisfação nesta cidade em:    <span
+                              class="bold green margin10">144</span>
+                                      </p>
+              </div>
+              <div class="footer"></div>
+          </div>
+  
+                      <div class="contentBox01h">
+                  <h3 class="header">Pedido de tratado cultural</h3>
+                  <div class="content">
+                      <table class="table01">
+                          <tr>
+                              <th class="empty"></th>
+                              <th class="player center" scope="col">Nome do jogador</th>
+                              <th class="player center" scope="col">Aliança</th>
+                              <th class="capital center" scope="col">Capital</th>
+                              <th class="actions center" scope="col">Acções</th>
+                              <th class="empty"></th>
+                          </tr>
+                                                      <tr>
+                                  <td class="empty"></td>
+                                  <td class="player center">Durk</td>
+                                  <td class="ally center">ΦRWa</td>
+                                  <td class="capital center">Kanto</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=101711"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=101711&msgType=80"
+                                             title="Rejeitar pedido Tratado Cultural"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Rejeitar pedido Tratado Cultural"/></a>
+                                                                      </td>
+                                  <td class="empty"></td>
+                              </tr>
+                                                      <tr>
+                                  <td class="empty"></td>
+                                  <td class="player center">L E N I N</td>
+                                  <td class="ally center">ΦRWΦ</td>
+                                  <td class="capital center">URSS I</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=100119"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=100119&msgType=80"
+                                             title="Rejeitar pedido Tratado Cultural"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Rejeitar pedido Tratado Cultural"/></a>
+                                                                      </td>
+                                  <td class="empty"></td>
+                              </tr>
+                                                      <tr>
+                                  <td class="empty"></td>
+                                  <td class="player center">Pecoits</td>
+                                  <td class="ally center"></td>
+                                  <td class="capital center">Carrara</td>
+                                  <td class="actions center">
+                                      <a onclick="ajaxHandlerCall(this.href);return false;" class="writeMsg"
+                                         href="?view=sendIKMessage&receiverId=102234"
+                                         title="Escrever mensagem"><img
+                                              src="//gf1.geo.gfsrv.net/cdn32/11016d58d724a7426735f7cb1865ea.png"
+                                              alt="Escrever mensagem"/></a>
+                                                                              <a onclick="ajaxHandlerCall(this.href);return false;" class="cancelTreaty"
+                                             href="?view=sendIKMessage&receiverId=102234&msgType=80"
+                                             title="Rejeitar pedido Tratado Cultural"><img
+                                                  src="//gf2.geo.gfsrv.net/cdn1e/bdd64ea299cf798063b86a0bb26e83.png"
+                                                  alt="Rejeitar pedido Tratado Cultural"/></a>
+                                                                      </td>
+                                  <td class="empty"></td>
+                              </tr>
+                                              </table>
+                      <div class="center">
+                          <div class="paginator">
+                                      <div colspan="3" class="page_bar center">
+                          <span class="page_link">1</span>
+                                  </div>
+                                  </div>
+                      </div>
+                  </div>
+                  <div class="footer"></div>
+              </div>
+              </div>
+  </div>
+  
+────────────────────────────────────────────────────────────────────────────────
+[0075] 18:16:24 [MODEL  ] currentResources, serverTime mudaram
+  {
+    "currentResources": {
+      "old": "{\"1\":4663,\"2\":943,\"3\":50370,\"4\":23876,\"citizens\":1006.4074937018895,\"population\":1591.3283415235128,\"resource\":995}",
+      "new": "{\"1\":4663,\"2\":943,\"3\":50371,\"4\":23876,\"citizens\":1006.4095530491961,\"population\":1591.3304008708194,\"resource\":996}"
+    },
+    "serverTime": {
+      "old": "1774386977",
+      "new": "1774386981"
+    }
+  }
+────────────────────────────────────────────────────────────────────────────────
+[0076] 18:16:25 [CLICK  ] div#museum.mainContentBox contentBox01h toggleMenu "Museu
+    
+        Museu
+                    No museu os teus cidadãos poderão v" href=
+  data: {}
+────────────────────────────────────────────────────────────────────────────────
+[0077] 18:16:27 [CLICK  ] div#erp-rec-host.? "" href=
+  data: {}

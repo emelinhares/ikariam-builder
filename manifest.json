@@ -1,0 +1,32 @@
+{
+    "manifest_version": 3,
+    "name": "Ikariam ERP",
+    "version": "1.0.0",
+    "description": "ERP corporativo para gestão de múltiplas cidades no Ikariam",
+    "permissions": ["storage", "notifications"],
+    "content_scripts": [{
+        "matches": [
+            "*://*.ikariam.gameforge.com/*",
+            "*://*.ikariam.com.br/*",
+            "*://*.ikariam.com/*"
+        ],
+        "js": ["content/content.js"],
+        "run_at": "document_start"
+    }],
+    "web_accessible_resources": [{
+        "resources": [
+            "inject/inject.js",
+            "modules/*",
+            "data/*",
+            "ui/*"
+        ],
+        "matches": [
+            "*://*.ikariam.gameforge.com/*",
+            "*://*.ikariam.com.br/*",
+            "*://*.ikariam.com/*"
+        ]
+    }],
+    "background": {
+        "service_worker": "background/background.js"
+    }
+}
