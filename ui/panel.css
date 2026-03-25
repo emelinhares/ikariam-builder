@@ -1,0 +1,350 @@
+/* panel.css — Ikariam ERP v1.0 */
+/* Injetado via shadow DOM — escopo isolado da página */
+
+:host {
+    all: initial;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ─── Painel principal ─────────────────────────────────────────────────────── */
+
+#erp-panel {
+    position: fixed;
+    top: 70px;
+    right: 10px;
+    width: 720px;
+    max-height: 85vh;
+    background: #0a0c10;
+    border: 1px solid #1c2128;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    color: #c9d1d9;
+    z-index: 99999;
+    box-shadow: 0 16px 48px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* ─── Header / drag handle ─────────────────────────────────────────────────── */
+
+#erp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #161b22;
+    border-bottom: 1px solid #1c2128;
+    cursor: move;
+    flex-shrink: 0;
+}
+
+#erp-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #58a6ff;
+    letter-spacing: 0.05em;
+}
+
+#erp-status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+#erp-status-badge.running   { background: #1a4731; color: #3fb950; }
+#erp-status-badge.degraded  { background: #5a1e1e; color: #f85149; }
+#erp-status-badge.manual    { background: #2d2a1a; color: #d29922; }
+#erp-status-badge.init      { background: #1c2128; color: #8b949e; }
+
+#erp-close {
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+}
+#erp-close:hover { color: #c9d1d9; }
+
+/* ─── Tabs ─────────────────────────────────────────────────────────────────── */
+
+#erp-tabs {
+    display: flex;
+    background: #0d1117;
+    border-bottom: 1px solid #1c2128;
+    flex-shrink: 0;
+}
+
+.erp-tab {
+    padding: 7px 14px;
+    font-size: 12px;
+    color: #8b949e;
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    font-family: inherit;
+}
+.erp-tab:hover  { color: #c9d1d9; }
+.erp-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+/* Badge de alerta no tab */
+.erp-tab-badge {
+    display: inline-block;
+    background: #da3633;
+    color: #fff;
+    font-size: 10px;
+    border-radius: 8px;
+    padding: 0 5px;
+    margin-left: 4px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* ─── Body com scroll ──────────────────────────────────────────────────────── */
+
+#erp-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #30363d #0a0c10;
+}
+
+#erp-body::-webkit-scrollbar       { width: 6px; }
+#erp-body::-webkit-scrollbar-track { background: #0a0c10; }
+#erp-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+/* ─── Status bar ───────────────────────────────────────────────────────────── */
+
+#erp-statusbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 12px;
+    background: #0d1117;
+    border-top: 1px solid #1c2128;
+    font-size: 11px;
+    color: #8b949e;
+    flex-shrink: 0;
+}
+
+.erp-statusbar-item { display: flex; align-items: center; gap: 4px; }
+.erp-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.erp-dot.green  { background: #3fb950; }
+.erp-dot.yellow { background: #d29922; }
+.erp-dot.red    { background: #f85149; }
+.erp-dot.gray   { background: #8b949e; }
+
+/* ─── Cards ────────────────────────────────────────────────────────────────── */
+
+.erp-card {
+    background: #161b22;
+    border: 1px solid #1c2128;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+.erp-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+}
+
+/* ─── Seção Overview ───────────────────────────────────────────────────────── */
+
+#erp-next-action {
+    background: #1c2128;
+    border-left: 3px solid #58a6ff;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+#erp-next-action .label { color: #8b949e; font-size: 11px; margin-bottom: 2px; }
+#erp-next-action .value { color: #c9d1d9; }
+#erp-next-action .reason { color: #8b949e; font-size: 11px; margin-top: 3px; }
+
+/* ─── Lista de cidades ─────────────────────────────────────────────────────── */
+
+.erp-city-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #1c2128;
+    font-size: 12px;
+}
+.erp-city-row:last-child { border-bottom: none; }
+
+.erp-city-name {
+    flex: 1;
+    color: #c9d1d9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.erp-city-name.active { color: #58a6ff; font-weight: 700; }
+
+.erp-city-age  { color: #8b949e; font-size: 11px; min-width: 40px; text-align: right; }
+
+/* ─── Fila de tasks ────────────────────────────────────────────────────────── */
+
+.erp-task-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #1c2128;
+    font-size: 12px;
+}
+.erp-task-row:last-child { border-bottom: none; }
+
+.erp-task-type {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    min-width: 70px;
+    text-align: center;
+}
+.erp-task-type.BUILD      { background: #1a4731; color: #3fb950; }
+.erp-task-type.TRANSPORT  { background: #1a3a5a; color: #58a6ff; }
+.erp-task-type.RESEARCH   { background: #2d2a1a; color: #d29922; }
+.erp-task-type.WINE_ADJUST{ background: #3a1a2d; color: #d2669b; }
+.erp-task-type.NOISE      { background: #1c2128; color: #8b949e; }
+
+.erp-task-info { flex: 1; overflow: hidden; }
+.erp-task-reason { color: #8b949e; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.erp-task-cancel {
+    background: none;
+    border: 1px solid #da3633;
+    color: #da3633;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    font-family: inherit;
+}
+.erp-task-cancel:hover { background: #5a1e1e; }
+
+/* ─── Alertas ──────────────────────────────────────────────────────────────── */
+
+.erp-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.erp-alert.P0 { background: #5a1e1e; border-left: 3px solid #f85149; }
+.erp-alert.P1 { background: #2d2a1a; border-left: 3px solid #d29922; }
+
+.erp-alert-msg  { flex: 1; }
+.erp-alert-meta { font-size: 11px; color: #8b949e; margin-top: 2px; }
+
+.erp-alert-dismiss {
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    flex-shrink: 0;
+    line-height: 1;
+    font-family: inherit;
+}
+.erp-alert-dismiss:hover { color: #c9d1d9; }
+
+/* ─── Log ──────────────────────────────────────────────────────────────────── */
+
+#erp-log-container {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+}
+
+.erp-log-entry {
+    display: flex;
+    gap: 6px;
+    padding: 2px 0;
+    border-bottom: 1px solid #0d1117;
+    line-height: 1.4;
+}
+
+.erp-log-ts     { color: #484f58; flex-shrink: 0; }
+.erp-log-module { color: #58a6ff; flex-shrink: 0; min-width: 80px; }
+.erp-log-msg    { color: #c9d1d9; flex: 1; word-break: break-word; }
+
+.erp-log-entry.warn  .erp-log-msg { color: #d29922; }
+.erp-log-entry.error .erp-log-msg { color: #f85149; }
+.erp-log-entry.debug .erp-log-msg { color: #484f58; }
+
+/* ─── Controles ────────────────────────────────────────────────────────────── */
+
+.erp-mode-select {
+    background: #161b22;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    font-size: 12px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.erp-mode-select:focus { outline: none; border-color: #58a6ff; }
+
+.erp-btn {
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.erp-btn:hover  { background: #30363d; }
+.erp-btn.danger { border-color: #da3633; color: #f85149; }
+.erp-btn.danger:hover { background: #5a1e1e; }
+
+/* ─── Misc ─────────────────────────────────────────────────────────────────── */
+
+.erp-empty {
+    color: #484f58;
+    font-size: 12px;
+    text-align: center;
+    padding: 16px 0;
+}
+
+.erp-confidence {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+.erp-confidence.HIGH   { background: #1a4731; color: #3fb950; }
+.erp-confidence.MEDIUM { background: #2d2a1a; color: #d29922; }
+.erp-confidence.LOW    { background: #5a1e1e; color: #f85149; }
+.erp-confidence.UNKNOWN{ background: #1c2128; color: #8b949e; }

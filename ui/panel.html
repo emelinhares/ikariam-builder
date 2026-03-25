@@ -1,0 +1,194 @@
+<!-- panel.html — template do painel ERP -->
+<!-- Carregado via fetch() e injetado em shadow DOM por panel.js -->
+<!-- Sem <script> aqui — panel.js é importado em inject.js -->
+
+<div id="erp-panel">
+
+    <!-- Header / drag handle -->
+    <div id="erp-header">
+        <span id="erp-title">⬡ IKARIAM ERP</span>
+        <span id="erp-status-badge" class="init">INIT</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <select id="erp-mode-select" class="erp-mode-select" title="Modo de operação">
+                <option value="FULL-AUTO">FULL-AUTO</option>
+                <option value="SEMI">SEMI</option>
+                <option value="MANUAL">MANUAL</option>
+                <option value="SAFE">SAFE</option>
+            </select>
+            <button id="erp-close" title="Fechar">✕</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div id="erp-tabs">
+        <button class="erp-tab active" data-tab="overview">Overview</button>
+        <button class="erp-tab" data-tab="queue">
+            Fila <span id="erp-queue-badge" class="erp-tab-badge" style="display:none">0</span>
+        </button>
+        <button class="erp-tab" data-tab="cities">Cidades</button>
+        <button class="erp-tab" data-tab="tests">Testes</button>
+        <button class="erp-tab" data-tab="logs">Logs</button>
+    </div>
+
+    <!-- Body -->
+    <div id="erp-body">
+
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="erp-tab-content">
+
+            <!-- Alertas ativos -->
+            <div id="erp-alerts-container"></div>
+
+            <!-- Próxima ação -->
+            <div id="erp-next-action" style="display:none">
+                <div class="label">PRÓXIMA AÇÃO</div>
+                <div class="value" id="erp-next-summary">—</div>
+                <div class="reason" id="erp-next-reason"></div>
+            </div>
+
+            <!-- Status geral -->
+            <div class="erp-card">
+                <div class="erp-card-title">Status do Sistema</div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">
+                    <span>Modo: <strong id="erp-ov-mode">—</strong></span>
+                    <span>Confiança: <span id="erp-ov-confidence" class="erp-confidence UNKNOWN">—</span></span>
+                    <span>Sync: <span id="erp-ov-sync">—</span></span>
+                    <span>Alertas: <strong id="erp-ov-alerts">0</strong></span>
+                </div>
+            </div>
+
+            <!-- Resumo de cidades -->
+            <div class="erp-card">
+                <div class="erp-card-title">Cidades</div>
+                <div id="erp-ov-cities"></div>
+            </div>
+
+            <!-- Botões de controle -->
+            <div style="display:flex;gap:8px;margin-top:4px;">
+                <button class="erp-btn" id="erp-btn-refresh">⟳ Refresh</button>
+            </div>
+
+        </div>
+
+        <!-- Tab: Fila -->
+        <div id="tab-queue" class="erp-tab-content" style="display:none">
+            <div class="erp-card">
+                <div class="erp-card-title">Em execução / pendente</div>
+                <div id="erp-queue-active"></div>
+            </div>
+            <div class="erp-card">
+                <div class="erp-card-title">Concluídas (últimas 20)</div>
+                <div id="erp-queue-done"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Cidades -->
+        <div id="tab-cities" class="erp-tab-content" style="display:none">
+            <div id="erp-cities-list"></div>
+        </div>
+
+        <!-- Tab: Testes -->
+        <div id="tab-tests" class="erp-tab-content" style="display:none">
+
+            <!-- REC Mode -->
+            <div class="erp-card">
+                <div class="erp-card-title">Modo REC — Gravação de Ações</div>
+                <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Liga o gravador enquanto navega manualmente. O bot fica em MANUAL e todos os requests/respostas são logados no Audit para aprender payloads desconhecidos.</div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="erp-btn" id="erp-rec-btn">⏺ Iniciar REC</button>
+                    <span id="erp-rec-status" style="display:none;color:#f85149;font-size:11px;font-weight:bold;">⏺ GRAVANDO — bot em MANUAL</span>
+                </div>
+            </div>
+
+            <!-- Envio de suprimentos -->
+            <div class="erp-card">
+                <div class="erp-card-title">Teste: Envio de Suprimentos</div>
+                <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <label style="color:#8b949e;">Origem:</label>
+                        <select id="erp-test-from" class="erp-mode-select"></select>
+                        <label style="color:#8b949e;">Destino:</label>
+                        <select id="erp-test-to" class="erp-mode-select"></select>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <label style="color:#8b949e;">Recurso:</label>
+                        <select id="erp-test-resource" class="erp-mode-select">
+                            <option value="wood">Madeira</option>
+                            <option value="wine">Vinho</option>
+                            <option value="marble">Mármore</option>
+                            <option value="glass">Cristal</option>
+                            <option value="sulfur">Enxofre</option>
+                        </select>
+                        <label style="color:#8b949e;">Qtd:</label>
+                        <input id="erp-test-qty" type="number" value="500" min="1"
+                            style="width:70px;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:12px;">
+                    </div>
+                    <button class="erp-btn" id="erp-test-transport-btn" style="align-self:flex-start;">▶ Enviar Suprimentos</button>
+                </div>
+            </div>
+
+            <!-- Upgrade aleatório -->
+            <div class="erp-card">
+                <div class="erp-card-title">Teste: Upgrade de Edifício</div>
+                <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <label style="color:#8b949e;">Cidade:</label>
+                        <select id="erp-test-build-city" class="erp-mode-select"></select>
+                    </div>
+                    <div style="color:#8b949e;font-size:11px;">Escolhe um edifício aleatório com tabela de custo disponível.</div>
+                    <button class="erp-btn" id="erp-test-build-btn" style="align-self:flex-start;">▶ Testar Upgrade</button>
+                </div>
+            </div>
+
+            <!-- Relatório -->
+            <div class="erp-card" id="erp-test-report-card" style="display:none">
+                <div class="erp-card-title">Relatório do Último Teste</div>
+                <div id="erp-test-report" style="font-size:12px;"></div>
+            </div>
+
+        </div>
+
+        <!-- Tab: Logs -->
+        <div id="tab-logs" class="erp-tab-content" style="display:none">
+            <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+                <select id="erp-log-filter-level" class="erp-mode-select" style="font-size:11px;">
+                    <option value="">Todos os níveis</option>
+                    <option value="error">Erros</option>
+                    <option value="warn">Avisos</option>
+                    <option value="info">Info</option>
+                    <option value="debug">Debug</option>
+                </select>
+                <select id="erp-log-filter-module" class="erp-mode-select" style="font-size:11px;">
+                    <option value="">Todos os módulos</option>
+                    <option value="CFO">CFO</option>
+                    <option value="COO">COO</option>
+                    <option value="HR">HR</option>
+                    <option value="CTO">CTO</option>
+                    <option value="CSO">CSO</option>
+                    <option value="MnA">MnA</option>
+                    <option value="TaskQueue">TaskQueue</option>
+                    <option value="GameClient">GameClient</option>
+                    <option value="StateManager">StateManager</option>
+                    <option value="DataCollector">DataCollector</option>
+                </select>
+                <button id="erp-log-copy" class="erp-btn" style="margin-left:auto;font-size:11px;padding:3px 8px;" title="Copiar log para área de transferência">📋 Copiar</button>
+            </div>
+            <div id="erp-log-container"></div>
+        </div>
+
+    </div>
+
+    <!-- Status bar permanente -->
+    <div id="erp-statusbar">
+        <span class="erp-statusbar-item">
+            <span class="erp-dot gray" id="erp-sb-dot"></span>
+            <span id="erp-sb-status">Inicializando</span>
+        </span>
+        <span class="erp-statusbar-item" id="erp-sb-queue">Fila: 0</span>
+        <span class="erp-statusbar-item" id="erp-sb-sync">—</span>
+        <span style="margin-left:auto">
+            <span id="erp-sb-city" style="color:#58a6ff;font-size:11px;"></span>
+        </span>
+    </div>
+
+</div>
