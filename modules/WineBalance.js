@@ -10,7 +10,8 @@ import ResourceCache from './ResourceCache.js';
 import Port from './Port.js';
 import Storage from './Storage.js';
 import Events from './Events.js';
-import { Resources, Buildings, WINE_USE } from '../data/const.js';
+import { Resources, Buildings } from '../data/const.js';
+import { WINE_USE } from '../data/wine.js';
 
 // ─── Configuração padrão ──────────────────────────────────────────────────────
 

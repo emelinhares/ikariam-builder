@@ -323,17 +323,32 @@ const Game = {
     /**
      * Busca pesquisas concluídas de todas as categorias via AJAX.
      * Popula _researchCache com os IDs numéricos das pesquisas exploradas.
-     * Categorias: seafaring, economy, knowledge, military, mythology
+     *
+     * Fluxo CONFIRMADO 2026-03-28:
+     *   GET view=researchAdvisor&researchId={seedId} → templateData.load_js.params
+     *   params.currResearchType = { nomePesquisa: { aHref, liClass } }
+     *   liClass "selected explored" = selecionada, "explored" = concluída, "" = bloqueada
+     *
+     * Usa um researchId semente por categoria para abrir a lista da categoria.
+     * Seeds: ID de qualquer pesquisa conhecida da categoria (usa a primeira pesquisa básica).
      */
     async fetchResearch() {
-        const CATEGORIES = ['seafaring', 'economy', 'knowledge', 'military', 'mythology'];
+        // researchId semente por categoria — qualquer ID conhecido da categoria funciona
+        // Confirmado: researchAdvisor&researchId=2150 abre Navegação Marítima
+        const CATEGORY_SEEDS = {
+            seafaring: 2150,   // Carpintaria (Navegação Marítima)
+            economy:   2010,   // Enologia / qualquer pesquisa de Economia
+            knowledge: 2030,   // qualquer pesquisa de Ciência
+            military:  2040,   // qualquer pesquisa de Militar
+            mythology: 2050,   // qualquer pesquisa de Mitologia
+        };
         const investigated = new Set();
+        const cityId = Game.getCityId();
 
-        for (const cat of CATEGORIES) {
+        for (const [cat, seedId] of Object.entries(CATEGORY_SEEDS)) {
             try {
-                const token = Game.getToken();
-                const url = `/index.php?view=researchAdvisor&researchType=${cat}&ajax=1` +
-                    (token ? `&actionRequest=${encodeURIComponent(token)}` : '');
+                const url = `/index.php?view=researchAdvisor&researchId=${seedId}` +
+                    (cityId ? `&currentCityId=${cityId}` : '') + `&ajax=1`;
                 const data = await Game.request(url);
                 const templateData = data.find(d => d[0] === 'updateTemplateData')?.[1];
                 const paramsStr = templateData?.load_js?.params;
@@ -341,7 +356,7 @@ const Game = {
 
                 const params = JSON.parse(paramsStr);
                 for (const entry of Object.values(params.currResearchType ?? {})) {
-                    if (entry.liClass === 'explored') {
+                    if (entry.liClass?.includes('explored')) {
                         const id = parseInt(entry.aHref.match(/researchId=(\d+)/)?.[1]);
                         if (id) investigated.add(id);
                     }
