@@ -88,8 +88,8 @@ async function _sendOnce(task) {
         cargo_tradegood2:      field === 'cargo_tradegood2' ? sending : 0,
         cargo_tradegood3:      field === 'cargo_tradegood3' ? sending : 0,
         cargo_tradegood4:      field === 'cargo_tradegood4' ? sending : 0,
-        capacity:              5,    // SEMPRE 5
-        max_capacity:          5,    // SEMPRE 5
+        capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
+        max_capacity:          5,
         jetPropulsion:         0,
         transporters:          boats,
         backgroundView:        'city',

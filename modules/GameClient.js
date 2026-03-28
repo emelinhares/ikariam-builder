@@ -223,7 +223,7 @@ export class GameClient {
                         premiumTransporter:    0,
                         normalTransportersMax: boats,
                         transporters:          boats,
-                        capacity:              5,
+                        capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
                         max_capacity:          5,
                         jetPropulsion:         0,
                         cargo_resource:        cargo.wood   ?? 0,
@@ -312,28 +312,91 @@ export class GameClient {
     }
 
     /**
-     * Inicia uma pesquisa.
-     * Abre a academy primeiro para estabelecer contexto.
-     * 3 tentativas via _postWithContext.
+     * Troca a pesquisa ativa para a categoria que contém researchId.
+     *
+     * Fluxo CONFIRMADO 2026-03-28:
+     *   1. GET researchAdvisor&researchId={id} → token + conservationLink.href no templateData
+     *   2. conservationLink.href = "?action=Advisor&function=doResearch&actionRequest={t}&type={cat}"
+     *   3. GET imediato com esse href
+     *
+     * Requer crystal suficiente para a próxima pesquisa da categoria.
+     * Falha com provideFeedback "Pontos insuficientes para a investigação." se crystal insuficiente.
      */
     startResearch(cityId, researchId) {
-        return this._enqueue(() => {
-            const city = this._state.getCity(cityId);
-            const academyPos = city?.buildings?.find(b => b.buildingId === 4)?.position ?? 10;
-            return this._postWithContext(
-                `/index.php?view=academy&cityId=${cityId}&position=${academyPos}` +
-                `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
-                {
-                    action:        'CityScreen',
-                    function:      'startResearch',
-                    researchId:    String(researchId),
-                    cityId:        String(cityId),
-                    currentCityId: String(cityId),
-                    ajax:          1,
-                },
-                `startResearch ${researchId} cidade ${cityId}`
-            );
+        return this._enqueue(async () => {
+            const MAX_ATTEMPTS = 3;
+            let lastErr;
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                try {
+                    // Passo 1: GET researchAdvisor para obter conservationLink com token fresco
+                    const advisorText = await this._get(
+                        `/index.php?view=researchAdvisor&researchId=${researchId}` +
+                        `&currentCityId=${cityId}&ajax=1`
+                    );
+                    const advisorData = JSON.parse(advisorText.trim());
+                    const tmpl = advisorData.find(c => Array.isArray(c) && c[0] === 'updateTemplateData')?.[1];
+                    const conservHref = tmpl?.js_researchAdvisorConservationLink?.href;
+                    if (!conservHref) {
+                        throw new GameError('GUARD', `startResearch: conservationLink ausente para researchId=${researchId}`);
+                    }
+
+                    // conservHref já contém token: "?action=Advisor&function=doResearch&actionRequest=X&type=Y"
+                    // Passo 2: GET imediato com esse href
+                    const doResearchText = await this._get(
+                        `/index.php${conservHref}&currentCityId=${cityId}&ajax=1`
+                    );
+                    const doData = JSON.parse(doResearchText.trim());
+                    const feedback = doData.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
+                    const entries = Array.isArray(feedback?.[1]) ? feedback[1] : [];
+                    const ok  = entries.find(f => f?.type === 10);
+                    const err = entries.find(f => f?.locakey?.includes('ERROR') || f?.text?.includes('insuficientes'));
+                    if (err) {
+                        throw new GameError('GUARD', `startResearch: ${err.text ?? err.locakey}`);
+                    }
+                    if (ok) {
+                        this._audit.info('GameClient', `✓ startResearch researchId=${researchId}: "${ok.text}"`);
+                    }
+                    return doResearchText;
+                } catch (err) {
+                    lastErr = err;
+                    if (err.fatal || err.guard) throw err;
+                    if (attempt < MAX_ATTEMPTS) {
+                        this._audit.warn('GameClient',
+                            `startResearch tentativa ${attempt}/${MAX_ATTEMPTS}: ${err.message} — aguardando ${2*attempt}s`);
+                        await new Promise(r => setTimeout(r, 2000 * attempt));
+                    }
+                }
+            }
+            throw lastErr;
         });
+    }
+
+    /**
+     * Doa madeira para upgrade do recurso de uma ilha.
+     *
+     * Fluxo CONFIRMADO 2026-03-28:
+     *   GET view=resource&type=resource&islandId={id} → token
+     *   POST imediato: action=IslandScreen function=donate donation={qty}
+     *
+     * @param {number} islandId  — ID da ilha
+     * @param {number} amount    — quantidade de madeira a doar
+     * @param {string} type      — 'resource' (floresta) ou '1'/'2'/'3'/'4' (tradegood)
+     */
+    donateIslandResource(islandId, amount, type = 'resource') {
+        return this._enqueue(() => this._postWithContext(
+            `/index.php?view=resource&type=${type}&islandId=${islandId}` +
+            `&currentIslandId=${islandId}&backgroundView=island&ajax=1`,
+            {
+                action:          'IslandScreen',
+                function:        'donate',
+                islandId:        String(islandId),
+                type,
+                donation:        String(amount),
+                currentIslandId: String(islandId),
+                ajax:            1,
+            },
+            `donateIslandResource ilha=${islandId} qty=${amount}`
+        ));
     }
 
     /**
