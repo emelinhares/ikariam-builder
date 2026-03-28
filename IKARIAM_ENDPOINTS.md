@@ -672,12 +672,22 @@ currentCityId={cityId}
 actionRequest={token}
 ```
 
-### `diplomacyTreaty` — Tratados ativos
+### `diplomacyAdvisor` — Painel diplomático (mensagens, tratados, aliança)
+```
+view=diplomacyAdvisor
+activeTab=tab_diplomacyAdvisor    ← inbox de mensagens
+currentCityId={cityId}
+```
+**Abas disponíveis:** `tab_diplomacyAdvisor` (inbox), `tab_diplomacyIslandBoard` (ágora), `tab_diplomacyTreaty` (tratados), `tab_diplomacyAlly` (aliança).
+
+### `diplomacyTreaty` — Tratados culturais ativos
 ```
 view=diplomacyTreaty
 activeTab=tab_diplomacyTreaty
 currentCityId={cityId}
 ```
+**HTML retorna:** tabela com cidades em tratado, nível do museu, satisfação, link "Para o Museu", e botão "Distribuir bens culturais".
+**Pedidos pendentes** aparecem no inbox (`diplomacyAdvisor`) como mensagens com `msgType=80`.
 
 ### `diplomacyIslandBoard` — Quadro de avisos da ilha
 ```
@@ -685,6 +695,46 @@ view=diplomacyIslandBoard
 activeTab=tab_diplomacyIslandBoard
 currentCityId={cityId}
 ```
+
+### `Messages` function=`send` — **PROPOR / ACEITAR / CANCELAR TRATADO CULTURAL** ✅ confirmado 2026-03-28
+```
+POST /index.php?view=sendIKMessage&...&templateView=sendIKMessage&actionRequest={token}&ajax=1
+
+action=Messages
+function=send
+receiverId={avatarId}      ← ID do jogador (não da cidade)
+closeView=1
+msgType={tipo}             ← ver tabela abaixo
+content={textoOpcional}
+actionRequest={token}
+```
+
+**Tipos de mensagem (`msgType`) confirmados via HTML do form `sendIKMessage`:**
+| msgType | Significado |
+|---------|-------------|
+| 50 | Mensagem normal |
+| 80 | Propor tratado cultural ⚠️ inferido (par de 81) |
+| 81 | Cancelar tratado cultural |
+| 89 | Enviar aplicação de aliança |
+| 100 | Pedido de amizade |
+| 110 | Oferecer partilha de IP |
+| 115 | Declarar Desafio de Guerra |
+
+**Fluxo de tratado cultural:**
+1. Jogador A envia `msgType=80` para jogador B (proposta)
+2. Jogador B recebe no inbox com assunto "está a oferecer um tratado cultural"
+3. Jogador B aceita via resposta — envia `msgType` de aceite (número a confirmar)
+4. Confirmado: "xEmEx aceitou o teu tratado cultural" aparece no outbox do proponente
+
+**Abrir form de mensagem para outro jogador:**
+```
+view=sendIKMessage
+receiverId={avatarId}
+isMission=1
+closeView=1
+currentCityId={cityId}
+```
+O `receiverId` (avatarId) está em `cityDetails` templateData → `js_selectedCityOwnerName.href` → `avatarId={id}`.
 
 ---
 
