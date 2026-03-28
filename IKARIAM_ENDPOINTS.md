@@ -506,13 +506,40 @@ backgroundView=island
 currentIslandId={ilha}
 ```
 
-### `IslandScreen` (donateForm) — Doação de madeira para recurso da ilha
+### `resource` / `tradegood` — Ver recurso da ilha
 ```
+view=resource
+type=resource          ← floresta/madeira
+islandId={ilha}
+currentIslandId={ilha}
+backgroundView=island
+```
+```
+view=tradegood
+type={1|2|3|4}         ← 1=vinho, 2=mármore, 3=crystal, 4=enxofre
+islandId={ilha}
+currentIslandId={ilha}
+backgroundView=island
+```
+**HTML retorna:** nível atual, progresso de upgrade, form de doação (se disponível), form de workers (`IslandScreen function=workerPlan screen=tradegood`).
+
+### `IslandScreen` function=`donate` — **DOAR MADEIRA PARA UPGRADE DO RECURSO** ✅ CONFIRMADO 2026-03-28
+```
+POST /index.php?view=resource&type=resource&islandId={ilha}&currentIslandId={ilha}&backgroundView=island&templateView=resource&actionRequest={token}&ajax=1
+
 action=IslandScreen
-[form#donateForm — campo donateWood={valor}]
+function=donate
+islandId={ilha}
+type=resource          ← sempre "resource" para floresta; para tradegood seria type={1|2|3|4}
+donation={qtdMadeira}  ← quantidade de madeira a doar (inteiro positivo)
 currentIslandId={ilha}
 actionRequest={token}
 ```
+**Notas:**
+- O form de doação só aparece quando o recurso NÃO está em upgrade ativo.
+- O campo `máx` no HTML mostra a quantidade máxima doável: `$('#donateWood').val('{max}')` — usar esse valor para "doar tudo".
+- Existe também `ambrosiaDonateForm` para doar ambrosia (1 ambrosia = 50 madeira equivalente).
+- Confirmado: doação de 100 madeira para Floresta (nível 10) em ilha Meedios [62:75].
 
 ### `barbarianVillage` — Ver vila bárbara
 ```
