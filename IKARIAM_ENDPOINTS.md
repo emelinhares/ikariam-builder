@@ -4,6 +4,7 @@
 > Todos os requests são POST para `index.php` com body form-encoded.
 > `actionRequest` (CSRF token) é obrigatório em toda action que modifica estado.
 > `currentCityId` deve corresponder à cidade navegada antes de enviar.
+> ✅ `UpgradeExistingBuilding` confirmado em 2026-03-28 (Armazém lv9→10 em BAD VINHO). É GET, não POST.
 > ⚠️ `UpgradeExistingBuilding` sem recursos retorna `confirmResourcePremiumBuy` — tratar como falha.
 
 ## Padrão Geral de Request — CONFIRMADO em 2026-03-28
@@ -154,20 +155,20 @@ templateView=buildingGround
 actionRequest={token}
 ```
 
-### `UpgradeExistingBuilding` — **MELHORAR** edifício existente
+### `UpgradeExistingBuilding` — **MELHORAR** edifício existente ✅ CONFIRMADO 2026-03-28
 ```
-action=UpgradeExistingBuilding
-cityId={cityId}
-position={slotEdificio}
-level={nivelAtual}        ← nível ANTES da melhoria
-activeTab={tabAtiva}
-backgroundView=city
-currentCityId={cityId}
-templateView={nomeView}
-actionRequest={token}
+GET /index.php?action=UpgradeExistingBuilding&actionRequest={token}&cityId={cityId}&position={slot}&level={nivelAtual}&currentCityId={cityId}&backgroundView=city&ajax=1
 ```
-**Resposta com recursos:** `[updateGlobalData, changeView, ...]` com `endUpgradeTime`.
-**Resposta sem recursos:** view `confirmResourcePremiumBuy` — tratar como falha, NÃO como sucesso.
+> ⚠️ É um **GET**, não POST — igual ao padrão do `ajaxHandlerCall(this.href)` do jogo.
+> ⚠️ `level` = nível ATUAL do edifício (antes da melhoria), extraído do `upgradeHref` no HTML do view.
+
+**Resposta com recursos:** `provideFeedback` "A tua ordem foi executada." + `changeView` com o view do edifício.
+**Resposta sem recursos:** `changeView` tipo `confirmResourcePremiumBuy` "Ainda te faltam alguns recursos!" — tratar como falha.
+
+**Fluxo correto:**
+1. GET `view={edificio}&cityId={id}&position={slot}` → extrair `actionRequest` de `upd[1].actionRequest`
+2. Extrair `level` do `upgradeHref` no HTML retornado (ex: `action=UpgradeExistingBuilding&...&level=9`)
+3. GET imediato `action=UpgradeExistingBuilding&actionRequest={token}&cityId=...&level={nivelAtual}&...&ajax=1`
 
 ### `CityScreen` function=`cancelBuilding` — Cancelar construção em andamento
 ```
