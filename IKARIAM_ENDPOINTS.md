@@ -1,10 +1,25 @@
 # Ikariam — Mapa Completo de Endpoints
 
-> Mapeado via REC captures em 2026-03-24 (sessões 16:35, 17:12, 17:38, 21:12, 21:14, 21:16).
+> Mapeado via REC captures em 2026-03-24 + scraping ao vivo em 2026-03-28 (Playwright MCP).
 > Todos os requests são POST para `index.php` com body form-encoded.
 > `actionRequest` (CSRF token) é obrigatório em toda action que modifica estado.
 > `currentCityId` deve corresponder à cidade navegada antes de enviar.
 > ⚠️ `UpgradeExistingBuilding` sem recursos retorna `confirmResourcePremiumBuy` — tratar como falha.
+
+## Padrão Geral de Request — CONFIRMADO em 2026-03-28
+
+O servidor rejeita POST puro (`/index.php` sem query string). O padrão correto é:
+
+```
+POST /index.php?view={view}&cityId={id}&currentCityId={id}&backgroundView=city&templateView={view}&actionRequest={token}&ajax=1
+Content-Type: application/x-www-form-urlencoded
+
+action={action}&function={function}&...campos...&actionRequest={token}
+```
+
+> ⚠️ O `actionRequest` deve estar **tanto na query string da URL quanto no body**.
+> ⚠️ O token fresco vem em `updateGlobalData[1].actionRequest` (raiz), **não** em `updateGlobalData[1].headerData.actionRequest`.
+> ⚠️ Cada GET de view também consome o token — usar o token da resposta GET imediatamente no POST seguinte sem requests intermediários.
 
 ---
 
@@ -73,20 +88,33 @@ function=loadTransportersWithFreight
 currentCityId={cidadeOrigem}
 destinationCityId={cidadeDestino}
 islandId={ilhaDestino}
-normalTransportersMax={navsDisponiveis}
+normalTransportersMax={navsDisponiveis}   ← de headerData.freeTransporters
 cargo_resource={madeira}
 cargo_tradegood1={vinho}
 cargo_tradegood2={marmore}
 cargo_tradegood3={crystal}
 cargo_tradegood4={enxofre}
-capacity={slotsUsados}           ← ≤ max_capacity
-max_capacity={slotsMaxPorNavio}  ← tipicamente 5
+capacity={transporters × max_capacity}   ← CALCULAR, não usar o 0 do HTML
+max_capacity={slotsMaxPorNavio}          ← do HTML do form transport (tipicamente 5)
 transporters={qtdNavios}
-jetPropulsion=0                  ← 1 se tiver pesquisa de propulsão
+jetPropulsion=0                          ← 1 se tiver pesquisa de propulsão
 currentTab=tabSendTransporter
 actionRequest={token}
 ```
+**Fórmula de carga — CONFIRMADA em 2026-03-28:**
+```
+capacity    = transporters × max_capacity      (ex: 3 × 5 = 15)
+cargo_total = capacity × 100                   (ex: 15 × 100 = 1.500 unidades)
+```
+> ⚠️ O campo `capacity` no HTML do form de transport começa em `0` (valor do slider).
+> Nunca usar esse `0` — sempre calcular `transporters × max_capacity`.
+> Confirmado: 3 barcos enviados, `freeTransporters` caiu de 65→62, 1.500 vinho debitado.
+
 **Feedback de sucesso:** "A tua ordem foi executada."
+
+**Fluxo correto:**
+1. GET `view=transport&destinationCityId={dest}&position={portPos}` → extrair `max_capacity` e `islandId` do HTML, token de `upd[1].actionRequest`
+2. POST imediato com os campos acima, URL: `?view=transport&...&templateView=transport&actionRequest={token}&ajax=1`
 
 ### `transportOperations` function=`abortFleetOperation` — Cancelar missão em voo
 ```
@@ -236,12 +264,16 @@ action=CityScreen
 function=assignWinePerTick
 cityId={cityId}
 position={slot}
-amount={nivelVinho}    ← valor direto: 0, 3, 7, 11, 15, 20, ...
+amount={indice}        ← ÍNDICE do dropdown (0–18), não o valor em /hora!
 currentCityId={cityId}
 actionRequest={token}
 ```
-**Notas:** `amount` corresponde ao valor do dropdown "Sem vinho / 3 por hora / 7 por hora / ...".
-Campo único — não há slider, só o valor final desejado.
+**Notas:**
+- `amount` é o **índice** da opção no select (0=sem vinho, 1=3/h, 2=6/h, ... 18=117/h para taberna nível 18).
+- O máximo depende do nível da taberna (`setActualValue(N)` onde N = nível).
+- Confirmado ao vivo: `amount=0` → `wineSpendings=0`, `amount=18` → `wineSpendings=117`.
+- Fluxo correto: GET `view=tavern` → token em `upd[1].actionRequest` → POST imediato.
+- URL do POST: `?view=tavern&cityId=...&templateView=tavern&actionRequest={token}&ajax=1`
 
 ---
 
