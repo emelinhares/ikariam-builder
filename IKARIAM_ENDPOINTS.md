@@ -289,19 +289,18 @@ currentCityId={cityId}
 backgroundView=city
 ```
 
-### `IslandScreen` function=`workerPlan` — **ALOCAR CIENTISTAS** ✅
+### `IslandScreen` function=`workerPlan` — **ALOCAR CIENTISTAS** ✅ confirmado 2026-03-28
 ```
 action=IslandScreen
 function=workerPlan
 screen=academy
 position={slot}
 cityId={cityId}
-s={qtdCientistas}      ← número final de cientistas a alocar
+s={qtdCientistas}      ← número final de cientistas a alocar (campo "s", confirmado no HTML)
 currentCityId={cityId}
 actionRequest={token}
 ```
-**Notas:** `s` = quantidade desejada de cientistas. Mesmo endpoint para outros edifícios
-com workers — muda `screen=` (ex: `screen=barracks`).
+**Notas:** `s` = quantidade desejada (confirmado via inspeção do HTML da academia). Mesmo endpoint para outros edifícios com workers — muda `screen=` (ex: `screen=barracks`, `screen=tradegood`). Para tradegood na ilha o campo vira `tw` e usa `IslandId` em vez de `cityId`.
 
 ### `CityScreen` function=`buyResearch` — **CONDUZIR ENSAIO** (acelerar pesquisa com cristal) ✅
 ```
@@ -393,17 +392,54 @@ actionRequest={token}
 
 ## 9. Pesquisa Científica
 
-### `noViewChange` researchType — Trocar categoria de pesquisa
+### `researchAdvisor` — Painel de pesquisa (sidebar por categoria)
 ```
-view=noViewChange
-researchType=seafaring    ← categorias: seafaring, economy, knowledge, military, mythology
+view=researchAdvisor
+oldView={viewAnterior}
 currentCityId={cityId}
 ```
-**Resposta:** `[updateGlobalData, updateViewScriptData, ...]` — atualiza lista de pesquisas da categoria.
+**Retorna:** sidebar com 5 categorias, templateData com progresso de cada uma.
 
-### Iniciar pesquisa específica ⚠️ NÃO CAPTURADO
-> Provavelmente `action=CityScreen function=startResearch researchId={id}` ou similar.
-> Requer captura clicando numa pesquisa disponível na lista do researchAdvisor.
+**templateData relevante:**
+- `js_researchAdvisorCurrResearchType` — categoria ativa atual (ex: "Economia")
+- `js_researchAdvisorScientists` — total de cientistas
+- `js_researchAdvisorPoints` — crystal acumulado
+- `js_researchAdvisorTime` — horas restantes para próxima pesquisa
+- `js_researchAdvisorConservationLink.href` — link para `doResearch` com a categoria/tipo correto
+- `load_js.params` (JSON) → `currResearchType` — mapa `{nomePesquisa: {aHref, liClass}}` com todos os researchIds da categoria visualizada
+
+### `researchAdvisor` + `researchId` — Ver lista de pesquisas de uma categoria
+```
+view=researchAdvisor
+researchId={id}           ← researchId de qualquer pesquisa da categoria desejada
+currentCityId={cityId}
+```
+**Efeito:** muda a categoria visualizada. `conservationLink` passa a apontar para `type={categoriaDaCategoria}`.
+**`load_js.params.currResearchType`** — lista todas as pesquisas da categoria com `researchId` e `liClass` ("selected explored" = selecionada, "explored" = já pesquisada, "" = bloqueada).
+
+### `noViewChange` + `researchId` — Selecionar pesquisa individual na lista (só UI)
+```
+view=noViewChange
+researchId={id}           ← researchId da pesquisa específica
+currentCityId={cityId}
+```
+**Efeito:** apenas UI — não muda nada no servidor, só atualiza o highlight na lista.
+
+### `Advisor` function=`doResearch` — **TROCAR PESQUISA ATIVA** ✅ endpoint confirmado
+```
+GET /index.php?action=Advisor&function=doResearch&actionRequest={token}&type={categoria}&currentCityId={cityId}&ajax=1
+```
+**Categorias:** `seafaring`, `economy`, `knowledge`, `military`, `mythology`
+
+**Fluxo correto:**
+1. GET `view=researchAdvisor&researchId={idDaCategoriaDesejada}` → extrai `conservationLink.href` do templateData (já contém o token e o type correto)
+2. GET imediato: `/index.php` + `conservationLink.href` + `&currentCityId={id}&ajax=1`
+
+**Resposta sucesso:** `provideFeedback` "A tua ordem foi executada.", templateData com novo `js_researchAdvisorCurrResearchType`.
+**Resposta falha:** `provideFeedback` "Pontos insuficientes para a investigação." (type 11) — não há crystal suficiente para a próxima pesquisa dessa categoria.
+
+> ⚠️ `doResearch` tenta **iniciar** a próxima pesquisa da categoria — requer crystal suficiente.
+> ⚠️ Não é só trocar "foco" — realmente inicia a pesquisa e debita crystal.
 
 ---
 
