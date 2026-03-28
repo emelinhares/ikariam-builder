@@ -168,8 +168,13 @@ ikariam.model.relatedCityData = {
 > `cityDropdownMenu` em `headerData` tem as mesmas cidades mas **NÃO tem `selectedCityId`**.
 > `selectedCityId` só existe em `relatedCityData`.
 
+> ⚠️ `relatedCityData` é um **objeto**, não array. Chaves no formato `"city_6582"`.
+> `selectedCity` (não `selectedCityId`) contém a chave ativa ex: `"city_6582"`.
+> Confirmado ao vivo 2026-03-28.
+
 > ⚠️ `islandId` pode não estar presente em `relatedCityData`.
-> Fonte confiável: navegar para a cidade e ler `backgroundView.screen.data.islandId`.
+> Fonte confiável para islandId: GET `view=transport` → HTML do form (`name="islandId" value="..."`).
+> Ou navegar para a cidade e ler `backgroundView.screen.data.islandId`.
 
 ---
 
