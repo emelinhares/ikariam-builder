@@ -700,6 +700,8 @@ export function getOpticianGlassDiscount(level) {
     return Math.min(level, 50);
 }
 
+export { WAREHOUSE_CAPACITY, TOWN_HALL_MAX_CITIZENS, ACADEMY_MAX_SCIENTISTS };
+
 export const BUILDING_EFFECTS = {
     townHall:     { maxCitizens:       TOWN_HALL_MAX_CITIZENS },
     academy:      { maxScientists:     ACADEMY_MAX_SCIENTISTS },

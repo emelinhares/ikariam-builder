@@ -59,12 +59,16 @@ export class Audit {
             });
         }
 
-        // Log no console para debug
+        // Log no console para debug — usar referências salvas em inject.js (imunes a sobrescrita)
         const prefix = `[ERP:${module}]`;
-        if      (level === 'error') console.error(prefix, message, data ?? '');
-        else if (level === 'warn')  console.warn(prefix,  message, data ?? '');
-        else if (level === 'debug') console.debug(prefix, message, data ?? '');
-        else                        console.log(prefix,   message, data ?? '');
+        const _e = window.__erpError ?? console.error;
+        const _w = window.__erpWarn  ?? console.warn;
+        const _d = window.__erpDebug ?? console.debug ?? console.log;
+        const _l = window.__erpLog   ?? console.log;
+        if      (level === 'error') _e(prefix, message, data ?? '');
+        else if (level === 'warn')  _w(prefix, message, data ?? '');
+        else if (level === 'debug') _d(prefix, message, data ?? '');
+        else                        _l(prefix, message, data ?? '');
     }
 
     info(module, message, data, cityId)  { this.log('info',  module, message, data, cityId); }

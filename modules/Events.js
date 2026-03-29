@@ -73,15 +73,21 @@ export const Events = {
         QUEUE_MODE_CHANGED:   'queue:modeChanged',    // { mode }
 
         // Módulos de negócio
-        CFO_BUILD_APPROVED:   'cfo:buildApproved',   // { cityId, building, position, reason }
-        CFO_BUILD_BLOCKED:    'cfo:buildBlocked',    // { cityId, building, reason }
+        CFO_BUILD_APPROVED:   'cfo:buildApproved',      // { cityId, building, position, reason }
+        CFO_BUILD_BLOCKED:    'cfo:buildBlocked',       // { cityId, building, reason }
         COO_TRANSPORT_SCHED:  'coo:transportScheduled', // { task }
+        COO_MULTI_SOURCE:     'coo:multiSource',        // { res, deficit, sources[], dest }
+        COO_MIN_STOCK_SCHED:  'coo:minStockScheduled',  // { cityId, res, amount, source }
         HR_WINE_EMERGENCY:    'hr:wineEmergency',    // { cityId, hoursRemaining }
         HR_WINE_ADJUSTED:     'hr:wineAdjusted',     // { cityId, oldLevel, newLevel }
         HR_WORKER_REALLOC:    'hr:workerReallocated',// { cityId }
         CTO_RESEARCH_START:   'cto:researchStarted', // { researchId }
         CSO_CAPITAL_RISK:     'cso:capitalAtRisk',   // { cityId, atRisk }
         CSO_ESCROW_CREATED:   'cso:escrowCreated',   // { cityId, offerId, goldHidden }
+
+        // Planner
+        PLANNER_CYCLE_START:  'planner:cycleStart',  // { ts }
+        PLANNER_CYCLE_DONE:   'planner:cycleDone',   // { ts, summary, ctx }
 
         // UI
         UI_STATE_UPDATED:     'ui:state:updated',    // UIState completo
