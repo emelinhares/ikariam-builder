@@ -13,10 +13,10 @@ export class MnA {
     }
 
     init() {
-        this._events.on(this._events.E.STATE_ALL_FRESH, () => this._detectNewCities());
+        // STATE_ALL_FRESH removido — orquestrado pelo Planner
     }
 
-    replan() { this._detectNewCities(); }
+    async replan(ctx = null) { await this._detectNewCities(); }
 
     // ── Detecção de novas cidades ─────────────────────────────────────────────
 

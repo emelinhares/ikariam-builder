@@ -16,10 +16,10 @@ export class CTO {
     init() {
         const E = this._events.E;
         this._events.on(E.STATE_RESEARCH,  () => this._checkAndQueue());
-        this._events.on(E.STATE_ALL_FRESH, () => this._checkAndQueue());
+        // STATE_ALL_FRESH removido — orquestrado pelo Planner
     }
 
-    replan() { this._checkAndQueue(); }
+    replan(ctx = null) { this._checkAndQueue(); }
 
     // ── Avaliação ─────────────────────────────────────────────────────────────
 

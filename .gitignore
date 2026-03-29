@@ -1,0 +1,24 @@
+.env
+ikariam_session.json
+node_modules/
+
+# Browser e sessão
+browser_profile/
+scraper_dumps/
+scraper_report.json
+analise.json
+
+# Screenshots e logs
+*.png
+rec-*.txt
+rec_acao.txt
+
+# Scripts utilitários pontuais
+login.mjs
+resize_screen.mjs
+inspect.mjs
+test_session.mjs
+dump_ajax_buildings.mjs
+
+# IDE
+.continue/

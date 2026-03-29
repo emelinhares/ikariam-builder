@@ -15,14 +15,10 @@ export class CSO {
 
     init() {
         const E = this._events.E;
-        this._events.on(E.STATE_ALL_FRESH, () => {
-            for (const city of this._state.getAllCities()) {
-                this._checkCapitalRisk(city);
-            }
-        });
+        // STATE_ALL_FRESH removido — orquestrado pelo Planner
     }
 
-    replan() {
+    replan(ctx = null) {
         for (const city of this._state.getAllCities()) {
             this._checkCapitalRisk(city);
         }

@@ -19,6 +19,7 @@ const DEFAULTS = Object.freeze({
     transportMinLoadFactor:    0.9,    // fator mínimo de carga (90%)
     transportSafetyBufferS:    300,    // margem de segurança JIT (5 min)
     hubRefreshIntervalMs:      900_000,// recalcular hub a cada 15 min
+    minStockFraction:          0.20,   // mínimo proativo por recurso = 20% da capacidade
 
     // ── HR ────────────────────────────────────────────────────────────────────
     wineEmergencyHours:        4,      // alerta P0 se vinho restante < X horas

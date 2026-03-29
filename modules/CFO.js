@@ -6,9 +6,11 @@
 //   v1: usava slot.buildingId (inexistente) → nunca avaliava nenhum slot.
 //       Corrigido para slot.building (campo real do StateManager).
 
-import { getCost }                           from '../data/buildings.js';
-import { getWarehouseSafe, getCorruption }   from '../data/effects.js';
-import { PORT_LOADING_SPEED, BuildingsId }   from '../data/const.js';
+import { getCost }                                                      from '../data/buildings.js';
+import { getWarehouseSafe, getCorruption,
+         WAREHOUSE_CAPACITY, TOWN_HALL_MAX_CITIZENS,
+         ACADEMY_MAX_SCIENTISTS }                                        from '../data/effects.js';
+import { PORT_LOADING_SPEED, BuildingsId }                              from '../data/const.js';
 
 // Edifícios que aumentam produção de recursos (tratamento especial de ROI)
 const PRODUCTION_BUILDINGS = new Set([
@@ -31,8 +33,7 @@ export class CFO {
 
     init() {
         const E = this._events.E;
-        // Avaliação completa após refresh de todas as cidades
-        this._events.on(E.STATE_ALL_FRESH, () => this.replan());
+        // STATE_ALL_FRESH removido — orquestrado pelo Planner
         // Reavaliar após BUILD concluído (pode ter desbloqueado próximo)
         this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
             if (task.type === 'BUILD') {
@@ -43,18 +44,34 @@ export class CFO {
     }
 
     /** Re-executa avaliação em todas as cidades. */
-    replan() {
+    replan(ctx = null) {
         const cities = this._state.getAllCities();
         this._audit.info('CFO', `=== REPLAN: avaliando ${cities.length} cidades ===`);
         for (const city of cities) {
-            this.evaluateCity(city.id);
+            this.evaluateCity(city.id, ctx);
         }
     }
 
-    evaluateCity(cityId) {
+    evaluateCity(cityId, ctx = null) {
         const city     = this._state.getCity(cityId);
         const research = this._state.research;
         if (!city) return;
+
+        // Verificar buildBlocked do Planner — emergência de sustento tem prioridade absoluta
+        if (ctx) {
+            const cityCtx = ctx.cities.get(cityId);
+            if (cityCtx?.buildBlocked) {
+                this._audit.info('CFO',
+                    `${city.name}: SKIP — buildBlocked (wineHours=${cityCtx.wineHours?.toFixed(1)}h sat=${cityCtx.satisfaction})`
+                );
+                this._events.emit(this._events.E.CFO_BUILD_BLOCKED, {
+                    cityId,
+                    building: null,
+                    reason:   'Planner: emergência de sustento ativa',
+                });
+                return;
+            }
+        }
 
         const conf = this._state.getConfidence(cityId);
 
@@ -161,6 +178,12 @@ export class CFO {
             toLevel: best.toLevel, cost: best.cost, reason: best.reason,
         });
 
+        // Registrar no contexto do Planner que esta cidade recebeu build aprovado
+        if (ctx) {
+            const cityCtx = ctx.cities.get(cityId);
+            if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
+        }
+
         this._queue.add({
             type:     'BUILD',
             priority: Math.max(0, 100 - best.score),
@@ -255,91 +278,132 @@ export class CFO {
         return candidates.sort((a, b) => b.score - a.score || b.roi - a.roi);
     }
 
-    // ── Score dinâmico ────────────────────────────────────────────────────────
+    // ── Score baseado em necessidade (urgência × impacto × saturação) ──────────
+    //
+    // Cada edifício compete pelo problema real que resolve agora.
+    // score = urgency(0–1) × impact(0–1) × (1 - saturation(0–1)) × 100
+    // Edifícios sem cálculo específico usam BASE fixo com decaimento por nível.
 
     _buildingScore(building, currentLevel, city, research, totalCities) {
-        const BASE = {
-            // Redutores de custo — alto impacto composto em todos os builds futuros
-            carpentering:  90,
-            architect:     85,
-            optician:      80,
-            vineyard:      75,
-            fireworker:    70,
-            // Infraestrutura crítica
-            academy:       65,
-            port:          55,
-            warehouse:     50,
-            tavern:        45,
-            townHall:      40,
-            // Produção de recursos
-            forester:      35,
-            stonemason:    32,
-            glassblowing:  32,
-            alchemist:     32,
-            winegrower:    32,
-            // Administrativo/Diplomático
-            embassy:       25,
-            branchOffice:  22,
-            museum:        18,
-            palaceColony:  15,
-            palace:        15,
-            workshop:      12,
-            safehouse:     10,
-            // Militar — baixa prioridade (ERP não é foco militar)
-            barracks:       8,
-            shipyard:       8,
-            wall:           5,
-        };
-
-        let score = BASE[building] ?? 20;
-
-        // Corrupção: palaceColony tem prioridade absoluta
-        const corruption = city.economy?.corruption ?? 0;
-        if (corruption > 0.01) {
-            if (building === 'palaceColony') {
-                score = 100;
-                return score; // retorno imediato — máxima prioridade
-            }
-            score = Math.max(0, score - 25);
+        // Corrupção: prioridade absoluta
+        if (building === 'palaceColony') {
+            const corruption = city.economy?.corruption ?? 0;
+            return corruption > 0.01 ? 100 : 10;
+        }
+        if ((city.economy?.corruption ?? 0) > 0.01) {
+            // Qualquer outra coisa numa cidade corrompida tem score zero — palaceColony primeiro
+            return 0;
         }
 
-        // Redutor: diminui valor em níveis altos (lei de retornos decrescentes)
-        // Acima do nível 20, utilidade por nível decresce
-        if (currentLevel >= 20) score = Math.round(score * 0.85);
-        if (currentLevel >= 30) score = Math.round(score * 0.75);
-        if (currentLevel >= 40) score = Math.round(score * 0.65);
+        const nextLevel = currentLevel + 1;
 
-        // Porto lento — aumenta urgência de upgrade
-        if (building === 'port') {
-            const portSlot = city.buildings?.find(b => b.building === 'port');
-            if (portSlot) {
-                const speed = PORT_LOADING_SPEED[portSlot.level] ?? 10;
-                if (speed < 500)  score = Math.min(88, score + 35); // muito lento
-                else if (speed < 2000) score = Math.min(75, score + 20);
-            }
-        }
-
-        // Academia com redutores de pesquisa pendentes — priorizar
-        if (building === 'academy') {
-            const investigated = research?.investigated ?? new Set();
-            // IDs: Pulley=2020, Conservation=2060, Geometry=1120, Architecture=2010, Paper=3010, Ink=3020, Mechanical Pen=3030
-            const reducerIds = [2020, 2060, 1120, 2010, 3010, 3020, 3030];
-            const pendingReducers = reducerIds.filter(id => !investigated.has(id)).length;
-            if (pendingReducers > 0) {
-                score = Math.min(95, score + pendingReducers * 5);
-            }
-        }
-
-        // Warehouse: essencial se próximo de overflow
+        // ── Warehouse ────────────────────────────────────────────────────────
         if (building === 'warehouse') {
-            const maxRes = city.maxResources ?? 0;
-            if (maxRes > 0) {
-                const maxPct = Math.max(...Object.values(city.resources ?? {}).map(v => v / maxRes));
-                if (maxPct > 0.90) score = Math.min(85, score + 30); // overflow iminente
-                else if (maxPct > 0.75) score = Math.min(70, score + 15);
-            }
+            const maxRes  = city.maxResources ?? 0;
+            if (!maxRes) return 20;
+            const fillPct = Math.max(...Object.values(city.resources ?? {}).map(v => v / maxRes));
+            // urgency: 0 se vazio, 1 se cheio
+            const urgency    = Math.min(1, Math.max(0, (fillPct - 0.50) / 0.50));
+            // impact: ganho relativo de capacidade
+            const capNow     = WAREHOUSE_CAPACITY[currentLevel] ?? maxRes;
+            const capNext    = WAREHOUSE_CAPACITY[nextLevel]    ?? capNow;
+            const impact     = Math.min(1, (capNext - capNow) / Math.max(capNow, 1));
+            // saturation: capacidade já muito grande vs produção (nível alto = menos urgente)
+            const saturation = Math.min(1, currentLevel / 30);
+            return Math.round(urgency * impact * (1 - saturation) * 100) + 10;
         }
 
+        // ── TownHall ─────────────────────────────────────────────────────────
+        if (building === 'townHall') {
+            const pop     = city.economy?.population    ?? 0;
+            const maxPop  = city.economy?.maxInhabitants ?? 0;
+            if (!maxPop) return 20;
+            const popPct  = pop / maxPop;
+            // urgency: cidade crescendo e chegando no limite
+            const growing = (city.economy?.growthPerHour ?? 0) > 0;
+            const urgency = Math.min(1, Math.max(0, (popPct - 0.60) / 0.40)) * (growing ? 1.3 : 0.7);
+            // impact: quantos habitantes a mais
+            const maxNow  = TOWN_HALL_MAX_CITIZENS[currentLevel] ?? maxPop;
+            const maxNext = TOWN_HALL_MAX_CITIZENS[nextLevel]    ?? maxNow;
+            const impact  = Math.min(1, (maxNext - maxNow) / Math.max(maxNow, 1));
+            const saturation = Math.min(1, currentLevel / 40);
+            return Math.round(Math.min(1, urgency) * impact * (1 - saturation) * 100) + 10;
+        }
+
+        // ── Port ─────────────────────────────────────────────────────────────
+        if (building === 'port') {
+            const speedNow  = PORT_LOADING_SPEED[currentLevel] ?? 10;
+            const speedNext = PORT_LOADING_SPEED[nextLevel]    ?? speedNow;
+            // impact: ganho percentual de velocidade (salto nv10→11 é enorme)
+            const impact    = Math.min(1, (speedNext - speedNow) / Math.max(speedNow, 1));
+            // urgency: transportes pendentes indicam gargalo logístico
+            const pending   = this._queue?.getPending(city.id)
+                ?.filter(t => t.type === 'TRANSPORT').length ?? 0;
+            const urgency   = Math.min(1, 0.3 + pending * 0.15);
+            const saturation = speedNow > 5000 ? 0.6 : 0; // porto rápido = menos urgente
+            return Math.round(urgency * impact * (1 - saturation) * 100) + 10;
+        }
+
+        // ── Academia ─────────────────────────────────────────────────────────
+        if (building === 'academy') {
+            const scientists    = city.workers?.scientists ?? 0;
+            const capNow        = ACADEMY_MAX_SCIENTISTS[currentLevel] ?? 0;
+            const capNext       = ACADEMY_MAX_SCIENTISTS[nextLevel]    ?? capNow;
+            // urgency: cap atual já está sendo usado (cientistas no limite)
+            const urgency       = capNow > 0 ? Math.min(1, scientists / capNow) : 0;
+            // impact: quantos cientistas a mais o próximo nível permite
+            const impact        = Math.min(1, (capNext - capNow) / Math.max(capNow, 1));
+            // saturation: cientistas vs população (academia grande demais pra pop atual)
+            const pop           = city.economy?.population ?? 0;
+            const sciRatio      = pop > 0 ? scientists / pop : 0;
+            const saturation    = Math.min(1, sciRatio / 0.30); // >30% da pop em ciência = saturado
+            return Math.round(urgency * impact * (1 - saturation) * 100) + 5;
+        }
+
+        // ── Tavern ───────────────────────────────────────────────────────────
+        if (building === 'tavern') {
+            const sat = city.economy?.satisfaction ?? null;
+            // Sem dado de satisfaction: score base baixo (não agir às cegas)
+            if (sat === null) return 15;
+            // urgency: quanto abaixo do target (1)
+            const urgency    = sat < 1 ? Math.min(1, (1 - sat) / 3) : 0;
+            const saturation = sat > 3 ? Math.min(1, (sat - 3) / 5) : 0;
+            return Math.round(urgency * (1 - saturation) * 100) + 10;
+        }
+
+        // ── Redutores de custo (BASE fixo com decaimento) ─────────────────────
+        // Payoff composto: cada nível poupa % em todos builds futuros
+        const REDUCER_BASE = {
+            carpentering: 72, architect: 68, optician: 64, vineyard: 60, fireworker: 56,
+        };
+        if (building in REDUCER_BASE) {
+            let score = REDUCER_BASE[building];
+            // Decaimento por nível (retornos decrescentes — cap de 50% já atingido)
+            if (currentLevel >= 20) score = Math.round(score * 0.80);
+            if (currentLevel >= 30) score = Math.round(score * 0.70);
+            if (currentLevel >= 50) return 0; // cap de desconto atingido
+            return score;
+        }
+
+        // ── Produção de recursos (BASE fixo) ──────────────────────────────────
+        const PROD_BASE = {
+            forester: 35, stonemason: 32, glassblowing: 32, alchemist: 32, winegrower: 32,
+        };
+        if (building in PROD_BASE) {
+            let score = PROD_BASE[building];
+            if (currentLevel >= 20) score = Math.round(score * 0.85);
+            if (currentLevel >= 30) score = Math.round(score * 0.70);
+            return score;
+        }
+
+        // ── Demais edifícios (BASE fixo baixo) ────────────────────────────────
+        const MISC_BASE = {
+            embassy: 25, branchOffice: 22, museum: 18,
+            palace: 15, workshop: 12, safehouse: 10,
+            barracks: 8, shipyard: 8, wall: 5,
+        };
+        let score = MISC_BASE[building] ?? 10;
+        if (currentLevel >= 20) score = Math.round(score * 0.80);
         return score;
     }
 

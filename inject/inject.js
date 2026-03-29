@@ -10,19 +10,21 @@ const _nativeLog = Function.prototype.bind.call(
     Function.prototype.call, console.log ?? function(){}
 );
 // Fallback: criar logger simples baseado em DOM se console estiver morto
-let _log, _warn, _error;
+let _log, _warn, _error, _debug;
 try {
     _log   = console.log.bind(console);
     _warn  = console.warn.bind(console);
     _error = console.error.bind(console);
+    _debug = (console.debug ?? console.log).bind(console);
     // Testar se funciona
     _log;
 } catch(_) {
-    _log = _warn = _error = () => {};
+    _log = _warn = _error = _debug = () => {};
 }
 window.__erpLog   = _log;
 window.__erpWarn  = _warn;
 window.__erpError = _error;
+window.__erpDebug = _debug;
 
 // ═══ INTERCEPTOR — primeira coisa executada, síncrono ═══════════════════════
 window.__erpInterceptCallback = null;
@@ -121,6 +123,7 @@ import { HR }            from '../modules/HR.js';
 import { CTO }           from '../modules/CTO.js';
 import { CSO }           from '../modules/CSO.js';
 import { MnA }           from '../modules/MnA.js';
+import { Planner }       from '../modules/Planner.js';
 import { UIBridge }      from '../modules/UIBridge.js';
 import { initPanel }     from '../ui/panel.js';
 import { initRecPanel }  from '../ui/rec-panel.js';
@@ -128,16 +131,19 @@ import { initRecPanel }  from '../ui/rec-panel.js';
 // ─── MODO REC-ONLY ────────────────────────────────────────────────────────────
 // true  → apenas DataCollector ativo, REC ligado automaticamente, painel mínimo
 // false → ERP completo (automação, fila, painel completo)
+const ERP_VERSION = '1.4.0'; // 2026-03-29: CFO urgency-based score (warehouse/townhall/port/academy/tavern), producer-priority source
+
 const REC_ONLY = false;
 
 // ─── MVP FLAGS (ignorado quando REC_ONLY = true) ──────────────────────────────
 const MVP = {
-    cfo: true,
-    coo: true,
-    hr:  true,
-    cto: true,
-    cso: true,
-    mna: true,
+    cfo:     true,
+    coo:     true,
+    hr:      true,
+    cto:     true,
+    cso:     true,
+    mna:     true,
+    planner: true,
 };
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
@@ -201,15 +207,19 @@ async function boot() {
     const cto = new CTO({ events: Events, audit, config, state, queue });
     const cso = new CSO({ events: Events, audit, config, state, queue });
     const mna = new MnA({ events: Events, audit, config, state, queue, storage });
+    const planner = new Planner({ events: Events, audit, config, state, queue, hr, cfo, coo, cto, cso, mna });
 
     queue.setCFO(cfo);
 
+    // Módulos registram apenas seus listeners reativos (DC_HEADER_DATA, QUEUE_TASK_DONE, etc.)
+    // STATE_ALL_FRESH é registrado exclusivamente pelo Planner
     if (MVP.cfo) cfo.init(); else audit.info('inject', 'CFO: desativado');
     if (MVP.coo) coo.init(); else audit.info('inject', 'COO: desativado');
     if (MVP.hr)  hr.init();  else audit.info('inject', 'HR: desativado');
     if (MVP.cto) cto.init(); else audit.info('inject', 'CTO: desativado');
     if (MVP.cso) cso.init(); else audit.info('inject', 'CSO: desativado');
     if (MVP.mna) mna.init(); else audit.info('inject', 'MnA: desativado');
+    if (MVP.planner) planner.init(); else audit.info('inject', 'Planner: desativado');
 
     // ── Camada 5: UI ──────────────────────────────────────────────────────────
     window.__ERP_BOOT_STAGE = 'ui.init';
@@ -220,16 +230,7 @@ async function boot() {
     bridge._schedRebuild();
 
     // ── Camada 6: fetchAllCities + heartbeat ──────────────────────────────────
-    Events.once(Events.E.STATE_ALL_FRESH, () => {
-        audit.info('inject', 'STATE_ALL_FRESH — replan dos módulos ativos');
-        if (MVP.cfo) cfo.replan();
-        if (MVP.coo) coo.replan();
-        if (MVP.hr)  hr.replan();
-        if (MVP.cto) cto.replan();
-        if (MVP.cso) cso.replan();
-        if (MVP.mna) mna.replan();
-    });
-
+    // Planner.init() registrou STATE_ALL_FRESH — ele orquestra os replans na ordem correta
     state.fetchAllCities(client).catch(err => {
         audit.error('inject', `fetchAllCities inicial: ${err.message}`);
     });
@@ -250,13 +251,13 @@ async function boot() {
     window.__ERP = {
         Events, storage, config, audit,
         dc, state, client, queue,
-        cfo, coo, hr, cto, cso, mna, bridge,
+        cfo, coo, hr, cto, cso, mna, planner, bridge,
         MVP,
     };
 
     _log('[ERP] window.__ERP atribuído:', typeof window.__ERP, Object.keys(window.__ERP));
     window.__ERP_BOOT_STAGE = 'done';
-    audit.info('inject', `ERP v1.0 MVP pronto. Ativos: ${Object.entries(MVP).filter(([,v])=>v).map(([k])=>k.toUpperCase()).join(', ')}`);
+    audit.info('inject', `ERP v${ERP_VERSION} pronto. Ativos: ${Object.entries(MVP).filter(([,v])=>v).map(([k])=>k.toUpperCase()).join(', ')}`);
     _log('[ERP] MVP pronto. window.__ERP disponível para debug.');
 }
 

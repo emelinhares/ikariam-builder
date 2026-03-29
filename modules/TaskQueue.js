@@ -2,9 +2,27 @@
 // Respeita OperationMode (FULL-AUTO / SEMI / MANUAL / SAFE).
 // Guards por tipo de task. Persistência no Storage.
 // NOISE scheduling delegado pelo CSO, executado aqui.
+//
+// Sistema de fases (TASK_PHASE):
+//   SUSTENTO (1)   → WINE_ADJUST, TRANSPORT de vinho emergencial
+//   LOGISTICA (2)  → TRANSPORT de recursos para build, overflow
+//   CONSTRUCAO (3) → BUILD
+//   PESQUISA (4)   → RESEARCH, WORKER_REALLOC
+//   RUIDO (5)      → NOISE, NAVIGATE
+// Ordenação: phase → priority → scheduledFor (menor = mais urgente em todos)
+// Deduplicação: type + cityId + phase (mesma fase = duplicata; fases distintas coexistem)
+// Preempção: task de fase mais alta não é executada se há fase mais urgente pronta
 
 import { nanoid, humanDelay } from './utils.js';
 import { GameError }          from './GameClient.js';
+
+export const TASK_PHASE = Object.freeze({
+    SUSTENTO:   1,
+    LOGISTICA:  2,
+    CONSTRUCAO: 3,
+    PESQUISA:   4,
+    RUIDO:      5,
+});
 
 export class TaskQueue {
     constructor({ events, audit, config, state, client, storage }) {
@@ -29,6 +47,20 @@ export class TaskQueue {
 
     /** Injetar referência ao CFO após construção (evitar circular). */
     setCFO(cfo) { this._cfo = cfo; }
+
+    /** Fase padrão por tipo de task. Pode ser sobrescrita passando `phase` no taskData. */
+    _defaultPhase(type, payload) {
+        switch (type) {
+            case 'WINE_ADJUST':    return TASK_PHASE.SUSTENTO;
+            case 'TRANSPORT':      return payload?.wineEmergency ? TASK_PHASE.SUSTENTO : TASK_PHASE.LOGISTICA;
+            case 'BUILD':          return TASK_PHASE.CONSTRUCAO;
+            case 'RESEARCH':
+            case 'WORKER_REALLOC': return TASK_PHASE.PESQUISA;
+            case 'NOISE':
+            case 'NAVIGATE':       return TASK_PHASE.RUIDO;
+            default:               return TASK_PHASE.LOGISTICA;
+        }
+    }
 
     async init() {
         // Restaurar histórico de tasks concluídas (para mostrar na aba Fila após reload)
@@ -74,14 +106,18 @@ export class TaskQueue {
 
     // ── API pública ───────────────────────────────────────────────────────────
 
-    /** Adiciona uma task à fila. Rejeita duplicatas pendentes do mesmo tipo+cidade. */
+    /** Adiciona uma task à fila. Rejeita duplicatas pendentes do mesmo tipo+cidade+phase. */
     add(taskData) {
-        // Deduplicação global: não adicionar se já há task pendente/in-flight do mesmo tipo+cidade
-        // Exceções: NOISE (por design tem múltiplas) e tasks com payload diferente relevante
+        const incomingPhase = taskData.phase ?? this._defaultPhase(taskData.type, taskData.payload);
+
+        // Deduplicação: type + cityId + phase (fases distintas coexistem — ex: TRANSPORT
+        // de sustento e TRANSPORT de logística são tasks legítimas em paralelo).
+        // Exceção: NOISE nunca deduplica (múltiplas são intencionais).
         if (taskData.type !== 'NOISE') {
             const duplicate = this._queue.find(t =>
                 t.type   === taskData.type &&
                 t.cityId === taskData.cityId &&
+                t.phase  === incomingPhase &&
                 (t.status === 'pending' || t.status === 'in-flight')
             );
             if (duplicate) {
@@ -89,7 +125,7 @@ export class TaskQueue {
                     ? `em ${Math.round((duplicate.scheduledFor - Date.now()) / 1000)}s`
                     : 'imediata';
                 this._audit.debug('TaskQueue',
-                    `Task duplicada ignorada: ${taskData.type} cidade ${taskData.cityId} — já existe [${duplicate.id}] status=${duplicate.status} tentativas=${duplicate.attempts}/${duplicate.maxAttempts} exec=${schedIn}`
+                    `Task duplicada ignorada: ${taskData.type}[fase${incomingPhase}] cidade ${taskData.cityId} — já existe [${duplicate.id}] status=${duplicate.status} tentativas=${duplicate.attempts}/${duplicate.maxAttempts} exec=${schedIn}`
                 );
                 return duplicate;
             }
@@ -102,6 +138,7 @@ export class TaskQueue {
             maxAttempts:  taskData.maxAttempts ?? 3,
             createdAt:    Date.now(),
             ...taskData,
+            phase:        incomingPhase,  // garante phase mesmo se não veio no taskData
         };
         this._queue.push(task);
         this._persist();
@@ -143,6 +180,25 @@ export class TaskQueue {
         );
     }
 
+    /** Retorna tasks pendentes de uma fase específica, opcionalmente filtradas por cidade. */
+    getPendingByPhase(phase, cityId) {
+        return this._queue.filter(t =>
+            t.status === 'pending' &&
+            t.phase  === phase &&
+            (!cityId || t.cityId === cityId)
+        );
+    }
+
+    /** Verifica se há TRANSPORT de sustento (vinho emergencial) pendente para uma cidade destino. */
+    hasPendingSustentoTransport(cityId) {
+        return this._queue.some(t =>
+            t.type   === 'TRANSPORT' &&
+            t.phase  === TASK_PHASE.SUSTENTO &&
+            t.payload?.toCityId === cityId &&
+            (t.status === 'pending' || t.status === 'in-flight')
+        );
+    }
+
     /** Retorna histórico das últimas 50 tasks concluídas. */
     getHistory() { return [...this._done]; }
 
@@ -177,7 +233,14 @@ export class TaskQueue {
         if (!this._executing && mode !== 'MANUAL' && !this._state.isProbing()) {
             const ready = this._queue
                 .filter(t => t.status === 'pending' && t.scheduledFor <= now)
-                .sort((a, b) => a.priority - b.priority || a.scheduledFor - b.scheduledFor);
+                .sort((a, b) =>
+                    // 1. Fase mais urgente primeiro (menor número = mais urgente)
+                    (a.phase    - b.phase)    ||
+                    // 2. Dentro da fase, menor priority primeiro
+                    (a.priority - b.priority) ||
+                    // 3. Desempate por tempo agendado
+                    (a.scheduledFor - b.scheduledFor)
+                );
 
             if (ready.length > 0) {
                 this._execute(ready[0]).catch(err => {
@@ -194,6 +257,22 @@ export class TaskQueue {
     // ── Execução ──────────────────────────────────────────────────────────────
 
     async _execute(task) {
+        // Preempção: se chegou task de fase mais urgente enquanto esta ainda estava pending,
+        // ceder para ela. O próximo _tick vai selecioná-la corretamente.
+        const now = Date.now();
+        const moreUrgent = this._queue.find(t =>
+            t !== task &&
+            t.status === 'pending' &&
+            t.scheduledFor <= now &&
+            (t.phase ?? TASK_PHASE.LOGISTICA) < (task.phase ?? TASK_PHASE.LOGISTICA)
+        );
+        if (moreUrgent) {
+            this._audit.debug('TaskQueue',
+                `Preempção: cedendo ${task.type}[fase${task.phase}] para ${moreUrgent.type}[fase${moreUrgent.phase}] mais urgente`
+            );
+            return; // _executing permanece false — próximo _tick pega moreUrgent
+        }
+
         this._executing = true;
         this._executingStartedAt = Date.now();
         task.status     = 'in-flight';

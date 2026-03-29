@@ -21,3 +21,12 @@ export function getMinWineLevel(wineSpendings) {
     const idx = WINE_USE.findIndex(v => v >= wineSpendings);
     return idx; // -1 se não encontrado
 }
+
+/**
+ * Nível máximo de serviço que a taberna de `tavernLevel` pode fornecer.
+ * Um nível de taberna nível N pode servir até wineLevel N (não precisa de taberna maior).
+ * Ikariam limita o wineLevel ao tavernLevel — não é possível servir vinho além do nível da taberna.
+ */
+export function getMaxServableWineLevel(tavernLevel) {
+    return Math.max(0, tavernLevel ?? 0);
+}

@@ -563,7 +563,7 @@ export class StateManager {
                 citizens:       0,
                 goldPerHour:    0,
                 corruption:     0,
-                satisfaction:   0,
+                satisfaction:   null, // null = não inicializado (jogo não reportou ainda)
                 growthPerHour:  0,
                 actionPoints:   0,
                 culturalGoods:  0,
