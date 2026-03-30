@@ -7,6 +7,7 @@ import StorageCompat from './Storage.js';
 import Game from './Game.js';
 
 const MAX_ENTRIES   = 200;
+const MAX_ERROR_ENTRIES = 300;
 const PERSIST_EVERY = 10;  // persistir a cada N novas entradas
 
 export class Audit {
@@ -14,7 +15,9 @@ export class Audit {
         this._storage  = storage;
         this._events   = events;
         this._buffer   = [];   // array circular, max MAX_ENTRIES
+        this._errorBuffer = []; // array circular de erros, max MAX_ERROR_ENTRIES
         this._sinceLastPersist = 0;
+        this._errorSeq = 0;
     }
 
     async init() {
@@ -23,15 +26,22 @@ export class Audit {
             // Restaurar apenas os últimos MAX_ENTRIES
             this._buffer = saved.slice(-MAX_ENTRIES);
         }
+
+        const savedErrors = await this._storage.get('audit_errors');
+        if (Array.isArray(savedErrors)) {
+            this._errorBuffer = savedErrors.slice(-MAX_ERROR_ENTRIES);
+            this._errorSeq = this._errorBuffer.length;
+        }
     }
 
     // ── API pública ───────────────────────────────────────────────────────────
 
     log(level, module, message, data = null, cityId = null) {
+        const normalizedLevel = String(level ?? 'info').toLowerCase();
         const entry = {
             id:      nanoid(6),
             ts:      Date.now(),
-            level,   // 'debug' | 'info' | 'warn' | 'error'
+            level: normalizedLevel,   // 'debug' | 'info' | 'warn' | 'error'
             module,
             message,
             cityId:  cityId ?? null,
@@ -49,8 +59,26 @@ export class Audit {
             this._storage.set('audit_log', this._buffer).catch(() => {});
         }
 
+        this._events?.emit?.(this._events.E.AUDIT_ENTRY_ADDED, { entry });
+
+        // Canal dedicado de erros para análise em tempo real
+        if (normalizedLevel === 'error') {
+            const errorEntry = {
+                ...entry,
+                seq: ++this._errorSeq,
+                fingerprint: this._fingerprint(entry),
+            };
+            this._errorBuffer.push(errorEntry);
+            if (this._errorBuffer.length > MAX_ERROR_ENTRIES) this._errorBuffer.shift();
+
+            // Persistência imediata dos erros (telemetria pós-morte)
+            this._storage.set('audit_errors', this._errorBuffer).catch(() => {});
+
+            this._events?.emit?.(this._events.E.AUDIT_ERROR_ADDED, { entry: errorEntry });
+        }
+
         // Erros geram alerta na UI automaticamente
-        if (level === 'error') {
+        if (normalizedLevel === 'error') {
             this._events.emit(this._events.E.UI_ALERT_ADDED, {
                 id:       entry.id,
                 level:    'P1',
@@ -67,16 +95,37 @@ export class Audit {
         const _w = window.__erpWarn  ?? console.warn;
         const _d = window.__erpDebug ?? console.debug ?? console.log;
         const _l = window.__erpLog   ?? console.log;
-        if      (level === 'error') _e(prefix, message, data ?? '');
-        else if (level === 'warn')  _w(prefix, message, data ?? '');
-        else if (level === 'debug') _d(prefix, message, data ?? '');
+        if      (normalizedLevel === 'error') _e(prefix, message, data ?? '');
+        else if (normalizedLevel === 'warn')  _w(prefix, message, data ?? '');
+        else if (normalizedLevel === 'debug') _d(prefix, message, data ?? '');
         else                        _l(prefix, message, data ?? '');
+
+        return entry;
     }
 
     info(module, message, data, cityId)  { this.log('info',  module, message, data, cityId); }
     warn(module, message, data, cityId)  { this.log('warn',  module, message, data, cityId); }
     error(module, message, data, cityId) { this.log('error', module, message, data, cityId); }
     debug(module, message, data, cityId) { this.log('debug', module, message, data, cityId); }
+
+    captureError(module, error, context = null, cityId = null, message = null) {
+        const err = error instanceof Error
+            ? error
+            : new Error(typeof error === 'string' ? error : 'Erro desconhecido');
+
+        const payload = {
+            ...(context && typeof context === 'object' ? context : {}),
+            errorName: err.name,
+            stack: err.stack ?? null,
+            cause: err.cause ?? null,
+        };
+
+        const msg = message
+            ?? err.message
+            ?? (typeof error === 'string' ? error : 'Erro desconhecido');
+
+        return this.log('error', module, msg, payload, cityId);
+    }
 
     /**
      * Retorna entradas filtradas.
@@ -92,11 +141,47 @@ export class Audit {
         });
     }
 
+    getErrorEntries(filter = {}) {
+        return this._errorBuffer.filter(e => {
+            if (filter.module && e.module !== filter.module) return false;
+            if (filter.cityId !== undefined && e.cityId !== filter.cityId) return false;
+            if (filter.since && e.ts < filter.since) return false;
+            if (filter.fingerprint && e.fingerprint !== filter.fingerprint) return false;
+            return true;
+        });
+    }
+
+    getErrorStats({ since } = {}) {
+        const fromTs = Number.isFinite(since) ? since : 0;
+        const rows = this._errorBuffer.filter(e => e.ts >= fromTs);
+        const byModule = {};
+        for (const e of rows) {
+            byModule[e.module] = (byModule[e.module] ?? 0) + 1;
+        }
+        return {
+            total: rows.length,
+            byModule,
+            lastTs: rows.length ? rows[rows.length - 1].ts : null,
+        };
+    }
+
     /** Limpa o buffer em memória e persiste vazio. */
     async clear() {
         this._buffer = [];
+        this._errorBuffer = [];
         this._sinceLastPersist = 0;
+        this._errorSeq = 0;
         await this._storage.set('audit_log', []);
+        await this._storage.set('audit_errors', []);
+    }
+
+    _fingerprint(entry) {
+        const base = `${entry.module}|${entry.message}|${entry.cityId ?? ''}`;
+        let hash = 0;
+        for (let i = 0; i < base.length; i++) {
+            hash = ((hash << 5) - hash + base.charCodeAt(i)) | 0;
+        }
+        return `e_${Math.abs(hash)}`;
     }
 }
 

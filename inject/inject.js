@@ -157,6 +157,33 @@ async function boot() {
     const audit = new Audit({ storage, events: Events });
     await audit.init();
 
+    // Telemetria de erros em tempo real (runtime JS)
+    window.addEventListener('error', (ev) => {
+        try {
+            audit.captureError(
+                'runtime',
+                ev?.error ?? ev?.message ?? 'window.error',
+                {
+                    source: 'window.error',
+                    filename: ev?.filename ?? null,
+                    lineno: ev?.lineno ?? null,
+                    colno: ev?.colno ?? null,
+                }
+            );
+        } catch {}
+    });
+
+    window.addEventListener('unhandledrejection', (ev) => {
+        try {
+            const reason = ev?.reason;
+            audit.captureError(
+                'runtime',
+                reason instanceof Error ? reason : new Error(String(reason ?? 'Unhandled Promise rejection')),
+                { source: 'unhandledrejection' }
+            );
+        } catch {}
+    });
+
     // ── Modo REC-ONLY: apenas DataCollector + painel mínimo ───────────────────
     if (REC_ONLY) {
         audit.info('inject', '⏺ REC-ONLY boot — toda automação desativada');

@@ -17,7 +17,7 @@ vi.mock('../../modules/Game.js', () => ({
   },
 }));
 
-import Audit, { REASON } from '../../modules/Audit.js';
+import Audit, { Audit as AuditClass, REASON } from '../../modules/Audit.js';
 import Storage from '../../modules/Storage.js';
 import Game from '../../modules/Game.js';
 
@@ -154,5 +154,51 @@ describe('Audit.getStats()', () => {
     Game.getServerTime.mockReturnValue(1700000000);
     await Audit.init();
     expect(Audit.getStats().startedAt).toBe(1700000000);
+  });
+});
+
+describe('AuditClass realtime telemetry', () => {
+  test('emite eventos e persiste erros em canal dedicado', async () => {
+    const storage = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+    };
+    const events = {
+      E: {
+        AUDIT_ENTRY_ADDED: 'audit:entry:added',
+        AUDIT_ERROR_ADDED: 'audit:error:added',
+        UI_ALERT_ADDED: 'ui:alert:added',
+      },
+      emit: vi.fn(),
+    };
+
+    globalThis.window = globalThis.window ?? globalThis;
+    globalThis.window.__erpError = vi.fn();
+    globalThis.window.__erpWarn = vi.fn();
+    globalThis.window.__erpDebug = vi.fn();
+    globalThis.window.__erpLog = vi.fn();
+
+    const audit = new AuditClass({ storage, events });
+    await audit.init();
+
+    audit.captureError('TaskQueue', new Error('dispatch failed'), { taskId: 'x1' }, 101);
+
+    const rows = audit.getErrorEntries();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      level: 'error',
+      module: 'TaskQueue',
+      cityId: 101,
+      seq: 1,
+    });
+    expect(rows[0].fingerprint).toMatch(/^e_\d+$/);
+
+    expect(events.emit).toHaveBeenCalledWith(events.E.AUDIT_ENTRY_ADDED, {
+      entry: expect.objectContaining({ module: 'TaskQueue' }),
+    });
+    expect(events.emit).toHaveBeenCalledWith(events.E.AUDIT_ERROR_ADDED, {
+      entry: expect.objectContaining({ module: 'TaskQueue', seq: 1 }),
+    });
+    expect(storage.set).toHaveBeenCalledWith('audit_errors', expect.any(Array));
   });
 });
