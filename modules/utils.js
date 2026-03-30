@@ -38,6 +38,11 @@ export function humanDelay(min, max, multiplier = 1.0) {
     return new Promise(resolve => setTimeout(resolve, delay));
 }
 
+/** Sleep simples em ms para fluxos assíncronos sem variação. */
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // ─── Clonagem ─────────────────────────────────────────────────────────────────
 
 /**

@@ -2,7 +2,8 @@
 // Fila interna de Promises garante serialização + humanDelay entre cada request.
 // Nenhum módulo de negócio faz fetch/XHR diretamente — tudo passa aqui.
 
-import { humanDelay } from './utils.js';
+import { humanDelay, sleep } from './utils.js';
+import { createCargoPayloadFromResources } from './resourceContracts.js';
 
 // ─── Taxonomia de erros ───────────────────────────────────────────────────────
 // Usado pelo TaskQueue para decidir retry vs fatal vs guard
@@ -126,7 +127,7 @@ export class GameClient {
                         `navigate tentativa ${attempt}: sem confirmação do servidor (selectedCityId ausente)`);
                 }
 
-                if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 2000 * attempt));
+                if (attempt < MAX_ATTEMPTS) await sleep(2000 * attempt);
             }
 
             throw new GameError('GAME_ERROR', `navigate: falhou ${MAX_ATTEMPTS}× para cidade ${cityId}`);
@@ -183,7 +184,7 @@ export class GameClient {
 
             const eta = new Date(endUpgradeTime * 1000).toLocaleTimeString('pt-BR');
             this._audit.info('GameClient', `✓ Build aceita — conclui às ${eta}`);
-            await new Promise(r => setTimeout(r, 300));
+            await sleep(300);
             return text;
         });
     }
@@ -206,7 +207,9 @@ export class GameClient {
             for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
                 try {
                     await this._get(contextUrl);
-                    await new Promise(r => setTimeout(r, 300));
+                    await sleep(300);
+
+                    const cargoPayload = createCargoPayloadFromResources(cargo);
 
                     const result = await this._post({
                         action:                'transportOperations',
@@ -226,11 +229,7 @@ export class GameClient {
                         capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
                         max_capacity:          5,
                         jetPropulsion:         0,
-                        cargo_resource:        cargo.wood   ?? 0,
-                        cargo_tradegood1:      cargo.wine   ?? 0,
-                        cargo_tradegood2:      cargo.marble ?? 0,
-                        cargo_tradegood3:      cargo.glass  ?? 0,
-                        cargo_tradegood4:      cargo.sulfur ?? 0,
+                        ...cargoPayload,
                         currentCityId:         String(fromCityId),
                         currentTab:            'tabSendTransporter',
                         actionRequest:         this._token(),
@@ -280,7 +279,7 @@ export class GameClient {
                     if (attempt < MAX_ATTEMPTS) {
                         this._audit.warn('GameClient',
                             `sendTransport tentativa ${attempt}/${MAX_ATTEMPTS} falhou: ${err.message} — aguardando ${2*attempt}s`);
-                        await new Promise(r => setTimeout(r, 2000 * attempt));
+                        await sleep(2000 * attempt);
                     }
                 }
             }
@@ -363,7 +362,7 @@ export class GameClient {
                     if (attempt < MAX_ATTEMPTS) {
                         this._audit.warn('GameClient',
                             `startResearch tentativa ${attempt}/${MAX_ATTEMPTS}: ${err.message} — aguardando ${2*attempt}s`);
-                        await new Promise(r => setTimeout(r, 2000 * attempt));
+                        await sleep(2000 * attempt);
                     }
                 }
             }
@@ -464,7 +463,7 @@ export class GameClient {
         }));
 
         // Aguardar DOM renderizar (o jogo processa changeView de forma assíncrona)
-        await new Promise(r => setTimeout(r, 800));
+        await sleep(800);
 
         // Ler do DOM vivo da página
         const el = document.getElementById('journeyTime');
@@ -527,7 +526,7 @@ export class GameClient {
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 await this._get(contextUrl);
-                await new Promise(r => setTimeout(r, 300));
+                await sleep(300);
                 // Atualizar token no payload antes de cada tentativa
                 postPayload.actionRequest = this._token();
                 return await this._post(postPayload);
@@ -537,7 +536,7 @@ export class GameClient {
                 if (attempt < MAX_ATTEMPTS) {
                     this._audit.warn('GameClient',
                         `${label} tentativa ${attempt}/${MAX_ATTEMPTS} falhou: ${err.message} — aguardando ${2 * attempt}s`);
-                    await new Promise(r => setTimeout(r, 2000 * attempt));
+                    await sleep(2000 * attempt);
                 }
             }
         }

@@ -4,11 +4,7 @@
 // Escuta QUEUE_TASK_ADDED (não CFO_BUILD_APPROVED) — desacoplado do CFO.
 
 import { PORT_LOADING_SPEED, TRAVEL, TradeGoodOrdinals } from '../data/const.js';
-
-// tradegood ordinal → resource key
-const TRADEGOOD_RESOURCE = Object.freeze(
-    Object.fromEntries(Object.entries(TradeGoodOrdinals).map(([k, v]) => [v, k.toLowerCase()]))
-); // { 1:'wine', 2:'marble', 3:'glass', 4:'sulfur' }
+import { createEmptyResources } from './resourceContracts.js';
 
 export class COO {
     constructor({ events, audit, config, state, queue, client, storage }) {
@@ -483,7 +479,7 @@ export class COO {
 
         const init = (cityId) => {
             if (!ledger.has(cityId)) {
-                ledger.set(cityId, { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 });
+                ledger.set(cityId, createEmptyResources());
             }
             return ledger.get(cityId);
         };

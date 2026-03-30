@@ -4,6 +4,7 @@
 
 import { deepClone } from './utils.js';
 import { humanDelay } from './utils.js';
+import { createEmptyResources } from './resourceContracts.js';
 
 // Formata número em K/M para logs compactos
 function _fmtK(n) {
@@ -438,7 +439,7 @@ export class StateManager {
      * Retorna { wood, wine, marble, glass, sulfur } — zeros para recursos sem transporte.
      */
     getInTransit(cityId) {
-        const result = { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 };
+        const result = createEmptyResources();
         for (const m of this.fleetMovements) {
             if (!m.isOwn || m.isReturn) continue;
             if (m.targetCityId !== cityId) continue;
@@ -543,7 +544,7 @@ export class StateManager {
             coords:           data.coords
                 ? [Number(data.coords.x), Number(data.coords.y)]
                 : [0, 0],
-            resources:        { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 },
+            resources:        createEmptyResources(),
             maxResources:     0,
             freeTransporters: 0,
             maxTransporters:  0,
