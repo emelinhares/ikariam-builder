@@ -135,6 +135,23 @@ export class COO {
         const dispatchTs = buildStart - (eta.totalEta * 1000) - bufferMs;
         const sendAt     = Math.max(dispatchTs, Date.now());
         const boats      = Math.ceil(amount / 500);
+        const sourceSafetyStock = this._getCitySafetyStock(sourceCity, res);
+        const sourceOnHand = Number(sourceCity.resources?.[res] ?? 0);
+        const sourceAfter = Math.max(0, sourceOnHand - amount);
+        const reasonCode = 'COO_JIT_TRANSPORT_FOR_BUILD';
+        const evidence = [
+            `buildTaskId=${buildTask.id}`,
+            `buildCityId=${buildTask.cityId}`,
+            `resource=${res}`,
+            `amount=${amount}`,
+            `sourceCityId=${sourceCity.id}`,
+            `destCityId=${destCity.id}`,
+            `sourceOnHand=${sourceOnHand}`,
+            `sourceSafetyStock=${sourceSafetyStock}`,
+            `sourceAfterDispatch=${sourceAfter}`,
+            `etaTotalS=${eta.totalEta}`,
+            `scheduledFor=${new Date(sendAt).toISOString()}`,
+        ];
 
         this._queue.add({
             type:     TASK_TYPE.TRANSPORT,
@@ -151,6 +168,8 @@ export class COO {
             },
             scheduledFor: sendAt,
             reason:       `COO JIT: ${res}+${amount} para ${buildTask.payload.building} em ${destCity.name}`,
+            reasonCode,
+            evidence,
             module:       'COO',
             confidence:   this._state.getConfidence(sourceCity.id),
         });
@@ -160,7 +179,7 @@ export class COO {
         if (entry && res in entry) entry[res] += amount;
 
         this._events.emit(this._events.E.COO_TRANSPORT_SCHED, {
-            task: { res, amount, source: sourceCity.id, dest: destCity.id, sendAt },
+            task: { res, amount, source: sourceCity.id, dest: destCity.id, sendAt, reasonCode, evidence },
         });
     }
 
@@ -537,26 +556,30 @@ export class COO {
 
         const cities = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
-            .filter(c => this._availableAfterCommitments(c.id, resource, _ledger) > amount * 1.1);
+            .map(c => {
+                const safetyStock = this._getCitySafetyStock(c, resource);
+                const available = Math.max(0, this._availableAfterCommitments(c.id, resource, _ledger) - safetyStock);
+                return { city: c, available };
+            })
+            .filter(e => e.available >= amount)
+            .sort((a, b) => b.available - a.available || Number(a.city.id) - Number(b.city.id));
 
         if (!cities.length) return null;
 
         // Prioridade: produtor → hub → mais disponível
-        const producer = this._getProducers(resource).find(p => cities.some(c => c.id === p.id));
-        if (producer) return producer;
+        const producerIds = new Set(this._getProducers(resource).map(p => p.id));
+        const producerEntry = cities.find(e => producerIds.has(e.city.id));
+        if (producerEntry) return producerEntry.city;
 
-        if (this._hub && cities.some(c => c.id === this._hub.id)) return this._hub;
+        const hubEntry = this._hub ? cities.find(e => e.city.id === this._hub.id) : null;
+        if (hubEntry) return hubEntry.city;
 
-        return cities.sort((a, b) =>
-            this._availableAfterCommitments(b.id, resource, _ledger) -
-            this._availableAfterCommitments(a.id, resource, _ledger)
-        )[0];
+        return cities[0].city;
     }
 
     /** Múltiplas fontes para cobrir `amount`. Retorna [{city, amount}] ou null. */
     _findMultiSource(resource, amount, excludeCityId, ledger = null) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
-        const RESERVE = 0.10; // guardar 10% na fonte
 
         const producerIds = new Set(this._getProducers(resource).map(p => p.id));
 
@@ -564,12 +587,14 @@ export class COO {
             .filter(c => c.id !== excludeCityId)
             .map(c => ({
                 city:     c,
-                avail:    Math.floor(this._availableAfterCommitments(c.id, resource, _ledger) * (1 - RESERVE)),
+                avail:    Math.max(0,
+                    Math.floor(this._availableAfterCommitments(c.id, resource, _ledger) - this._getCitySafetyStock(c, resource))
+                ),
                 producer: producerIds.has(c.id),
             }))
             .filter(e => e.avail > 0)
             // Produtores primeiro, depois por quantidade disponível
-            .sort((a, b) => (b.producer - a.producer) || (b.avail - a.avail));
+            .sort((a, b) => (b.producer - a.producer) || (b.avail - a.avail) || (Number(a.city.id) - Number(b.city.id)));
 
         const result  = [];
         let remaining = amount;
@@ -583,6 +608,15 @@ export class COO {
 
         // Só retorna se conseguiu cobrir o total
         return remaining <= 0 ? result : null;
+    }
+
+    _getCitySafetyStock(city, resource) {
+        const fraction = this._config.get('minStockFraction') ?? 0.20;
+        const maxResRaw = city?.maxResources;
+        const maxRes = typeof maxResRaw === 'number'
+            ? maxResRaw
+            : Number(maxResRaw?.[resource] ?? 0);
+        return Math.floor(Math.max(0, maxRes) * fraction);
     }
 
     // ── ETA de transporte ─────────────────────────────────────────────────────

@@ -94,6 +94,13 @@ export const Events = {
         UI_ALERT_ADDED:       'ui:alert:added',      // Alert
         UI_ALERT_RESOLVED:    'ui:alert:resolved',   // { alertId }
         UI_COMMAND:           'ui:command',          // { type, ...args }
+        HEALTHCHECK_UPDATED:  'healthcheck:updated', // estado completo do HealthCheckRunner
+
+        // Hybrid endpoint/dom execution
+        HYBRID_PATH_DECIDED:   'hybrid:path_decided',   // { taskId, actionType, decision }
+        HYBRID_ATTEMPT_OUTCOME:'hybrid:attempt_outcome',// { taskId, actionType, outcome }
+        HYBRID_FALLBACK_INVOKED:'hybrid:fallback_invoked', // { taskId, actionType, reason }
+        HYBRID_SELECTOR_MISS:  'hybrid:selector_miss',  // { taskId, actionType, selector }
 
         // Audit / observabilidade
         AUDIT_ENTRY_ADDED:    'audit:entry:added',   // { entry }

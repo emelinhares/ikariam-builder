@@ -562,7 +562,9 @@ export class DataCollector {
         const params = {};
         // Params da URL
         try {
-            const u = new URL(url, window.location.origin);
+            const baseOrigin = window.location?.origin
+                || (window.location?.host ? `https://${window.location.host}` : 'https://localhost');
+            const u = new URL(url, baseOrigin);
             for (const [k, v] of u.searchParams) params[k] = v;
         } catch { /* URL relativa */ }
         // Params do body (POST form-encoded)
@@ -611,9 +613,30 @@ export class DataCollector {
 
         const headData = payload.headerData   || {};
         const bgData   = payload.backgroundData || {};
+        const reqParams = this._parseParams('GET', url, '');
 
         // cityId vem de backgroundData.id — fonte autoritativa (IKAEASY navigation.js:handle_updateGlobalData)
-        const cityId = parseInt(bgData.id) || null;
+        let cityId = this._toPositiveInt(bgData.id);
+        const islandId = this._toPositiveInt(bgData.islandId)
+            ?? this._toPositiveInt(reqParams.currentIslandId)
+            ?? this._toPositiveInt(reqParams.islandId);
+
+        // Se estamos em contexto de ilha e a resposta sugere um "novo" cityId,
+        // priorizar identidade já conhecida islandId -> cityId para evitar duplicação.
+        if (this._isIslandContext(url, reqParams) && islandId) {
+            const mappedCityId = this._resolveMappedCityIdByIslandId(islandId);
+            if (mappedCityId && mappedCityId !== cityId) {
+                this._audit.debug('DataCollector',
+                    `identity dedup: ilha ${islandId} resolvida para cidade ${mappedCityId} (candidato=${cityId ?? '?'})`
+                );
+                cityId = mappedCityId;
+            }
+        }
+
+        // Persistir mapeamento sempre que ambos IDs estiverem disponíveis.
+        if (cityId && islandId) {
+            this._registerCityIslandMapping(cityId, islandId);
+        }
 
         // tavernWineLevel — derivado de wineSpendings via WINE_USE (mesma lógica do IKAEASY)
         // wineSpendings pode ser 0 quando estoque acabou — mas o nível da taberna não muda.
@@ -638,8 +661,11 @@ export class DataCollector {
 
         // Emitir dados de screen (edifícios, islandId, isCapital)
         if (bgData.position || bgData.id) {
+            const screenData = islandId && !bgData.islandId
+                ? { ...bgData, islandId }
+                : bgData;
             this._events.emit(this._events.E.DC_SCREEN_DATA, {
-                screenData: bgData,
+                screenData,
                 cityId,
                 url,
             });
@@ -759,6 +785,10 @@ export class DataCollector {
 
         // Screen data — cidade ativa completa (model.city)
         const cityData = model.city;
+        const islandId = this._toPositiveInt(cityData?.islandId);
+        if (cityId && islandId) {
+            this._registerCityIslandMapping(cityId, islandId);
+        }
         if (cityData?.position) {
             this._events.emit(this._events.E.DC_SCREEN_DATA, {
                 screenData: {
@@ -779,6 +809,40 @@ export class DataCollector {
                 cityId,
                 url: 'model',
             });
+        }
+    }
+
+    _toPositiveInt(v) {
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+    }
+
+    _isIslandContext(url, reqParams = null) {
+        const p = reqParams ?? this._parseParams('GET', url, '');
+        return p.backgroundView === 'island' || p.view === 'resource';
+    }
+
+    _getStateManager() {
+        return globalThis.__ERP?.state ?? null;
+    }
+
+    _resolveMappedCityIdByIslandId(islandId) {
+        const sm = this._getStateManager();
+        if (!sm || typeof sm.resolveCityIdByIslandId !== 'function') return null;
+        try {
+            return this._toPositiveInt(sm.resolveCityIdByIslandId(islandId));
+        } catch {
+            return null;
+        }
+    }
+
+    _registerCityIslandMapping(cityId, islandId) {
+        const sm = this._getStateManager();
+        if (!sm || typeof sm.registerCityIslandMapping !== 'function') return;
+        try {
+            sm.registerCityIslandMapping({ cityId, islandId });
+        } catch {
+            // best-effort: não interromper coleta em caso de erro de integração
         }
     }
 }

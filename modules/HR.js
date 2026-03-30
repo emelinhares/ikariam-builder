@@ -53,6 +53,20 @@ export class HR {
         this._lastWineLog = new Map(); // cityId → { hours, ts }
 
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
+
+        // Scope D — simulação imediata de impacto econômico para realocação em TownHall.
+        // Permite que chamadores emitam HR_WORKER_REALLOC com "allocationAfter" para
+        // obter/logar o impacto antes da confirmação final.
+        this._events.on(E.HR_WORKER_REALLOC, (payload = {}) => {
+            const cityId = Number(payload.cityId ?? 0);
+            if (!cityId || !payload.allocationAfter) return;
+            this.simulateTownHallImmediateImpact({
+                cityId,
+                allocationAfter: payload.allocationAfter,
+                action: payload.action,
+                emitDecisionRecord: payload.emitDecisionRecord !== false,
+            });
+        });
     }
 
     replan(ctx = null) {
@@ -262,5 +276,186 @@ export class HR {
             oldLevel: current,
             newLevel: targetLevel,
         });
+    }
+
+    // ── Scope D: simulador imediato de impacto TownHall ───────────────────────
+
+    /**
+     * Simula impacto imediato de realocação TownHall (workers/scientists/citizens).
+     *
+     * Fórmula mandatória (gold/h):
+     *   Novo_Ouro_H = (Cidadãos_Livres * 3) - (Trabalhadores * 3) - (Cientistas * 6)
+     */
+    simulateTownHallImmediateImpact({
+        cityId,
+        allocationAfter = {},
+        action = null,
+        emitDecisionRecord = true,
+    } = {}) {
+        const city = this._state.getCity?.(cityId);
+        if (!city) return null;
+
+        const before = this._buildTownHallAllocationSnapshot(city, {});
+        const after  = this._buildTownHallAllocationSnapshot(city, allocationAfter);
+
+        const beforeGoldPerHour = this._calcTownHallGoldPerHour(before);
+        const afterGoldPerHour  = this._calcTownHallGoldPerHour(after);
+        const deltaGoldPerHour  = afterGoldPerHour - beforeGoldPerHour;
+
+        const woodPerWorker = before.woodWorkers > 0
+            ? (Number(city.production?.wood ?? 0) / before.woodWorkers)
+            : 0;
+        const luxuryPerWorker = before.luxuryWorkers > 0
+            ? (Number(city.production?.tradegood ?? 0) / before.luxuryWorkers)
+            : 0;
+
+        const woodBeforePerHour   = Number(city.production?.wood ?? 0);
+        const luxuryBeforePerHour = Number(city.production?.tradegood ?? 0);
+        const woodAfterPerHour    = Math.round(after.woodWorkers * woodPerWorker);
+        const luxuryAfterPerHour  = Math.round(after.luxuryWorkers * luxuryPerWorker);
+
+        const deltaWoodPerHour   = woodAfterPerHour - woodBeforePerHour;
+        const deltaLuxuryPerHour = luxuryAfterPerHour - luxuryBeforePerHour;
+        const deltaSciencePerHour = after.scientists - before.scientists;
+
+        const baselineCashflow = Math.abs(beforeGoldPerHour);
+        const impactPct = baselineCashflow > 0
+            ? (deltaGoldPerHour / baselineCashflow) * 100
+            : (deltaGoldPerHour === 0 ? 0 : (deltaGoldPerHour > 0 ? 100 : -100));
+
+        const reasonCode = 'HR_TOWNHALL_IMMEDIATE_IMPACT';
+        const evidence = [
+            `cityId=${city.id}`,
+            `before.citizens=${before.citizens}`,
+            `before.workers=${before.workersTotal}`,
+            `before.scientists=${before.scientists}`,
+            `after.citizens=${after.citizens}`,
+            `after.workers=${after.workersTotal}`,
+            `after.scientists=${after.scientists}`,
+            `goldFormula=(citizens*3)-(workers*3)-(scientists*6)`,
+            `goldBeforePerHour=${beforeGoldPerHour}`,
+            `goldAfterPerHour=${afterGoldPerHour}`,
+            `delta.goldPerHour=${deltaGoldPerHour}`,
+            `delta.woodPerHour=${deltaWoodPerHour}`,
+            `delta.luxuryPerHour=${deltaLuxuryPerHour}`,
+            `delta.sciencePerHour=${deltaSciencePerHour}`,
+            `impact.cashflowPct=${impactPct.toFixed(1)}%`,
+        ];
+
+        const summary = this._buildTownHallImpactSummary({
+            action,
+            deltaSciencePerHour,
+            deltaGoldPerHour,
+            impactPct,
+        });
+
+        const decision = {
+            cityId: city.id,
+            reasonCode,
+            evidence,
+            summary,
+            before: {
+                citizens: before.citizens,
+                workers: before.workersTotal,
+                scientists: before.scientists,
+                woodPerHour: woodBeforePerHour,
+                luxuryPerHour: luxuryBeforePerHour,
+                goldPerHour: beforeGoldPerHour,
+            },
+            after: {
+                citizens: after.citizens,
+                workers: after.workersTotal,
+                scientists: after.scientists,
+                woodPerHour: woodAfterPerHour,
+                luxuryPerHour: luxuryAfterPerHour,
+                goldPerHour: afterGoldPerHour,
+            },
+            delta: {
+                woodPerHour: deltaWoodPerHour,
+                luxuryPerHour: deltaLuxuryPerHour,
+                sciencePerHour: deltaSciencePerHour,
+                goldPerHour: deltaGoldPerHour,
+                cashflowPct: Number(impactPct.toFixed(1)),
+            },
+        };
+
+        if (emitDecisionRecord) {
+            this._audit.info('HR', summary, {
+                reasonCode,
+                evidence,
+                impact: decision,
+            }, city.id);
+        }
+
+        return decision;
+    }
+
+    _calcTownHallGoldPerHour({ citizens, workersTotal, scientists }) {
+        // Novo_Ouro_H = (Cidadãos_Livres * 3) - (Trabalhadores * 3) - (Cientistas * 6)
+        return (citizens * 3) - (workersTotal * 3) - (scientists * 6);
+    }
+
+    _buildTownHallAllocationSnapshot(city, allocationAfter = {}) {
+        const population = Number(city.economy?.population ?? 0);
+
+        const beforeWoodWorkers = Number(city.workers?.wood ?? 0);
+        const beforeLuxuryWorkers = Number(city.workers?.tradegood ?? 0);
+        const beforePriests = Number(city.workers?.priests ?? 0);
+        const beforeScientists = Number(city.workers?.scientists ?? 0);
+        const beforeWorkersTotal = beforeWoodWorkers + beforeLuxuryWorkers + beforePriests;
+
+        const inferredCitizens = Math.max(0, population - beforeWorkersTotal - beforeScientists);
+        const cityCitizens = Number(city.economy?.citizens ?? inferredCitizens);
+
+        let woodWorkers = beforeWoodWorkers;
+        let luxuryWorkers = beforeLuxuryWorkers;
+        let priests = beforePriests;
+        let scientists = beforeScientists;
+        let citizens = cityCitizens;
+
+        if (allocationAfter.workers && typeof allocationAfter.workers === 'object') {
+            if (allocationAfter.workers.wood !== undefined) woodWorkers = Number(allocationAfter.workers.wood);
+            if (allocationAfter.workers.tradegood !== undefined) luxuryWorkers = Number(allocationAfter.workers.tradegood);
+            if (allocationAfter.workers.priests !== undefined) priests = Number(allocationAfter.workers.priests);
+        }
+        if (allocationAfter.woodWorkers !== undefined) woodWorkers = Number(allocationAfter.woodWorkers);
+        if (allocationAfter.luxuryWorkers !== undefined) luxuryWorkers = Number(allocationAfter.luxuryWorkers);
+        if (allocationAfter.priests !== undefined) priests = Number(allocationAfter.priests);
+        if (allocationAfter.scientists !== undefined) scientists = Number(allocationAfter.scientists);
+
+        const workersTotal = woodWorkers + luxuryWorkers + priests;
+
+        if (allocationAfter.citizens !== undefined) {
+            citizens = Number(allocationAfter.citizens);
+        } else {
+            // Compatível com o modelo existente: manter conservação da população ocupada.
+            const referencePopulation = Math.max(population, cityCitizens + beforeWorkersTotal + beforeScientists);
+            citizens = Math.max(0, referencePopulation - workersTotal - scientists);
+        }
+
+        return {
+            citizens: Math.max(0, Math.round(citizens)),
+            workersTotal: Math.max(0, Math.round(workersTotal)),
+            scientists: Math.max(0, Math.round(scientists)),
+            woodWorkers: Math.max(0, Math.round(woodWorkers)),
+            luxuryWorkers: Math.max(0, Math.round(luxuryWorkers)),
+            priests: Math.max(0, Math.round(priests)),
+        };
+    }
+
+    _buildTownHallImpactSummary({ action, deltaSciencePerHour, deltaGoldPerHour, impactPct }) {
+        const fmtSigned = (n) => `${n >= 0 ? '+' : ''}${Math.round(n)}`;
+        const fmtSignedPct = (n) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
+
+        let actionLabel = action;
+        if (!actionLabel) {
+            if (deltaSciencePerHour > 0) actionLabel = `Alocando ${deltaSciencePerHour} cientistas`;
+            else if (deltaSciencePerHour < 0) actionLabel = `Removendo ${Math.abs(deltaSciencePerHour)} cientistas`;
+            else actionLabel = 'Rebalanceando alocação';
+        }
+
+        return `${actionLabel}: ${fmtSigned(deltaGoldPerHour)} gold/h, ` +
+            `${fmtSigned(deltaSciencePerHour)} ciência/h. ` +
+            `Impacto líquido: ${fmtSignedPct(impactPct)} no fluxo de caixa total.`;
     }
 }

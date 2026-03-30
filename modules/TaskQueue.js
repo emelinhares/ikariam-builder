@@ -44,6 +44,8 @@ export class TaskQueue {
         // NOISE counter
         this._noiseCounter = 0;
         this._nextNoiseAt  = this._newNoiseThreshold();
+
+        this._attemptSeq = 0;
     }
 
     /** Injetar referência ao CFO após construção (evitar circular). */
@@ -111,6 +113,10 @@ export class TaskQueue {
     add(taskData) {
         const incomingPhase = taskData.phase ?? this._defaultPhase(taskData.type, taskData.payload);
 
+        if (taskData.type === TASK_TYPE.BUILD) {
+            taskData = this._applyBuildSchedulingPrecedence(taskData);
+        }
+
         // Deduplicação: type + cityId + phase (fases distintas coexistem — ex: TRANSPORT
         // de sustento e TRANSPORT de logística são tasks legítimas em paralelo).
         // Exceção: NOISE nunca deduplica (múltiplas são intencionais).
@@ -142,6 +148,7 @@ export class TaskQueue {
             phase:        incomingPhase,  // garante phase mesmo se não veio no taskData
         };
         this._queue.push(task);
+        this._applyUrgentReprioritization(task);
         this._persist();
         this._events.emit(this._events.E.QUEUE_TASK_ADDED, { task });
         this._audit.debug('TaskQueue', `Task adicionada: ${task.type} cidade ${task.cityId}`, { id: task.id });
@@ -165,11 +172,21 @@ export class TaskQueue {
         );
     }
 
+    /** Retorna task por ID (fila ativa + histórico), ou null se não existir. */
+    getTaskById(taskId) {
+        if (!taskId) return null;
+        const inQueue = this._queue.find(t => t.id === taskId);
+        if (inQueue) return { ...inQueue };
+        const inHistory = this._done.find(t => t.id === taskId);
+        if (inHistory) return { ...inHistory };
+        return null;
+    }
+
     /** Verifica se há BUILD pendente para uma cidade. */
     hasPendingBuild(cityId) {
         return this._queue.some(t =>
             t.type === TASK_TYPE.BUILD && t.cityId === cityId &&
-            (t.status === 'pending' || t.status === 'in-flight')
+            (t.status === 'pending' || t.status === 'in-flight' || t.status === 'waiting_resources')
         );
     }
 
@@ -215,6 +232,8 @@ export class TaskQueue {
     _tick() {
         const now  = Date.now();
         const mode = this._config.get('operationMode');
+
+        this._promoteWaitingBuilds(now);
 
         // Watchdog: se _executing ficou true por mais de 60s, resetar e remarcar task
         if (this._executing && this._executingStartedAt && (now - this._executingStartedAt) > 60_000) {
@@ -283,6 +302,15 @@ export class TaskQueue {
         this._audit.info('TaskQueue',
             `▶ [${task.id}] ${task.type} cidade ${task.cityId} tentativa ${task.attempts + 1}/${task.maxAttempts} — ${task.reason ?? ''}`);
 
+        const pathDecision = this._captureHybridPathDecision(task, {
+            actionType: task.type,
+            preferredPath: 'endpoint',
+            pathDecision: 'endpoint',
+            decisionReason: 'ENDPOINT_PRIMARY',
+            dataProvenance: ['endpoint'],
+            routeConfidence: this._normalizeRouteConfidence(task.confidence),
+        });
+
         try {
             // 1. OperationMode
             const mode = this._config.get('operationMode');
@@ -319,12 +347,21 @@ export class TaskQueue {
             // 3. Adquirir session lock — garante exclusividade durante navigate + action.
             // fetchAllCities também adquire este lock, então nunca se interpõe entre
             // o navigate do guard e o dispatch da task.
-            await this._client.acquireSession(async () => {
+            const dispatchResult = await this._client.acquireSession(async () => {
                 // 3a. Guards específicos por tipo (navigate acontece aqui dentro)
                 await this._runGuards(task);
 
                 // 3b. Executar via GameClient
-                await this._dispatch(task);
+                return await this._dispatch(task);
+            });
+
+            this._captureHybridAttemptOutcome(task, dispatchResult?.hybridOutcome ?? {
+                actionType: task.type,
+                pathUsed: pathDecision.pathDecision,
+                prereqCheck: 'pass',
+                responseSignals: ['taskqueue:dispatch_completed'],
+                outcomeClass: 'success',
+                nextStep: 'task_complete',
             });
 
             // 5. Sucesso
@@ -376,6 +413,18 @@ export class TaskQueue {
                     task.guardAttempts = (task.guardAttempts ?? 0) + 1;
                 }
 
+                const guardReasonCode = err?.code ?? task.reasonCode ?? 'GUARD_PRECONDITION_NOT_MET';
+                task.lastBlockerCode = guardReasonCode;
+                this._captureHybridAttemptOutcome(task, {
+                    actionType: task.type,
+                    pathUsed: pathDecision.pathDecision,
+                    prereqCheck: 'pass',
+                    responseSignals: ['guard_error'],
+                    outcomeClass: 'guard-reschedule',
+                    nextStep: 'reschedule',
+                    reasonCode: guardReasonCode,
+                });
+
                 const maxGuardAttempts = task.maxGuardAttempts ?? Math.max(task.maxAttempts * 4, 8);
                 this._audit.debug('TaskQueue',
                     consumeGuardAttempt
@@ -401,6 +450,15 @@ export class TaskQueue {
                 this._persist();
 
             } else if (err instanceof GameError && err.fatal) {
+                this._captureHybridAttemptOutcome(task, {
+                    actionType: task.type,
+                    pathUsed: pathDecision.pathDecision,
+                    prereqCheck: 'pass',
+                    responseSignals: ['fatal_error'],
+                    outcomeClass: 'hard-fail',
+                    nextStep: 'fail',
+                    reasonCode: err?.code ?? err?.type ?? 'FATAL_ERROR',
+                });
                 task.status = 'failed';
                 const elapsed = Date.now() - this._executingStartedAt;
                 this._audit.error('TaskQueue',
@@ -411,6 +469,15 @@ export class TaskQueue {
                 this._persist();
 
             } else if (task.attempts >= task.maxAttempts) {
+                this._captureHybridAttemptOutcome(task, {
+                    actionType: task.type,
+                    pathUsed: pathDecision.pathDecision,
+                    prereqCheck: 'pass',
+                    responseSignals: ['retry_exhausted'],
+                    outcomeClass: 'hard-fail',
+                    nextStep: 'fail',
+                    reasonCode: err?.code ?? 'ATTEMPTS_EXHAUSTED',
+                });
                 task.status = 'failed';
                 const elapsed = Date.now() - this._executingStartedAt;
                 this._audit.error('TaskQueue',
@@ -601,7 +668,7 @@ export class TaskQueue {
     async _dispatch(task) {
         switch (task.type) {
             case TASK_TYPE.BUILD: {
-                await this._client.upgradeBuilding(
+                const result = await this._client.upgradeBuilding(
                     task.cityId,
                     task.payload.position,
                     task.payload.buildingView,
@@ -616,7 +683,7 @@ export class TaskQueue {
                 } catch (probeErr) {
                     this._audit.warn('TaskQueue', `BUILD: probe pós-build falhou (não bloqueia): ${probeErr.message}`);
                 }
-                return;
+                return result;
             }
 
             case TASK_TYPE.TRANSPORT:
@@ -709,6 +776,158 @@ export class TaskQueue {
         task.status       = 'pending';
         task.scheduledFor = Date.now() + delayMs;
         this._persist();
+    }
+
+    _applyBuildSchedulingPrecedence(taskData) {
+        const city = this._state.getCity?.(taskData.cityId);
+        const ucIdx = city?.underConstruction;
+        const isUnderConstruction = ucIdx !== -1 && ucIdx !== false && ucIdx !== null && Number(ucIdx) !== -1;
+        if (!isUnderConstruction) return taskData;
+
+        const activeSlot = city?.buildings?.[ucIdx];
+        const completesAtMs = activeSlot?.completed
+            ? Number(activeSlot.completed) * 1000
+            : Number(activeSlot?.completesAt ?? 0);
+
+        if (!Number.isFinite(completesAtMs) || completesAtMs <= 0) return taskData;
+
+        const precedenceTs = completesAtMs + 1000;
+        const nextScheduledFor = precedenceTs;
+
+        const evidence = Array.isArray(taskData.evidence) ? [...taskData.evidence] : [];
+        evidence.push(`activeBuildComesFirst=true`);
+        evidence.push(`activeBuildCompletesAt=${new Date(completesAtMs).toISOString()}`);
+        evidence.push(`buildScheduledFor=${new Date(nextScheduledFor).toISOString()}`);
+
+        return {
+            ...taskData,
+            scheduledFor: nextScheduledFor,
+            reasonCode: taskData.reasonCode ?? 'BUILD_PRECEDENCE_ACTIVE_BUILD',
+            evidence,
+        };
+    }
+
+    _promoteWaitingBuilds(now = Date.now()) {
+        for (const task of this._queue) {
+            if (task.type !== TASK_TYPE.BUILD || task.status !== 'waiting_resources') continue;
+            if ((task.scheduledFor ?? 0) > now) continue;
+            if (!this._cfo || !task.payload?.cost) continue;
+
+            const affordable = this._cfo.canAfford(task.cityId, task.payload.cost);
+            if (!affordable) continue;
+
+            const evidence = Array.isArray(task.evidence) ? [...task.evidence] : [];
+            evidence.push('statusTransition=WAITING_RESOURCES->PENDING');
+            evidence.push(`transitionAt=${new Date(now).toISOString()}`);
+
+            task.status = 'pending';
+            task.reasonCode = task.reasonCode ?? 'BUILD_RESOURCES_READY';
+            task.evidence = evidence;
+            this._audit.info('TaskQueue',
+                `BUILD [${task.id}] recursos disponíveis — transição para pending (cidade ${task.cityId})`
+            );
+        }
+    }
+
+    _isUrgentTask(task) {
+        if (!task) return false;
+        if (task.type === TASK_TYPE.WINE_ADJUST && task.payload?.wineEmergency) return true;
+        if (task.type === TASK_TYPE.TRANSPORT && task.payload?.wineEmergency) return true;
+        if (task.type === TASK_TYPE.BUILD) {
+            const threshold = this._config.get('urgentBuildRoiThreshold') ?? 8;
+            const roi = Number(task.payload?.roi ?? 0);
+            return Number.isFinite(roi) && roi >= threshold;
+        }
+        return false;
+    }
+
+    _applyUrgentReprioritization(incomingTask) {
+        if (!this._isUrgentTask(incomingTask)) return;
+
+        const urgentEvidence = [
+            `urgentTaskId=${incomingTask.id}`,
+            `urgentType=${incomingTask.type}`,
+            `urgentCityId=${incomingTask.cityId}`,
+        ];
+
+        for (const task of this._queue) {
+            if (task.id === incomingTask.id) continue;
+            if (task.type !== TASK_TYPE.BUILD) continue;
+            if (task.status !== 'pending') continue;
+
+            task.status = 'waiting_resources';
+            task.reasonCode = 'REPRIORITIZED_BY_URGENT_TASK';
+            task.evidence = [
+                ...(Array.isArray(task.evidence) ? task.evidence : []),
+                ...urgentEvidence,
+                'statusTransition=PENDING->WAITING_RESOURCES',
+            ];
+            task.reason = `TaskQueue: build repriorizada por urgência ${incomingTask.type}`;
+            task.payload = {
+                ...(task.payload ?? {}),
+                waitingResources: true,
+            };
+            this._audit.info('TaskQueue',
+                `Repriorização urgente: BUILD [${task.id}] voltou para WAITING_RESOURCES por ${incomingTask.type}`
+            );
+        }
+    }
+
+    _captureHybridPathDecision(task, decision) {
+        const payload = {
+            taskId: task.id,
+            cityId: task.cityId,
+            actionType: task.type,
+            decision: {
+                ts: Date.now(),
+                preferredPath: decision.preferredPath ?? 'endpoint',
+                pathDecision: decision.pathDecision ?? 'endpoint',
+                decisionReason: decision.decisionReason ?? 'UNSPECIFIED',
+                dataProvenance: Array.isArray(decision.dataProvenance) ? decision.dataProvenance : ['endpoint'],
+                contextLock: decision.contextLock ?? { locked: true },
+                tokenSnapshot: decision.tokenSnapshot ?? null,
+                routeConfidence: decision.routeConfidence ?? this._normalizeRouteConfidence(task.confidence),
+            },
+        };
+
+        task.pathDecision = payload.decision;
+        const ev = this._events?.E?.HYBRID_PATH_DECIDED;
+        if (ev) this._events.emit(ev, payload);
+        return payload.decision;
+    }
+
+    _captureHybridAttemptOutcome(task, outcome = {}) {
+        const normalized = {
+            attemptId: outcome.attemptId ?? `tq_${Date.now()}_${++this._attemptSeq}`,
+            taskId: task.id,
+            actionType: outcome.actionType ?? task.type,
+            pathUsed: outcome.pathUsed ?? task.pathDecision?.pathDecision ?? 'endpoint',
+            prereqCheck: outcome.prereqCheck ?? 'pass',
+            requestShapeHash: outcome.requestShapeHash ?? null,
+            responseSignals: Array.isArray(outcome.responseSignals) ? outcome.responseSignals : [],
+            outcomeClass: outcome.outcomeClass ?? 'success',
+            nextStep: outcome.nextStep ?? 'none',
+            reasonCode: outcome.reasonCode ?? null,
+            ts: Date.now(),
+        };
+
+        task.lastAttemptOutcome = normalized;
+        const ev = this._events?.E?.HYBRID_ATTEMPT_OUTCOME;
+        if (ev) {
+            this._events.emit(ev, {
+                taskId: task.id,
+                cityId: task.cityId,
+                actionType: task.type,
+                outcome: normalized,
+            });
+        }
+        return normalized;
+    }
+
+    _normalizeRouteConfidence(raw) {
+        const c = String(raw ?? '').toUpperCase();
+        if (c === 'HIGH' || c === 'MEDIUM' || c === 'LOW') return c;
+        return 'MEDIUM';
     }
 
     _moveToHistory(task) {

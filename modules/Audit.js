@@ -18,6 +18,15 @@ export class Audit {
         this._errorBuffer = []; // array circular de erros, max MAX_ERROR_ENTRIES
         this._sinceLastPersist = 0;
         this._errorSeq = 0;
+        this._hybridCounters = {
+            pathDecided: 0,
+            attemptOutcome: 0,
+            fallbackInvoked: 0,
+            selectorMiss: 0,
+            byOutcomeClass: {},
+            byPath: {},
+            byReasonCode: {},
+        };
     }
 
     async init() {
@@ -32,6 +41,25 @@ export class Audit {
             this._errorBuffer = savedErrors.slice(-MAX_ERROR_ENTRIES);
             this._errorSeq = this._errorBuffer.length;
         }
+
+        this._events?.on?.(this._events?.E?.HYBRID_PATH_DECIDED, ({ decision } = {}) => {
+            this._hybridCounters.pathDecided++;
+            const path = decision?.pathDecision ?? 'unknown';
+            this._hybridCounters.byPath[path] = (this._hybridCounters.byPath[path] ?? 0) + 1;
+        });
+        this._events?.on?.(this._events?.E?.HYBRID_ATTEMPT_OUTCOME, ({ outcome } = {}) => {
+            this._hybridCounters.attemptOutcome++;
+            const cls = outcome?.outcomeClass ?? 'unknown';
+            const code = outcome?.reasonCode ?? 'none';
+            this._hybridCounters.byOutcomeClass[cls] = (this._hybridCounters.byOutcomeClass[cls] ?? 0) + 1;
+            this._hybridCounters.byReasonCode[code] = (this._hybridCounters.byReasonCode[code] ?? 0) + 1;
+        });
+        this._events?.on?.(this._events?.E?.HYBRID_FALLBACK_INVOKED, () => {
+            this._hybridCounters.fallbackInvoked++;
+        });
+        this._events?.on?.(this._events?.E?.HYBRID_SELECTOR_MISS, () => {
+            this._hybridCounters.selectorMiss++;
+        });
     }
 
     // ── API pública ───────────────────────────────────────────────────────────
@@ -165,12 +193,30 @@ export class Audit {
         };
     }
 
+    getHybridStats() {
+        return {
+            ...this._hybridCounters,
+            byOutcomeClass: { ...this._hybridCounters.byOutcomeClass },
+            byPath: { ...this._hybridCounters.byPath },
+            byReasonCode: { ...this._hybridCounters.byReasonCode },
+        };
+    }
+
     /** Limpa o buffer em memória e persiste vazio. */
     async clear() {
         this._buffer = [];
         this._errorBuffer = [];
         this._sinceLastPersist = 0;
         this._errorSeq = 0;
+        this._hybridCounters = {
+            pathDecided: 0,
+            attemptOutcome: 0,
+            fallbackInvoked: 0,
+            selectorMiss: 0,
+            byOutcomeClass: {},
+            byPath: {},
+            byReasonCode: {},
+        };
         await this._storage.set('audit_log', []);
         await this._storage.set('audit_errors', []);
     }

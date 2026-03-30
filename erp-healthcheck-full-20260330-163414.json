@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "runId": "hc_IBM4MxRn",
+    "suite": "full",
+    "startedAt": 1774898985226,
+    "endedAt": 1774899254371,
+    "generatedAt": 1774899254371,
+    "cityCount": 6,
+    "activeCityId": 6580
+  },
+  "summary": {
+    "status": "failed",
+    "progress": {
+      "total": 7,
+      "completed": 7,
+      "percent": 100
+    },
+    "metrics": {
+      "passed": 5,
+      "failed": 2,
+      "blocked": 0,
+      "skipped": 0,
+      "durationMs": 269144,
+      "passRate": 71.4
+    }
+  },
+  "scenarios": [
+    {
+      "id": "state_snapshot",
+      "title": "Leitura e consistência de estado multi-cidade",
+      "group": "state",
+      "status": "passed",
+      "startedAt": 1774898985227,
+      "endedAt": 1774898985227,
+      "elapsedMs": 0,
+      "error": null,
+      "evidence": [
+        "cities=5",
+        "activeCity=6582",
+        "firstCity=BAD C"
+      ]
+    },
+    {
+      "id": "transport_dispatch",
+      "title": "Envio real de recursos via TaskQueue",
+      "group": "transport",
+      "status": "failed",
+      "startedAt": 1774898985227,
+      "endedAt": 1774899105378,
+      "elapsedMs": 120151,
+      "error": "Timeout aguardando conclusão da task RqPHkbHr",
+      "evidence": [
+        "taskId=RqPHkbHr",
+        "from=BAD E to=BAD C",
+        "resource=sulfur qty=500",
+        "taskAdded=RqPHkbHr"
+      ]
+    },
+    {
+      "id": "build_upgrade",
+      "title": "Upgrade real de construção via TaskQueue",
+      "group": "build",
+      "status": "failed",
+      "startedAt": 1774899105378,
+      "endedAt": 1774899226371,
+      "elapsedMs": 120993,
+      "error": "Timeout aguardando conclusão da task dsdMkRA0",
+      "evidence": [
+        "taskId=dsdMkRA0",
+        "city=BAD C",
+        "building=warehouse pos=8",
+        "taskAdded=dsdMkRA0",
+        "taskStarted=dsdMkRA0"
+      ]
+    },
+    {
+      "id": "donation_flow",
+      "title": "Doação de recurso da ilha",
+      "group": "donation",
+      "status": "passed",
+      "startedAt": 1774899226371,
+      "endedAt": 1774899233503,
+      "elapsedMs": 7132,
+      "error": null,
+      "evidence": [
+        "city=BAD C",
+        "islandId=1030",
+        "amount=500",
+        "donateIslandResource executado sem erro"
+      ]
+    },
+    {
+      "id": "wine_adjust",
+      "title": "Ajuste operacional de vinho",
+      "group": "sustento",
+      "status": "passed",
+      "startedAt": 1774899233503,
+      "endedAt": 1774899247491,
+      "elapsedMs": 13988,
+      "error": null,
+      "evidence": [
+        "city=BAD C",
+        "wineLevel=14",
+        "taskAdded=ZuFxbVS9",
+        "taskStarted=ZuFxbVS9",
+        "taskDone=ZuFxbVS9"
+      ]
+    },
+    {
+      "id": "workers_science",
+      "title": "Ajuste operacional de workers (ciência)",
+      "group": "operations",
+      "status": "passed",
+      "startedAt": 1774899247491,
+      "endedAt": 1774899254371,
+      "elapsedMs": 6880,
+      "error": null,
+      "evidence": [
+        "city=BAD C",
+        "academyPos=10",
+        "scientists=0",
+        "taskAdded=fWiBrkqn",
+        "taskStarted=fWiBrkqn",
+        "taskDone=fWiBrkqn"
+      ]
+    },
+    {
+      "id": "queue_guardrails",
+      "title": "Saúde da fila e guard rails",
+      "group": "queue",
+      "status": "passed",
+      "startedAt": 1774899254371,
+      "endedAt": 1774899254371,
+      "elapsedMs": 0,
+      "error": null,
+      "evidence": [
+        "pending=5",
+        "history=50",
+        "recentFailed=5"
+      ]
+    }
+  ]
+}

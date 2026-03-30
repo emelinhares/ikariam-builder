@@ -1,10 +1,6 @@
 // CFO.js — Chief Financial Officer
 // Avalia qual edifício construir em cada cidade com base em score dinâmico e ROI.
 // Emite tasks BUILD para o TaskQueue. Não faz requests.
-//
-// BUG HISTORY:
-//   v1: usava slot.buildingId (inexistente) → nunca avaliava nenhum slot.
-//       Corrigido para slot.building (campo real do StateManager).
 
 import { getCost }                                                      from '../data/buildings.js';
 import { getWarehouseSafe, getCorruption,
@@ -13,12 +9,12 @@ import { getWarehouseSafe, getCorruption,
 import { PORT_LOADING_SPEED, BuildingsId }                              from '../data/const.js';
 import { TASK_TYPE }                                                    from './taskTypes.js';
 
-// Edifícios que aumentam produção de recursos (tratamento especial de ROI)
+// Edifícios com impacto direto em produção (tratamento específico de ROI)
 const PRODUCTION_BUILDINGS = new Set([
     'forester', 'stonemason', 'glassblowing', 'alchemist', 'winegrower',
 ]);
 
-// Edifícios redutores de custo (ROI alto garantido — pay off em todo build futuro)
+// Edifícios redutores de custo (payoff composto em builds futuros)
 const REDUCER_BUILDINGS = new Set([
     'carpentering', 'architect', 'optician', 'vineyard', 'fireworker',
 ]);
@@ -62,13 +58,20 @@ export class CFO {
         if (ctx) {
             const cityCtx = ctx.cities.get(cityId);
             if (cityCtx?.buildBlocked) {
+                const reasonDetails = {
+                    code: 'BLOCKED_BY_PLANNER_SUPPLY_EMERGENCY',
+                    wineHours: cityCtx.wineHours,
+                    satisfaction: cityCtx.satisfaction,
+                };
                 this._audit.info('CFO',
-                    `${city.name}: SKIP — buildBlocked (wineHours=${cityCtx.wineHours?.toFixed(1)}h sat=${cityCtx.satisfaction})`
+                    `${city.name}: SKIP — buildBlocked (code=${reasonDetails.code} wineHours=${cityCtx.wineHours?.toFixed(1)}h sat=${cityCtx.satisfaction})`
                 );
                 this._events.emit(this._events.E.CFO_BUILD_BLOCKED, {
                     cityId,
                     building: null,
                     reason:   'Planner: emergência de sustento ativa',
+                    reasonCode: reasonDetails.code,
+                    reasonDetails,
                 });
                 return;
             }
@@ -140,43 +143,176 @@ export class CFO {
 
         const best = candidates[0];
 
+        // Anti-duplicidade por assinatura (building+position+toLevel) além do hasPendingBuild.
+        // Protege contra cenários de corrida onde a queue não está sincronizada entre ciclos.
+        if (this._hasDuplicatePendingBuild(cityId, best)) {
+            const reasonDetails = {
+                code: 'DUPLICATE_BUILD_SIGNATURE',
+                signature: this._buildSignature(best),
+                building: best.building,
+                position: best.position,
+                toLevel: best.toLevel,
+            };
+            this._audit.info('CFO',
+                `${city.name}: SKIP — assinatura duplicada de BUILD (code=${reasonDetails.code} sig=${reasonDetails.signature})`
+            );
+            this._events.emit(this._events.E.CFO_BUILD_BLOCKED, {
+                cityId,
+                building: best.building,
+                reason: 'BUILD com mesma assinatura já está pendente',
+                reasonCode: reasonDetails.code,
+                reasonDetails,
+            });
+            return;
+        }
+
         // Verificar ROI mínimo
         if (best.roi < this._config.get('roiThreshold')) {
+            const reasonDetails = {
+                code: 'ROI_BELOW_THRESHOLD',
+                roi: Number(best.roi.toFixed(2)),
+                roiThreshold: this._config.get('roiThreshold'),
+                building: best.building,
+                toLevel: best.toLevel,
+                totalCost: best.totalCost,
+            };
             this._audit.info('CFO',
-                `${city.name}: SKIP — ROI insuficiente ${best.building} lv${best.toLevel}: ${best.roi.toFixed(2)} < ${this._config.get('roiThreshold')} (custo total: ${best.totalCost.toLocaleString()})`
+                `${city.name}: SKIP — ROI insuficiente (code=${reasonDetails.code}) ` +
+                `${best.building} lv${best.toLevel}: ${best.roi.toFixed(2)} < ${this._config.get('roiThreshold')} ` +
+                `(custo total: ${best.totalCost.toLocaleString()})`
             );
+            this._events.emit(this._events.E.CFO_BUILD_BLOCKED, {
+                cityId,
+                building: best.building,
+                reason: `ROI insuficiente: ${best.roi.toFixed(2)} < ${this._config.get('roiThreshold')}`,
+                reasonCode: reasonDetails.code,
+                reasonDetails,
+            });
             return;
         }
 
-        // Verificar recursos disponíveis para o melhor candidato
-        if (!this.canAfford(cityId, best.cost)) {
-            const inTransit  = this._state.getInTransit(cityId);
-            const missing = Object.entries(best.cost)
-                .filter(([res, needed]) => {
-                    if (!needed || needed <= 0) return false;
-                    if (res === 'gold' || res === 'wine') return false;
-                    const onHand   = city.resources[res] ?? 0;
-                    const arriving = inTransit[res] ?? 0;
-                    return onHand + arriving < needed;
-                })
-                .map(([res, needed]) => {
-                    const onHand   = city.resources[res] ?? 0;
-                    const arriving = inTransit[res] ?? 0;
-                    return `${res}: ${onHand + arriving}/${needed}${arriving > 0 ? ` (+${arriving} a caminho)` : ''}`;
+        // Verificação de Caixa Único (Scope D):
+        //  A) se local cobre, fluxo normal
+        //  B) se local falha, avaliar tesouraria global (descontando safety stock)
+        //  C) se global cobre, enfileirar BUILD como WAITING_RESOURCES e deixar COO orquestrar JIT
+        const localAfford = this.canAfford(cityId, best.cost);
+        if (!localAfford) {
+            const treasury = this._evaluateUnifiedTreasury(cityId, best.cost);
+
+            if (!treasury.globalPass) {
+                const reasonDetails = {
+                    code: 'INSUFFICIENT_RESOURCES_GLOBAL_TREASURY',
+                    building: best.building,
+                    toLevel: best.toLevel,
+                    localDeficit: treasury.localDeficit,
+                    globalCover: treasury.globalCover,
+                    safetyStockDeductions: treasury.safetyStockDeductions,
+                    chosenAction: 'BLOCK_BUILD',
+                };
+                const evidence = [
+                    `city=${city.name}`,
+                    `building=${best.building}@${best.position}->${best.toLevel}`,
+                    ...treasury.evidence,
+                    'action=BLOCK_BUILD',
+                ];
+                this._audit.info('CFO',
+                    `${city.name}: SKIP — caixa único insuficiente (code=${reasonDetails.code}) ` +
+                    `para ${best.building} lv${best.toLevel}`
+                );
+                this._events.emit(this._events.E.CFO_BUILD_BLOCKED, {
+                    cityId,
+                    building: best.building,
+                    reason: `Recursos insuficientes para ${best.building} lv${best.toLevel}`,
+                    reasonCode: reasonDetails.code,
+                    reasonDetails,
+                    evidence,
                 });
+                return;
+            }
+
+            const reasonDetails = {
+                code: 'BUILD_WAITING_RESOURCES_GLOBAL_TREASURY',
+                building: best.building,
+                position: best.position,
+                toLevel: best.toLevel,
+                localDeficit: treasury.localDeficit,
+                globalCover: treasury.globalCover,
+                safetyStockDeductions: treasury.safetyStockDeductions,
+                chosenAction: 'WAITING_RESOURCES_AND_REQUEST_JIT',
+            };
+            const evidence = [
+                `city=${city.name}`,
+                `building=${best.building}@${best.position}->${best.toLevel}`,
+                ...treasury.evidence,
+                'action=WAITING_RESOURCES_AND_REQUEST_JIT',
+            ];
+
+            this._events.emit(this._events.E.CFO_BUILD_APPROVED, {
+                cityId, building: best.building, position: best.position,
+                toLevel: best.toLevel, cost: best.cost, reason: best.reason,
+                reasonCode: reasonDetails.code,
+                reasonDetails,
+                evidence,
+            });
+
+            this._queue.add({
+                type:     TASK_TYPE.BUILD,
+                priority: Math.max(0, 100 - best.score),
+                cityId,
+                status:   'waiting_resources',
+                payload: {
+                    building:         best.building,
+                    position:         best.position,
+                    buildingView:     best.building,
+                    templateView:     best.building,
+                    cost:             best.cost,
+                    toLevel:          best.toLevel,
+                    currentLevel:     best.toLevel - 1,
+                    waitingResources: true,
+                    roi:              Number(best.roi.toFixed(2)),
+                    score:            best.score,
+                    treasury: {
+                        localDeficit:          treasury.localDeficit,
+                        globalCover:           treasury.globalCover,
+                        safetyStockDeductions: treasury.safetyStockDeductions,
+                    },
+                },
+                scheduledFor: Date.now(),
+                reason:       `CFO: Caixa Único aprovado (aguardando recursos) — ${best.reason}`,
+                reasonCode:   reasonDetails.code,
+                evidence,
+                module:       'CFO',
+                confidence:   this._state.getConfidence(cityId),
+            });
+
             this._audit.info('CFO',
-                `${city.name}: SKIP — recursos insuficientes para ${best.building} lv${best.toLevel} | falta: ${missing.join(', ')}`
+                `↺ BUILD aguardando recursos (code=${reasonDetails.code}): ${best.building} lv${best.toLevel} em ${city.name}`
             );
             return;
         }
 
+        const approvalDetails = {
+            code: 'BUILD_APPROVED',
+            score: best.score,
+            roi: Number(best.roi.toFixed(2)),
+            roiThreshold: this._config.get('roiThreshold'),
+            signature: this._buildSignature(best),
+            building: best.building,
+            position: best.position,
+            toLevel: best.toLevel,
+            cost: best.cost,
+        };
         this._audit.info('CFO',
-            `✓ BUILD aprovado: ${best.building} lv${best.toLevel} em ${city.name} — score=${best.score} roi=${best.roi.toFixed(2)} custo={${_fmtCost(best.cost)}}`
+            `✓ BUILD aprovado (code=${approvalDetails.code} sig=${approvalDetails.signature}): ` +
+            `${best.building} lv${best.toLevel} em ${city.name} — ` +
+            `score=${best.score} roi=${best.roi.toFixed(2)} custo={${_fmtCost(best.cost)}}`
         );
 
         this._events.emit(this._events.E.CFO_BUILD_APPROVED, {
             cityId, building: best.building, position: best.position,
             toLevel: best.toLevel, cost: best.cost, reason: best.reason,
+            reasonCode: approvalDetails.code,
+            reasonDetails: approvalDetails,
         });
 
         // Registrar no contexto do Planner que esta cidade recebeu build aprovado
@@ -197,12 +333,85 @@ export class CFO {
                 cost:         best.cost,
                 toLevel:      best.toLevel,
                 currentLevel: best.toLevel - 1,  // nível ATUAL — confirmado via REC: server valida isso
+                roi:          Number(best.roi.toFixed(2)),
+                score:        best.score,
             },
             scheduledFor: Date.now(),
             reason:       `CFO: ${best.reason}`,
             module:       'CFO',
             confidence:   this._state.getConfidence(cityId),
         });
+    }
+
+    _evaluateUnifiedTreasury(destCityId, cost) {
+        const resources = Object.entries(cost ?? {})
+            .filter(([res, needed]) => needed > 0 && res !== 'gold' && res !== 'wine');
+        const cities = this._state.getAllCities();
+        const destCity = this._state.getCity(destCityId);
+        const inTransitDest = this._state.getInTransit(destCityId);
+        const minStockFraction = this._config.get('minStockFraction') ?? 0.20;
+
+        const localDeficit = {};
+        const globalCover = {};
+        const safetyStockDeductions = {};
+        const evidence = [];
+        let globalPass = true;
+
+        for (const [res, needed] of resources) {
+            const onHandDest = destCity?.resources?.[res] ?? 0;
+            const arrivingDest = inTransitDest?.[res] ?? 0;
+            const effectiveDest = onHandDest + arrivingDest;
+            const deficit = Math.max(0, needed - effectiveDest);
+            localDeficit[res] = deficit;
+
+            if (deficit <= 0) {
+                globalCover[res] = 0;
+                safetyStockDeductions[res] = [];
+                evidence.push(`${res}: local=${effectiveDest}/${needed} deficit=0`);
+                continue;
+            }
+
+            const deductions = [];
+            let transferableTotal = 0;
+
+            for (const city of cities) {
+                if (!city || city.id === destCityId) continue;
+                const raw = Number(city.resources?.[res] ?? 0);
+                const maxResRaw = city.maxResources;
+                const maxRes = typeof maxResRaw === 'number'
+                    ? maxResRaw
+                    : Number(maxResRaw?.[res] ?? 0);
+                const safetyStock = Math.floor(Math.max(0, maxRes) * minStockFraction);
+                const transferable = Math.max(0, raw - safetyStock);
+
+                deductions.push({
+                    cityId: city.id,
+                    cityName: city.name,
+                    resource: res,
+                    onHand: raw,
+                    safetyStock,
+                    transferable,
+                });
+                transferableTotal += transferable;
+            }
+
+            globalCover[res] = transferableTotal;
+            safetyStockDeductions[res] = deductions;
+            if (transferableTotal < deficit) globalPass = false;
+
+            evidence.push(
+                `${res}: localDeficit=${deficit} globalCover=${transferableTotal} ` +
+                `safetyDeduction=${deductions.map(d => `${d.cityName}:${d.safetyStock}`).join('|')}`
+            );
+        }
+
+        return {
+            globalPass,
+            localDeficit,
+            globalCover,
+            safetyStockDeductions,
+            evidence,
+        };
     }
 
     // ── Verificação de custeio ────────────────────────────────────────────────
@@ -430,8 +639,9 @@ export class CFO {
             const avgFutureBuildCost = 50_000;
             const futureBuilds       = 30;
             const savingsPerLevel    = avgFutureBuildCost * 0.01 * futureBuilds;
-            const roi = savingsPerLevel / Math.max(totalCost, 1) * 10;
-            return Math.min(roi, 10); // cap em 10
+            const estimatedSavingsPerHour = savingsPerLevel / (7 * 24); // distribui benefício em 1 semana
+            const paybackHours = totalCost / Math.max(estimatedSavingsPerHour, 0.1);
+            return this._paybackToRoi(paybackHours, { fastBonus: 0.5 });
         }
 
         // ── Produção de recursos ─────────────────────────────────────────────
@@ -443,12 +653,7 @@ export class CFO {
             const goldEquivPerUnit  = 3;
             const extraGoldPerHour  = extraUnitsPerHour * goldEquivPerUnit;
             const paybackHours      = totalCost / Math.max(extraGoldPerHour, 0.1);
-            // ROI alto = payback rápido
-            if (paybackHours < 48)   return 8;
-            if (paybackHours < 168)  return 5;  // < 1 semana
-            if (paybackHours < 720)  return 3;  // < 1 mês
-            if (paybackHours < 2160) return 2;  // < 3 meses
-            return 1;
+            return this._paybackToRoi(paybackHours);
         }
 
         // ── Town Hall ────────────────────────────────────────────────────────
@@ -456,30 +661,31 @@ export class CFO {
         if (building === 'townHall') {
             const extraGoldPerHour = 50 * 3; // ~150 gold/h por nível
             const paybackHours     = totalCost / Math.max(extraGoldPerHour, 1);
-            if (paybackHours < 24)   return 9;
-            if (paybackHours < 168)  return 6;
-            if (paybackHours < 720)  return 4;
-            if (paybackHours < 2160) return 2.5;
-            return 1.5;
+            return this._paybackToRoi(paybackHours, { fastBonus: 1.0 });
         }
 
         // ── Warehouse ────────────────────────────────────────────────────────
         // Previne perda de recursos por overflow. Valor = recursos salvos × preço.
         // Heurística: sempre vale em níveis baixos (evita overflow), menos em níveis altos.
         if (building === 'warehouse') {
-            if (toLevel <= 10) return 6;
-            if (toLevel <= 20) return 4;
-            if (toLevel <= 30) return 3;
-            return 2;
+            const avgFill = _averageResourceFillRatio(city.resources, city.maxResources);
+            const overflowRiskPerHour = Math.max(0, (avgFill - 0.85) * 5_000); // proxy de perda evitada
+            if (overflowRiskPerHour <= 0) return toLevel <= 10 ? 4 : 2.5;
+            const paybackHours = totalCost / overflowRiskPerHour;
+            return this._paybackToRoi(paybackHours);
         }
 
         // ── Academia ─────────────────────────────────────────────────────────
         // Mais cientistas = pesquisa mais rápida. Pesquisa rápida = steam giants mais cedo.
         if (building === 'academy') {
-            if (toLevel <= 10) return 7;
-            if (toLevel <= 20) return 5;
-            if (toLevel <= 30) return 3;
-            return 2;
+            const capNow   = ACADEMY_MAX_SCIENTISTS[currentLevel] ?? 0;
+            const capNext  = ACADEMY_MAX_SCIENTISTS[toLevel] ?? capNow;
+            const deltaSci = Math.max(0, capNext - capNow);
+            const pointsPerScientistHour = 20;
+            const pointsGainPerHour = deltaSci * pointsPerScientistHour;
+            if (pointsGainPerHour <= 0) return 1.5;
+            const paybackHours = totalCost / pointsGainPerHour;
+            return this._paybackToRoi(paybackHours, { slowFloor: 1.5 });
         }
 
         // ── Porto ────────────────────────────────────────────────────────────
@@ -489,9 +695,11 @@ export class CFO {
             const speedAfter  = PORT_LOADING_SPEED[toLevel]      ?? 10;
             const gain        = speedAfter - speedBefore;
             if (gain <= 0) return 0;
-            // ROI proporcional ao ganho de velocidade
-            const roi = (gain / Math.max(totalCost, 1)) * 500_000;
-            return Math.min(roi, 8);
+            // ROI proporcional ao tempo de carga poupado por hora de operação.
+            const timeSavedPerHour = gain / Math.max(speedAfter, 1); // proxy normalizado
+            const payoffPerHour = Math.max(0.1, timeSavedPerHour * 2_000);
+            const paybackHours = totalCost / payoffPerHour;
+            return this._paybackToRoi(paybackHours, { fastBonus: 0.5 });
         }
 
         // ── Palace / Governor's Residence ────────────────────────────────────
@@ -513,6 +721,36 @@ export class CFO {
         const normalized = Math.min(1, totalCost / 300_000);
         return Math.max(1.0, (1 - normalized) * 5 + 1);
     }
+
+    _paybackToRoi(paybackHours, options = {}) {
+        const fastBonus = options.fastBonus ?? 0;
+        const slowFloor = options.slowFloor ?? 1.0;
+
+        if (!Number.isFinite(paybackHours) || paybackHours <= 0) return 10;
+        if (paybackHours <= 24)   return 9 + fastBonus;
+        if (paybackHours <= 72)   return 8 + fastBonus;
+        if (paybackHours <= 168)  return 6 + fastBonus;
+        if (paybackHours <= 336)  return 5;
+        if (paybackHours <= 720)  return 4;
+        if (paybackHours <= 2160) return 2.5;
+        return slowFloor;
+    }
+
+    _buildSignature(candidate) {
+        if (!candidate) return 'unknown';
+        return `${candidate.building}@${candidate.position}->${candidate.toLevel}`;
+    }
+
+    _hasDuplicatePendingBuild(cityId, candidate) {
+        const pending = this._queue.getPending?.(cityId) ?? [];
+        const signature = this._buildSignature(candidate);
+        return pending.some((task) => {
+            if (task.type !== TASK_TYPE.BUILD) return false;
+            const payload = task.payload ?? {};
+            const taskSig = `${payload.building ?? payload.buildingView}@${payload.position}->${payload.toLevel}`;
+            return taskSig === signature;
+        });
+    }
 }
 
 // ── Helper local ──────────────────────────────────────────────────────────────
@@ -523,4 +761,18 @@ function _fmtCost(cost) {
         .filter(([, v]) => v > 0)
         .map(([k, v]) => `${k}:${Number(v).toLocaleString('pt-BR')}`)
         .join(' ');
+}
+
+function _averageResourceFillRatio(resources = {}, maxResources = {}) {
+    const keys = ['wood', 'wine', 'marble', 'glass', 'sulfur'];
+    const ratios = keys
+        .map((k) => {
+            const max = Number(maxResources[k] ?? 0);
+            if (max <= 0) return null;
+            const cur = Number(resources[k] ?? 0);
+            return Math.max(0, Math.min(1, cur / max));
+        })
+        .filter(v => v !== null);
+    if (!ratios.length) return 0;
+    return ratios.reduce((s, v) => s + v, 0) / ratios.length;
 }

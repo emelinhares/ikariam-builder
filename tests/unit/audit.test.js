@@ -168,7 +168,12 @@ describe('AuditClass realtime telemetry', () => {
         AUDIT_ENTRY_ADDED: 'audit:entry:added',
         AUDIT_ERROR_ADDED: 'audit:error:added',
         UI_ALERT_ADDED: 'ui:alert:added',
+        HYBRID_PATH_DECIDED: 'hybrid:path_decided',
+        HYBRID_ATTEMPT_OUTCOME: 'hybrid:attempt_outcome',
+        HYBRID_FALLBACK_INVOKED: 'hybrid:fallback_invoked',
+        HYBRID_SELECTOR_MISS: 'hybrid:selector_miss',
       },
+      on: vi.fn(),
       emit: vi.fn(),
     };
 
@@ -200,5 +205,47 @@ describe('AuditClass realtime telemetry', () => {
       entry: expect.objectContaining({ module: 'TaskQueue', seq: 1 }),
     });
     expect(storage.set).toHaveBeenCalledWith('audit_errors', expect.any(Array));
+  });
+
+  test('agrega contadores híbridos por eventos de path/outcome', async () => {
+    const handlers = new Map();
+    const storage = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+    };
+    const events = {
+      E: {
+        AUDIT_ENTRY_ADDED: 'audit:entry:added',
+        AUDIT_ERROR_ADDED: 'audit:error:added',
+        UI_ALERT_ADDED: 'ui:alert:added',
+        HYBRID_PATH_DECIDED: 'hybrid:path_decided',
+        HYBRID_ATTEMPT_OUTCOME: 'hybrid:attempt_outcome',
+        HYBRID_FALLBACK_INVOKED: 'hybrid:fallback_invoked',
+        HYBRID_SELECTOR_MISS: 'hybrid:selector_miss',
+      },
+      on: vi.fn((ev, cb) => {
+        handlers.set(ev, cb);
+        return () => {};
+      }),
+      emit: vi.fn(),
+    };
+
+    const audit = new AuditClass({ storage, events });
+    await audit.init();
+
+    handlers.get(events.E.HYBRID_PATH_DECIDED)?.({ decision: { pathDecision: 'endpoint' } });
+    handlers.get(events.E.HYBRID_ATTEMPT_OUTCOME)?.({ outcome: { outcomeClass: 'guard-reschedule', reasonCode: 'HYBRID_INCONCLUSIVE_TRANSPORT' } });
+    handlers.get(events.E.HYBRID_FALLBACK_INVOKED)?.({});
+    handlers.get(events.E.HYBRID_SELECTOR_MISS)?.({});
+
+    expect(audit.getHybridStats()).toMatchObject({
+      pathDecided: 1,
+      attemptOutcome: 1,
+      fallbackInvoked: 1,
+      selectorMiss: 1,
+      byPath: { endpoint: 1 },
+      byOutcomeClass: { 'guard-reschedule': 1 },
+      byReasonCode: { HYBRID_INCONCLUSIVE_TRANSPORT: 1 },
+    });
   });
 });

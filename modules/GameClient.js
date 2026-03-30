@@ -8,10 +8,12 @@ import { createCargoPayloadFromResources } from './resourceContracts.js';
 // ─── Taxonomia de erros ───────────────────────────────────────────────────────
 // Usado pelo TaskQueue para decidir retry vs fatal vs guard
 export class GameError extends Error {
-    constructor(type, message) {
+    constructor(type, message, meta = null) {
         super(message);
         this.name = 'GameError';
         this.type = type;
+        this.code = meta?.code ?? null;
+        this.meta = meta ?? null;
         // RETRY : erro transiente (HTTP_ERROR, GAME_ERROR temporário) — tentar novamente
         // FATAL : erro permanente (PARSE_ERROR) — não tentar novamente
         // GUARD : pré-condição não atendida — não é erro de rede, reagendar
@@ -35,6 +37,8 @@ export class GameClient {
         // Garante que fetchAllCities e tasks do TaskQueue nunca se interponham durante
         // uma sequência navigate → action.
         this._sessionLock = Promise.resolve();
+
+        this._attemptSeq = 0;
     }
 
     /**
@@ -179,13 +183,25 @@ export class GameClient {
             if (!endUpgradeTime || endUpgradeTime <= 0) {
                 this._audit.warn('GameClient',
                     `upgradeBuilding: endUpgradeTime=${endUpgradeTime} — rejeitado silenciosamente`);
-                throw new GameError('GUARD', `Build rejeitada — endUpgradeTime=${endUpgradeTime}`);
+                throw new GameError(
+                    'GUARD',
+                    `Build rejeitada — endUpgradeTime=${endUpgradeTime}`,
+                    { code: 'HYBRID_INCONCLUSIVE_BUILD' }
+                );
             }
 
             const eta = new Date(endUpgradeTime * 1000).toLocaleTimeString('pt-BR');
             this._audit.info('GameClient', `✓ Build aceita — conclui às ${eta}`);
             await sleep(300);
-            return text;
+            return {
+                text,
+                hybridOutcome: this._makeHybridOutcome({
+                    actionType: 'BUILD',
+                    responseSignals: ['endUpgradeTime'],
+                    outcomeClass: 'success',
+                    nextStep: 'task_complete',
+                }),
+            };
         });
     }
 
@@ -268,10 +284,21 @@ export class GameClient {
                     } catch { /* parse não crítico */ }
 
                     if (!confirmed) {
-                        throw new GameError('GAME_ERROR',
-                            `fleetMoveList ausente — from=${fromCityId} to=${toCityId}`);
+                        throw new GameError(
+                            'GUARD',
+                            `fleetMoveList ausente — from=${fromCityId} to=${toCityId}`,
+                            { code: 'HYBRID_INCONCLUSIVE_TRANSPORT' }
+                        );
                     }
-                    return result;
+                    return {
+                        ...result,
+                        hybridOutcome: this._makeHybridOutcome({
+                            actionType: 'TRANSPORT',
+                            responseSignals: ['fleetMoveList_or_feedback10'],
+                            outcomeClass: 'success',
+                            nextStep: 'task_complete',
+                        }),
+                    };
 
                 } catch (err) {
                     lastErr = err;
@@ -293,21 +320,42 @@ export class GameClient {
      * 3 tentativas via _postWithContext.
      */
     setScientists(cityId, academyPosition, count) {
-        return this._enqueue(() => this._postWithContext(
-            `/index.php?view=academy&cityId=${cityId}&position=${academyPosition}` +
-            `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
-            {
-                action:        'IslandScreen',
-                function:      'workerPlan',
-                screen:        'academy',
-                position:      String(academyPosition),
-                s:             String(count),
-                cityId:        String(cityId),
-                currentCityId: String(cityId),
-                ajax:          1,
-            },
-            `setScientists cidade ${cityId}`
-        ));
+        return this._enqueue(async () => {
+            const result = await this._postWithContext(
+                `/index.php?view=academy&cityId=${cityId}&position=${academyPosition}` +
+                `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
+                {
+                    action:        'IslandScreen',
+                    function:      'workerPlan',
+                    screen:        'academy',
+                    position:      String(academyPosition),
+                    s:             String(count),
+                    cityId:        String(cityId),
+                    currentCityId: String(cityId),
+                    ajax:          1,
+                },
+                `setScientists cidade ${cityId}`
+            );
+
+            const signals = this._extractSignals(result.data);
+            if (!signals.hasFeedbackOk) {
+                throw new GameError(
+                    'GUARD',
+                    `setScientists inconclusivo para cidade ${cityId}`,
+                    { code: 'HYBRID_INCONCLUSIVE_WORKER_REALLOC' }
+                );
+            }
+
+            return {
+                ...result,
+                hybridOutcome: this._makeHybridOutcome({
+                    actionType: 'WORKER_REALLOC',
+                    responseSignals: ['provideFeedback:type10'],
+                    outcomeClass: 'success',
+                    nextStep: 'task_complete',
+                }),
+            };
+        });
     }
 
     /**
@@ -355,7 +403,22 @@ export class GameClient {
                     if (ok) {
                         this._audit.info('GameClient', `✓ startResearch researchId=${researchId}: "${ok.text}"`);
                     }
-                    return doResearchText;
+                    if (!ok) {
+                        throw new GameError(
+                            'GUARD',
+                            `startResearch inconclusivo para researchId=${researchId}`,
+                            { code: 'HYBRID_INCONCLUSIVE_RESEARCH' }
+                        );
+                    }
+                    return {
+                        text: doResearchText,
+                        hybridOutcome: this._makeHybridOutcome({
+                            actionType: 'RESEARCH',
+                            responseSignals: ['provideFeedback:type10'],
+                            outcomeClass: 'success',
+                            nextStep: 'task_complete',
+                        }),
+                    };
                 } catch (err) {
                     lastErr = err;
                     if (err.fatal || err.guard) throw err;
@@ -404,20 +467,41 @@ export class GameClient {
      * 3 tentativas via _postWithContext.
      */
     setTavernWine(cityId, tavernPosition, wineLevel) {
-        return this._enqueue(() => this._postWithContext(
-            `/index.php?view=tavern&cityId=${cityId}&position=${tavernPosition}` +
-            `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
-            {
-                action:        'CityScreen',
-                function:      'assignWinePerTick',
-                position:      String(tavernPosition),
-                amount:        String(wineLevel),
-                cityId:        String(cityId),
-                currentCityId: String(cityId),
-                ajax:          1,
-            },
-            `setTavernWine cidade ${cityId}`
-        ));
+        return this._enqueue(async () => {
+            const result = await this._postWithContext(
+                `/index.php?view=tavern&cityId=${cityId}&position=${tavernPosition}` +
+                `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
+                {
+                    action:        'CityScreen',
+                    function:      'assignWinePerTick',
+                    position:      String(tavernPosition),
+                    amount:        String(wineLevel),
+                    cityId:        String(cityId),
+                    currentCityId: String(cityId),
+                    ajax:          1,
+                },
+                `setTavernWine cidade ${cityId}`
+            );
+
+            const signals = this._extractSignals(result.data);
+            if (!signals.hasFeedbackOk) {
+                throw new GameError(
+                    'GUARD',
+                    `setTavernWine inconclusivo para cidade ${cityId}`,
+                    { code: 'HYBRID_INCONCLUSIVE_WINE_ADJUST' }
+                );
+            }
+
+            return {
+                ...result,
+                hybridOutcome: this._makeHybridOutcome({
+                    actionType: 'WINE_ADJUST',
+                    responseSignals: ['provideFeedback:type10'],
+                    outcomeClass: 'success',
+                    nextStep: 'task_complete',
+                }),
+            };
+        });
     }
 
     /** Busca custos reais de um edifício (parse HTML do servidor). */
@@ -551,6 +635,46 @@ export class GameClient {
         return token ?? '';
     }
 
+    _makeHybridOutcome({
+        actionType,
+        pathUsed = 'endpoint',
+        prereqCheck = 'pass',
+        responseSignals = [],
+        outcomeClass = 'success',
+        nextStep = 'none',
+        reasonCode = null,
+    } = {}) {
+        return {
+            attemptId: `gc_${Date.now()}_${++this._attemptSeq}`,
+            actionType,
+            pathUsed,
+            prereqCheck,
+            responseSignals,
+            outcomeClass,
+            nextStep,
+            reasonCode,
+        };
+    }
+
+    _extractSignals(data) {
+        if (!Array.isArray(data)) {
+            return { hasFeedbackOk: false, hasFeedbackError: false, hasFleetMoveList: false };
+        }
+
+        const feedbackCmd = data.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
+        const entries = Array.isArray(feedbackCmd?.[1]) ? feedbackCmd[1] : [];
+        const hasFeedbackOk = !!entries.find(f => f?.type === 10);
+        const hasFeedbackError = !!entries.find(f =>
+            f?.locakey?.includes('ERROR') || f?.locakey?.includes('SOURCEPORT_EQUAL')
+        );
+
+        return {
+            hasFeedbackOk,
+            hasFeedbackError,
+            hasFleetMoveList: !!data.find(c => Array.isArray(c) && c[0] === 'fleetMoveList'),
+        };
+    }
+
     async _get(url) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 30_000);
@@ -609,7 +733,8 @@ export class GameClient {
         }
 
         if (Array.isArray(data)) {
-            const cmdNames = data.filter(c => Array.isArray(c)).map(c => c[0]).join(', ');
+            const commandList = data.filter(c => Array.isArray(c)).map(c => c[0]);
+            const cmdNames = commandList.join(', ');
 
             // Erro explícito do servidor
             const errorCmd = data.find(c => Array.isArray(c) && c[0] === 'errorWindow');
@@ -689,10 +814,10 @@ export class GameClient {
             this._audit.debug('GameClient', `POST: resposta — comandos=[${cmdNames}]${fleetCmd ? ' ✓ FROTA' : ''}`);
 
             // Expor endUpgradeTime no retorno para que o caller possa agendar re-avaliação
-            return { text, endUpgradeTime };
+            return { text, endUpgradeTime, data, commands: commandList };
         }
 
-        return { text, endUpgradeTime: null };
+        return { text, endUpgradeTime: null, data: null, commands: [] };
     }
 
     /**

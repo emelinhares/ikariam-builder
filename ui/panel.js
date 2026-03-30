@@ -99,25 +99,22 @@ function _bindEvents() {
     // Copiar log
     $('erp-log-copy')?.addEventListener('click', _copyLog);
 
-    // Botões de teste
-    $('erp-test-transport-btn')?.addEventListener('click', () => {
-        const from     = $('erp-test-from')?.value;
-        const to       = $('erp-test-to')?.value;
-        const resource = $('erp-test-resource')?.value;
-        const qty      = parseInt($('erp-test-qty')?.value) || 500;
-        if (!from || !to || from === to) { alert('Selecione cidades diferentes.'); return; }
-        _events.emit(_events.E.UI_COMMAND, { type: 'testTransport', fromCityId: from, toCityId: to, resource, qty });
-    });
-
-    $('erp-test-build-btn')?.addEventListener('click', () => {
-        const cityId = $('erp-test-build-city')?.value;
-        if (!cityId) { alert('Selecione uma cidade.'); return; }
-        _events.emit(_events.E.UI_COMMAND, { type: 'testBuild', cityId });
-    });
-
     $('erp-rec-btn')?.addEventListener('click', () => {
         const active = !(_uiState?.recMode ?? false);
         _events.emit(_events.E.UI_COMMAND, { type: 'setRec', active });
+    });
+
+    $('erp-health-start-btn')?.addEventListener('click', () => {
+        const suite = $('erp-health-suite')?.value ?? 'full';
+        _events.emit(_events.E.UI_COMMAND, { type: 'startHealthCheck', suite });
+    });
+
+    $('erp-health-abort-btn')?.addEventListener('click', () => {
+        _events.emit(_events.E.UI_COMMAND, { type: 'abortHealthCheck' });
+    });
+
+    $('erp-health-export-btn')?.addEventListener('click', () => {
+        _events.emit(_events.E.UI_COMMAND, { type: 'exportHealthCheckReport', format: 'both' });
     });
 
     // Drag
@@ -379,8 +376,8 @@ function _renderCities() {
 
 function _renderTests() {
     const $ = (id) => _root.getElementById(id);
-    const cities  = _uiState?.cities ?? [];
     const recMode = _uiState?.recMode ?? false;
+    const hc      = _uiState?.healthCheck ?? null;
 
     // Atualizar botão e status REC
     const recBtn    = $('erp-rec-btn');
@@ -393,40 +390,75 @@ function _renderTests() {
     }
     if (recStatus) recStatus.style.display = recMode ? '' : 'none';
 
-    // Popular selects de cidade (preservar seleção atual)
-    const _populateSelect = (selId, selected) => {
-        const sel = $(selId);
-        if (!sel) return;
-        const prev = sel.value || selected;
-        sel.innerHTML = cities.map(c =>
-            `<option value="${c.id}" ${String(c.id) === String(prev) ? 'selected' : ''}>${c.name}</option>`
-        ).join('');
-    };
-    _populateSelect('erp-test-from');
-    _populateSelect('erp-test-to');
-    _populateSelect('erp-test-build-city');
+    const startBtn = $('erp-health-start-btn');
+    const abortBtn = $('erp-health-abort-btn');
+    if (startBtn) startBtn.disabled = hc?.status === 'running';
+    if (abortBtn) abortBtn.disabled = hc?.status !== 'running';
 
-    // Relatório
-    const result   = _uiState?.testResult;
-    const card     = $('erp-test-report-card');
-    const reportEl = $('erp-test-report');
-    if (!card || !reportEl) return;
+    const metricsEl = $('erp-health-metrics');
+    if (metricsEl) {
+        const m = hc?.metrics ?? {};
+        const p = hc?.progress ?? {};
+        metricsEl.innerHTML = `
+            <div class="erp-health-grid">
+                <div class="erp-health-tile"><span>Total</span><strong>${p.total ?? 0}</strong></div>
+                <div class="erp-health-tile"><span>Concluídos</span><strong>${p.completed ?? 0}</strong></div>
+                <div class="erp-health-tile"><span>Sucesso</span><strong>${m.passed ?? 0}</strong></div>
+                <div class="erp-health-tile"><span>Falha</span><strong>${m.failed ?? 0}</strong></div>
+                <div class="erp-health-tile"><span>Bloqueado</span><strong>${m.blocked ?? 0}</strong></div>
+                <div class="erp-health-tile"><span>Pass rate</span><strong>${m.passRate ?? 0}%</strong></div>
+            </div>
+        `;
+    }
 
-    if (!result) { card.style.display = 'none'; return; }
-    card.style.display = '';
+    const runCard = $('erp-health-run-card');
+    const summary = $('erp-health-summary');
+    const rowsEl  = $('erp-health-scenarios');
+    if (runCard && summary && rowsEl && hc) {
+        runCard.style.display = '';
+        const statusColor = {
+            idle: '#8b949e', running: '#d29922', done: '#3fb950',
+            failed: '#f85149', blocked: '#ffb347', aborted: '#8b949e',
+        };
+        summary.innerHTML = `
+            <div style="color:${statusColor[hc.status] ?? '#8b949e'};font-weight:bold;">Status: ${(hc.status ?? 'idle').toUpperCase()}</div>
+            <div style="color:#8b949e;">Run: ${_esc(hc.runId ?? '—')} • Suíte: ${_esc(hc.suite ?? '—')} • Progresso: ${hc.progress?.percent ?? 0}%</div>
+        `;
+        const scenarios = hc.scenarios ?? [];
+        rowsEl.innerHTML = '';
+        for (const s of scenarios) {
+            const row = document.createElement('div');
+            row.className = 'erp-health-row';
+            const color = {
+                pending: '#8b949e', running: '#d29922', passed: '#3fb950',
+                failed: '#f85149', blocked: '#ffb347', skipped: '#8b949e',
+            }[s.status] ?? '#8b949e';
+            row.innerHTML = `
+                <div class="erp-health-row-head">
+                    <span>${_esc(s.title ?? s.id)}</span>
+                    <span style="color:${color};font-weight:bold;">${_esc((s.status ?? 'pending').toUpperCase())}</span>
+                </div>
+                <div class="erp-health-row-meta">${s.elapsedMs != null ? `${Math.round(s.elapsedMs / 1000)}s` : '—'}${s.error ? ` • ${_esc(s.error)}` : ''}</div>
+            `;
+            rowsEl.appendChild(row);
+        }
+        if (!scenarios.length) rowsEl.innerHTML = '<div class="erp-empty">Nenhum cenário nesta execução</div>';
+    }
 
-    const statusColor = { done: '#3fb950', failed: '#f85149', pending: '#d29922', error: '#f85149' };
-    const statusLabel = { done: '✓ SUCESSO', failed: '✗ FALHOU', pending: '⌛ EXECUTANDO...', error: '⚠ ERRO' };
-    const color = statusColor[result.status] ?? '#8b949e';
-    const label = statusLabel[result.status] ?? result.status;
-    const elapsed = result.elapsedMs ? ` — ${(result.elapsedMs / 1000).toFixed(1)}s` : '';
-
+    const reportCard = $('erp-health-report-card');
+    const reportEl = $('erp-health-report');
+    if (!reportCard || !reportEl) return;
+    const report = hc?.report;
+    if (!report) {
+        reportCard.style.display = 'none';
+        return;
+    }
+    reportCard.style.display = '';
     reportEl.innerHTML = `
-        <div style="color:${color};font-weight:bold;margin-bottom:6px;">${label}${elapsed}</div>
-        <div style="color:#e6edf3;margin-bottom:4px;">${result.summary ?? ''}</div>
-        ${result.id ? `<div style="color:#8b949e;font-size:11px;">Task: ${result.id}</div>` : ''}
-        ${result.error ? `<div style="color:#f85149;margin-top:6px;font-size:11px;">Erro: ${result.error}</div>` : ''}
-        ${result.status === 'done' ? `<div style="color:#3fb950;margin-top:6px;font-size:11px;">✓ Ação confirmada pelo servidor. Verifique o jogo e o log para confirmar.</div>` : ''}
+        <div style="margin-bottom:4px;"><strong>Status:</strong> ${_esc(report?.summary?.status ?? '—')}</div>
+        <div style="margin-bottom:4px;"><strong>Run:</strong> ${_esc(report?.meta?.runId ?? '—')} • <strong>Suíte:</strong> ${_esc(report?.meta?.suite ?? '—')}</div>
+        <div style="margin-bottom:4px;"><strong>Métricas:</strong> ✓ ${report?.summary?.metrics?.passed ?? 0} • ✗ ${report?.summary?.metrics?.failed ?? 0} • ⚠ ${report?.summary?.metrics?.blocked ?? 0}</div>
+        <div style="color:#8b949e;">Relatório salvo em storage e exportado para downloads automáticos (JSON/MD).</div>
     `;
 }
 

@@ -49,6 +49,31 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
+### 1.1 Orquestração canônica de decisão (estado atual do código)
+
+No estado atual da implementação, o orquestrador central é o [`Planner`](modules/Planner.js), que é o **único listener** de `state:allCitiesFresh`.
+
+Ordem canônica de fase no ciclo:
+1. SUSTENTO (`HR`)
+2. CAPACIDADE (`COO`)
+3. INFRAESTRUTURA (`CFO`)
+4. PESQUISA (`CTO`)
+5. SEGURANÇA/DETECÇÃO (`CSO` + `MnA`)
+
+Consequência arquitetural:
+- Módulos de negócio não devem disputar `state:allCitiesFresh` de forma autônoma.
+- Novos gatilhos de replanejamento devem preferir o contrato do planner (wake-up adaptativo + reativo) para preservar prioridade de regra de negócio.
+
+### 1.2 Contrato HTTP canônico (documento + fluxo real)
+
+Fonte funcional de endpoints e parâmetros: [`ENDPOINTS.md`](ENDPOINTS.md).
+
+Fonte executável de fluxo real: [`modules/GameClient.js`](modules/GameClient.js).
+
+Regra de manutenção:
+- Em divergência entre doc e execução, considerar comportamento real do `GameClient` como referência operacional imediata.
+- Atualizar o documento de endpoint no mesmo ciclo de mudança para evitar drift documental.
+
 ### Decisão de arquitetura: UI em shadow DOM, mesmo contexto
 
 O painel **não** é um iframe nem uma página separada. É um container injetado na página com shadow DOM, cujo HTML é carregado via `fetch(chrome.runtime.getURL('ui/panel.html'))`. `panel.js` é importado como módulo em `inject.js`. Ambos compartilham o mesmo objeto `Events` e o mesmo contexto de execução.
