@@ -3,22 +3,19 @@
 // panel.js nunca toca em StateManager diretamente — só lê UIState via Events.
 
 import { nanoid } from './utils.js';
-import { getCost } from '../data/buildings.js';
 
 export class UIBridge {
-    constructor({ events, state, queue, audit, config, dc }) {
+    constructor({ events, state, queue, audit, config, dc, healthCheck = null }) {
         this._events = events;
         this._state  = state;
         this._queue  = queue;
         this._audit  = audit;
         this._config = config;
         this._dc     = dc;           // DataCollector — para setRecMode
+        this._healthCheck = healthCheck;
         this._alerts = [];           // Alert[]
         this._rebuildTimer = null;
-
-        // Estado do último teste manual
-        this._testResult   = null;   // { id, status, summary, error, elapsedMs, startedAt }
-        this._testTaskId   = null;   // id da task de teste em andamento
+        this._hybridLatest = new Map(); // taskId -> { pathDecision?, attemptOutcome? }
 
         // REC mode
         this._recMode   = false;
@@ -42,29 +39,18 @@ export class UIBridge {
             sched();
         });
 
-        // Atualizar testResult quando task de teste concluir
-        this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
-            if (this._testTaskId && task.id === this._testTaskId) {
-                this._testResult = {
-                    ...this._testResult,
-                    status:    'done',
-                    elapsedMs: Date.now() - (this._testResult?.startedAt ?? Date.now()),
-                };
-                this._testTaskId = null;
-                this._schedRebuild();
-            }
+        this._events.on(E.HEALTHCHECK_UPDATED, sched);
+        this._events.on(E.HYBRID_PATH_DECIDED, ({ taskId, decision } = {}) => {
+            if (!taskId) return;
+            const cur = this._hybridLatest.get(taskId) ?? {};
+            this._hybridLatest.set(taskId, { ...cur, pathDecision: decision });
+            sched();
         });
-        this._events.on(E.QUEUE_TASK_FAILED, ({ task, error }) => {
-            if (this._testTaskId && task.id === this._testTaskId) {
-                this._testResult = {
-                    ...this._testResult,
-                    status:    'failed',
-                    error:     error ?? 'Erro desconhecido',
-                    elapsedMs: Date.now() - (this._testResult?.startedAt ?? Date.now()),
-                };
-                this._testTaskId = null;
-                this._schedRebuild();
-            }
+        this._events.on(E.HYBRID_ATTEMPT_OUTCOME, ({ taskId, outcome } = {}) => {
+            if (!taskId) return;
+            const cur = this._hybridLatest.get(taskId) ?? {};
+            this._hybridLatest.set(taskId, { ...cur, attemptOutcome: outcome });
+            sched();
         });
 
         // Alertas — sem debounce (imediatos)
@@ -126,9 +112,9 @@ export class UIBridge {
             alerts: [...this._alerts].filter(a => !a.resolved).slice(0, 10),
             nextAction,
             queue: {
-                pending:   allTasks.filter(t => t.status === 'pending'   || t.status === 'planned'),
-                inFlight:  allTasks.filter(t => t.status === 'in-flight' || t.status === 'blocked'),
-                completed: this._queue.getHistory().slice(-20),
+                pending:   allTasks.filter(t => t.status === 'pending'   || t.status === 'planned').map(t => this._withHybridTaskMeta(t)),
+                inFlight:  allTasks.filter(t => t.status === 'in-flight' || t.status === 'blocked').map(t => this._withHybridTaskMeta(t)),
+                completed: this._queue.getHistory().slice(-20).map(t => this._withHybridTaskMeta(t)),
             },
             cities: cities.map(c => ({
                 id:               c.id,
@@ -153,8 +139,9 @@ export class UIBridge {
             errorTelemetry: {
                 recent: this._audit.getErrorEntries().slice(-50),
                 stats1h: this._audit.getErrorStats({ since: Date.now() - 60 * 60_000 }),
+                hybrid: this._audit.getHybridStats?.() ?? null,
             },
-            testResult: this._testResult,
+            healthCheck: this._healthCheck?.getState?.() ?? null,
             recMode: this._recMode,
         };
     }
@@ -228,100 +215,24 @@ export class UIBridge {
                 break;
             }
 
-            case 'testTransport': {
-                const fromCity = this._state.getCity(Number(cmd.fromCityId));
-                const toCity   = this._state.getCity(Number(cmd.toCityId));
-                if (!fromCity || !toCity) {
-                    this._testResult = { status: 'error', summary: 'Cidade inválida', error: `from=${cmd.fromCityId} to=${cmd.toCityId}` };
-                    this._schedRebuild();
-                    break;
+            case 'startHealthCheck': {
+                const res = this._healthCheck?.start?.({ suite: cmd.suite ?? 'full' });
+                if (!res?.ok) {
+                    this._audit.warn('UIBridge', `HealthCheck start bloqueado: ${res?.message ?? res?.code ?? 'erro desconhecido'}`);
                 }
-                if (!toCity.islandId) {
-                    this._testResult = { status: 'error', summary: `islandId de ${toCity.name} desconhecido — aguarde fetch de dados`, error: null };
-                    this._schedRebuild();
-                    break;
-                }
-                const qty   = Number(cmd.qty) || 500;
-                const boats = Math.ceil(qty / 500);
-                const task  = this._queue.add({
-                    type:   'TRANSPORT',
-                    priority: 0,
-                    cityId: fromCity.id,
-                    payload: {
-                        fromCityId:  fromCity.id,
-                        toCityId:    toCity.id,
-                        toIslandId:  toCity.islandId,
-                        cargo:       { [cmd.resource]: qty },
-                        boats,
-                        totalCargo:  qty,
-                    },
-                    scheduledFor: Date.now(),
-                    reason:      `TESTE: ${qty} ${cmd.resource} de ${fromCity.name} → ${toCity.name}`,
-                    module:      'TEST',
-                    maxAttempts: 1,
-                });
-                this._testTaskId = task.id;
-                this._testResult = { id: task.id, status: 'pending', startedAt: Date.now(),
-                    summary: `TRANSPORT ${qty} ${cmd.resource}: ${fromCity.name} → ${toCity.name} (${boats} navio(s))` };
-                this._audit.info('UIBridge', `Teste transporte: ${task.id} — ${this._testResult.summary}`);
                 this._schedRebuild();
                 break;
             }
 
-            case 'testBuild': {
-                const city = this._state.getCity(Number(cmd.cityId));
-                if (!city) {
-                    this._testResult = { status: 'error', summary: `Cidade ${cmd.cityId} não encontrada`, error: null };
-                    this._schedRebuild();
-                    break;
-                }
-                // Filtrar edifícios com tabela de custo, não-especiais, sem construção ativa
-                const SKIP = new Set(['buildingGround land', 'buildingGround sea', 'buildingGround dockyard',
-                    'buildingGround', 'pirateFortress', 'chronosForge', 'shrineOflympus', 'shrineOfOlympus',
-                    'dump', 'wall', 'palaceColony', 'palace']);
-                const candidates = (city.buildings || []).filter(b => {
-                    if (!b.building || b.building.includes('buildingGround') || b.building.includes('constructionSite')) return false;
-                    if (SKIP.has(b.building)) return false;
-                    try { const c = getCost(b.building, b.level + 1); return c && Object.keys(c).length > 0; }
-                    catch { return false; }
-                });
-                if (!candidates.length) {
-                    const allBuildings = (city.buildings || [])
-                        .map(b => b.building || '(vazio)')
-                        .filter(b => b !== '(vazio)');
-                    this._audit.warn('UIBridge',
-                        `testBuild: nenhum candidato em ${city.name}. Edifícios encontrados: ${allBuildings.join(', ') || '(nenhum — estado vazio)'}`
-                    );
-                    this._testResult = { status: 'error', summary: `Nenhum edifício com tabela de custo em ${city.name} — ver log para detalhes`, error: null };
-                    this._schedRebuild();
-                    break;
-                }
-                const pick = candidates[Math.floor(Math.random() * candidates.length)];
-                const cost = getCost(pick.building, pick.level + 1);
-                const task = this._queue.add({
-                    type:     'BUILD',
-                    priority: 0,
-                    cityId:   city.id,
-                    payload: {
-                        building:     pick.building,
-                        position:     pick.position,
-                        buildingView: pick.building,
-                        templateView: pick.building,
-                        cost,
-                        toLevel:      pick.level + 1,
-                    },
-                    scheduledFor: Date.now(),
-                    reason:      `TESTE: ${pick.building} lv${pick.level}→${pick.level + 1} em ${city.name}`,
-                    module:      'TEST',
-                    maxAttempts: 1,
-                });
-                this._testTaskId = task.id;
-                this._testResult = { id: task.id, status: 'pending', startedAt: Date.now(),
-                    summary: `BUILD ${pick.building} lv${pick.level}→${pick.level + 1} em ${city.name} (pos ${pick.position})` };
-                this._audit.info('UIBridge', `Teste build: ${task.id} — ${this._testResult.summary}`);
+            case 'abortHealthCheck':
+                this._healthCheck?.abort?.();
                 this._schedRebuild();
                 break;
-            }
+
+            case 'exportHealthCheckReport':
+                this._healthCheck?.exportReport?.({ format: cmd.format ?? 'both' });
+                this._schedRebuild();
+                break;
         }
     }
 
@@ -384,6 +295,7 @@ export class UIBridge {
         if (!pending) return null;
 
         const cityName = this._state.getCity(pending.cityId)?.name ?? `cidade ${pending.cityId}`;
+        const hybridMeta = this._hybridLatest.get(pending.id) ?? {};
         return {
             type:       pending.type,
             cityId:     pending.cityId,
@@ -394,6 +306,25 @@ export class UIBridge {
             confidence: pending.confidence,
             eta:        pending.scheduledFor,
             blocked:    pending.status === 'blocked',
+            hybrid: {
+                pathUsed: hybridMeta.attemptOutcome?.pathUsed ?? hybridMeta.pathDecision?.pathDecision ?? null,
+                outcomeClass: hybridMeta.attemptOutcome?.outcomeClass ?? null,
+                blockerCode: hybridMeta.attemptOutcome?.reasonCode ?? pending.lastBlockerCode ?? null,
+                ambiguous: hybridMeta.attemptOutcome?.outcomeClass === 'fallback-triggered'
+                    || hybridMeta.attemptOutcome?.outcomeClass === 'guard-reschedule',
+            },
+        };
+    }
+
+    _withHybridTaskMeta(task) {
+        const hybridMeta = this._hybridLatest.get(task.id) ?? {};
+        return {
+            ...task,
+            hybrid: {
+                pathDecision: hybridMeta.pathDecision ?? task.pathDecision ?? null,
+                attemptOutcome: hybridMeta.attemptOutcome ?? task.lastAttemptOutcome ?? null,
+                blockerCode: hybridMeta.attemptOutcome?.reasonCode ?? task.lastBlockerCode ?? null,
+            },
         };
     }
 }

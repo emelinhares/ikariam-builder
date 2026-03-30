@@ -7,6 +7,10 @@
 > ✅ `UpgradeExistingBuilding` confirmado em 2026-03-28 (Armazém lv9→10 em BAD VINHO). É GET, não POST.
 > ⚠️ `UpgradeExistingBuilding` sem recursos retorna `confirmResourcePremiumBuy` — tratar como falha.
 
+> Fonte canônica de contrato funcional: este documento.
+> Fonte canônica de execução real no projeto: [`modules/GameClient.js`](modules/GameClient.js).
+> Regra de manutenção: em caso de divergência, alinhar o fluxo executável e atualizar este documento no mesmo ciclo.
+
 ## Padrão Geral de Request — CONFIRMADO em 2026-03-28
 
 O servidor rejeita POST puro (`/index.php` sem query string). O padrão correto é:

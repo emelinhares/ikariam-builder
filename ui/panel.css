@@ -348,3 +348,56 @@
 .erp-confidence.MEDIUM { background: #2d2a1a; color: #d29922; }
 .erp-confidence.LOW    { background: #5a1e1e; color: #f85149; }
 .erp-confidence.UNKNOWN{ background: #1c2128; color: #8b949e; }
+
+/* ─── Health Check ─────────────────────────────────────────────────────────── */
+
+.erp-health-metrics { margin-top: 4px; }
+
+.erp-health-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.erp-health-tile {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.erp-health-tile span {
+    color: #8b949e;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.erp-health-tile strong {
+    color: #e6edf3;
+    font-size: 13px;
+}
+
+.erp-health-row {
+    border-top: 1px solid #1c2128;
+    padding: 7px 0;
+}
+
+.erp-health-row:first-child { border-top: none; }
+
+.erp-health-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.erp-health-row-meta {
+    margin-top: 2px;
+    color: #8b949e;
+    font-size: 11px;
+}

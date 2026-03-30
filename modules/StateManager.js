@@ -6,6 +6,8 @@ import { deepClone } from './utils.js';
 import { humanDelay } from './utils.js';
 import { createEmptyResources } from './resourceContracts.js';
 
+const CITY_ISLAND_MAP_STORAGE_KEY = 'erp_state_city_island_map_v1';
+
 // Formata número em K/M para logs compactos
 function _fmtK(n) {
     if (n == null || isNaN(n)) return '?';
@@ -37,9 +39,15 @@ export class StateManager {
         // Map<cityId, { position, startedAt }>
         this._inferredBuilding = new Map();
 
+        // Unificação de identidade cidade↔ilha (anti-duplicação em contexto de ilha)
+        this._cityToIsland = new Map(); // cityId -> islandId
+        this._islandToCity = new Map(); // islandId -> cityId
+
         // Promessa que resolve após o 1º model refresh
         this._ready        = false;
         this._readyPromise = new Promise(r => { this._resolveReady = r; });
+
+        this._restoreCityIslandMap();
     }
 
     init() {
@@ -67,6 +75,57 @@ export class StateManager {
     getActiveCityId()     { return this._activeCityId; }
     isProbing()           { return this._probing; }
 
+    /** Registra/atualiza mapeamento bidirecional cidade↔ilha e persiste em storage local. */
+    registerCityIslandMapping({ cityId, islandId } = {}) {
+        const normCityId = Number(cityId);
+        const normIslandId = Number(islandId);
+        if (!Number.isFinite(normCityId) || normCityId <= 0) return false;
+        if (!Number.isFinite(normIslandId) || normIslandId <= 0) return false;
+
+        const prevIslandId = this._cityToIsland.get(normCityId) ?? null;
+        const prevCityIdForIsland = this._islandToCity.get(normIslandId) ?? null;
+
+        if (prevIslandId === normIslandId && prevCityIdForIsland === normCityId) {
+            return false;
+        }
+
+        // Se a cidade já estava associada a outra ilha, limpar reverso antigo
+        if (prevIslandId && prevIslandId !== normIslandId) {
+            const reverseCity = this._islandToCity.get(prevIslandId);
+            if (reverseCity === normCityId) this._islandToCity.delete(prevIslandId);
+        }
+
+        // Se a ilha já estava associada a outra cidade, limpar direto antigo
+        if (prevCityIdForIsland && prevCityIdForIsland !== normCityId) {
+            const reverseIsland = this._cityToIsland.get(prevCityIdForIsland);
+            if (reverseIsland === normIslandId) this._cityToIsland.delete(prevCityIdForIsland);
+        }
+
+        this._cityToIsland.set(normCityId, normIslandId);
+        this._islandToCity.set(normIslandId, normCityId);
+
+        // Se a cidade já existe no estado principal, manter islandId em sync.
+        const city = this.cities.get(normCityId);
+        if (city) city.islandId = normIslandId;
+
+        this._persistCityIslandMap();
+        return true;
+    }
+
+    /** Resolve cityId canônico por islandId (ou null se desconhecido). */
+    resolveCityIdByIslandId(islandId) {
+        const normIslandId = Number(islandId);
+        if (!Number.isFinite(normIslandId) || normIslandId <= 0) return null;
+        return this._islandToCity.get(normIslandId) ?? null;
+    }
+
+    /** Resolve islandId associado a cityId (ou null se desconhecido). */
+    resolveIslandIdByCityId(cityId) {
+        const normCityId = Number(cityId);
+        if (!Number.isFinite(normCityId) || normCityId <= 0) return null;
+        return this._cityToIsland.get(normCityId) ?? null;
+    }
+
     /** Força cidade ativa — chamado pelo GameClient após navigate bem-sucedido. */
     setActiveCityId(cityId) { this._activeCityId = cityId; }
 
@@ -90,6 +149,41 @@ export class StateManager {
         if (age < 60_000)   return 'HIGH';
         if (age < 300_000)  return 'MEDIUM';
         return 'LOW';
+    }
+
+    /** Idade dos dados da cidade em ms (null quando cidade não existe/sem coleta). */
+    getDataAgeMs(cityId) {
+        const city = this.cities.get(cityId);
+        if (!city || !city.fetchedAt) return null;
+        return Math.max(0, Date.now() - city.fetchedAt);
+    }
+
+    /** Provenance/freshness para decisões híbridas endpoint-first. */
+    getHybridPrereqSnapshot(cityId, { token } = {}) {
+        const confidence = this.getConfidence(cityId);
+        const dataAgeMs = this.getDataAgeMs(cityId);
+        const activeCityId = this.getActiveCityId();
+        const city = this.getCity(cityId);
+
+        return {
+            cityId,
+            activeCityId,
+            contextLock: {
+                locked: Number(activeCityId) === Number(cityId),
+                selectedCityId: activeCityId,
+            },
+            tokenSnapshot: {
+                present: !!token,
+                source: token ? 'dc' : 'unknown',
+            },
+            routeConfidence: confidence === 'UNKNOWN' ? 'LOW' : confidence,
+            freshness: {
+                dataAgeMs,
+                cityFetchedAt: city?.fetchedAt ?? null,
+                stale: dataAgeMs == null ? true : dataAgeMs >= 300_000,
+            },
+            dataProvenance: ['endpoint', 'html-response'],
+        };
     }
 
     /**
@@ -240,6 +334,9 @@ export class StateManager {
                     }
                 }
                 if (cityData.islandId) city.islandId = Number(cityData.islandId);
+                if (cityData.islandId) {
+                    this.registerCityIslandMapping({ cityId, islandId: cityData.islandId });
+                }
                 if (cityData.name)     city.name     = cityData.name;
                 if (cityData.tradegood !== undefined) {
                     city.tradegood = Number(cityData.tradegood);
@@ -395,6 +492,9 @@ export class StateManager {
         // islandId: só sobrescrever se ainda não confirmado.
         // Views como 'transport' retornam islandId do destino em bgData — corromperia a cidade origem.
         if (screenData.islandId && !city.islandId) city.islandId = Number(screenData.islandId);
+        if (screenData.islandId) {
+            this.registerCityIslandMapping({ cityId, islandId: screenData.islandId });
+        }
 
         if (screenData.citizens !== undefined) {
             city.economy.citizens = Number(screenData.citizens);
@@ -529,6 +629,34 @@ export class StateManager {
         this._audit.info('StateManager', `=== CICLO COMPLETO ===`);
         for (const line of lines) {
             this._audit.info('StateManager', line);
+        }
+    }
+
+    _persistCityIslandMap() {
+        try {
+            const pairs = [...this._cityToIsland.entries()].map(([cityId, islandId]) => ({ cityId, islandId }));
+            localStorage.setItem(CITY_ISLAND_MAP_STORAGE_KEY, JSON.stringify(pairs));
+        } catch (err) {
+            this._audit.debug('StateManager', `persist city↔island map falhou: ${err.message}`);
+        }
+    }
+
+    _restoreCityIslandMap() {
+        try {
+            const raw = localStorage.getItem(CITY_ISLAND_MAP_STORAGE_KEY);
+            if (!raw) return;
+            const pairs = JSON.parse(raw);
+            if (!Array.isArray(pairs)) return;
+
+            for (const p of pairs) {
+                const cityId = Number(p?.cityId ?? 0);
+                const islandId = Number(p?.islandId ?? 0);
+                if (!cityId || !islandId) continue;
+                this._cityToIsland.set(cityId, islandId);
+                this._islandToCity.set(islandId, cityId);
+            }
+        } catch {
+            // storage ausente/corrompido: iniciar sem mapa persistido
         }
     }
 

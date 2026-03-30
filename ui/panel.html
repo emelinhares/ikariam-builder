@@ -100,50 +100,34 @@
                 </div>
             </div>
 
-            <!-- Envio de suprimentos -->
+            <!-- Health Check -->
             <div class="erp-card">
-                <div class="erp-card-title">Teste: Envio de Suprimentos</div>
+                <div class="erp-card-title">Health Check em Produção</div>
                 <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                    <div style="color:#8b949e; font-size:11px;">Executa cenários reais de validação operacional e gera relatório JSON/MD automaticamente.</div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <label style="color:#8b949e;">Origem:</label>
-                        <select id="erp-test-from" class="erp-mode-select"></select>
-                        <label style="color:#8b949e;">Destino:</label>
-                        <select id="erp-test-to" class="erp-mode-select"></select>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <label style="color:#8b949e;">Recurso:</label>
-                        <select id="erp-test-resource" class="erp-mode-select">
-                            <option value="wood">Madeira</option>
-                            <option value="wine">Vinho</option>
-                            <option value="marble">Mármore</option>
-                            <option value="glass">Cristal</option>
-                            <option value="sulfur">Enxofre</option>
+                        <label style="color:#8b949e;">Suíte:</label>
+                        <select id="erp-health-suite" class="erp-mode-select">
+                            <option value="full">Completa</option>
+                            <option value="critical">Crítica</option>
                         </select>
-                        <label style="color:#8b949e;">Qtd:</label>
-                        <input id="erp-test-qty" type="number" value="500" min="1"
-                            style="width:70px;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:12px;">
+                        <button class="erp-btn" id="erp-health-start-btn">▶ Executar Health Check</button>
+                        <button class="erp-btn danger" id="erp-health-abort-btn">■ Abortar</button>
+                        <button class="erp-btn" id="erp-health-export-btn">⬇ Exportar Relatório</button>
                     </div>
-                    <button class="erp-btn" id="erp-test-transport-btn" style="align-self:flex-start;">▶ Enviar Suprimentos</button>
+                    <div id="erp-health-metrics" class="erp-health-metrics"></div>
                 </div>
             </div>
 
-            <!-- Upgrade aleatório -->
-            <div class="erp-card">
-                <div class="erp-card-title">Teste: Upgrade de Edifício</div>
-                <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <label style="color:#8b949e;">Cidade:</label>
-                        <select id="erp-test-build-city" class="erp-mode-select"></select>
-                    </div>
-                    <div style="color:#8b949e;font-size:11px;">Escolhe um edifício aleatório com tabela de custo disponível.</div>
-                    <button class="erp-btn" id="erp-test-build-btn" style="align-self:flex-start;">▶ Testar Upgrade</button>
-                </div>
+            <div class="erp-card" id="erp-health-run-card" style="display:none">
+                <div class="erp-card-title">Execução Atual</div>
+                <div id="erp-health-summary" style="font-size:12px;margin-bottom:8px;"></div>
+                <div id="erp-health-scenarios"></div>
             </div>
 
-            <!-- Relatório -->
-            <div class="erp-card" id="erp-test-report-card" style="display:none">
-                <div class="erp-card-title">Relatório do Último Teste</div>
-                <div id="erp-test-report" style="font-size:12px;"></div>
+            <div class="erp-card" id="erp-health-report-card" style="display:none">
+                <div class="erp-card-title">Último Relatório</div>
+                <div id="erp-health-report" style="font-size:12px;"></div>
             </div>
 
         </div>

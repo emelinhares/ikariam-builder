@@ -125,6 +125,7 @@ import { CSO }           from '../modules/CSO.js';
 import { MnA }           from '../modules/MnA.js';
 import { Planner }       from '../modules/Planner.js';
 import { UIBridge }      from '../modules/UIBridge.js';
+import { HealthCheckRunner } from '../modules/HealthCheckRunner.js';
 import { initPanel }     from '../ui/panel.js';
 import { initRecPanel }  from '../ui/rec-panel.js';
 
@@ -248,9 +249,20 @@ async function boot() {
     if (MVP.mna) mna.init(); else audit.info('inject', 'MnA: desativado');
     if (MVP.planner) planner.init(); else audit.info('inject', 'Planner: desativado');
 
+    const healthCheck = new HealthCheckRunner({
+        events: Events,
+        state,
+        queue,
+        audit,
+        config,
+        storage,
+        client,
+    });
+    await healthCheck.init();
+
     // ── Camada 5: UI ──────────────────────────────────────────────────────────
     window.__ERP_BOOT_STAGE = 'ui.init';
-    const bridge = new UIBridge({ events: Events, state, queue, audit, config, dc });
+    const bridge = new UIBridge({ events: Events, state, queue, audit, config, dc, healthCheck });
     bridge.init();
     const extUrl = document.querySelector('script[data-ext-url]')?.dataset.extUrl ?? '';
     await initPanel({ events: Events, config, extUrl });
@@ -279,6 +291,7 @@ async function boot() {
         Events, storage, config, audit,
         dc, state, client, queue,
         cfo, coo, hr, cto, cso, mna, planner, bridge,
+        healthCheck,
         MVP,
     };
 
