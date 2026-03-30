@@ -94,6 +94,10 @@ export const Events = {
         UI_ALERT_ADDED:       'ui:alert:added',      // Alert
         UI_ALERT_RESOLVED:    'ui:alert:resolved',   // { alertId }
         UI_COMMAND:           'ui:command',          // { type, ...args }
+
+        // Audit / observabilidade
+        AUDIT_ENTRY_ADDED:    'audit:entry:added',   // { entry }
+        AUDIT_ERROR_ADDED:    'audit:error:added',   // { entry }
     }),
 };
 

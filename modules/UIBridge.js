@@ -36,6 +36,11 @@ export class UIBridge {
         this._events.on(E.QUEUE_TASK_DONE,     sched);
         this._events.on(E.QUEUE_TASK_FAILED,   sched);
         this._events.on(E.QUEUE_MODE_CHANGED,  sched);
+        this._events.on(E.AUDIT_ENTRY_ADDED,   sched);
+        this._events.on(E.AUDIT_ERROR_ADDED, ({ entry }) => {
+            this._addAlert('P1', entry?.module ?? 'Audit', `Erro capturado: ${entry?.message ?? 'desconhecido'}`, entry?.cityId ?? null);
+            sched();
+        });
 
         // Atualizar testResult quando task de teste concluir
         this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
@@ -145,6 +150,10 @@ export class UIBridge {
             cityDetail: null,
             fleetMovements: this._buildFleetMovements(),
             logs: this._audit.getEntries().slice(-100),
+            errorTelemetry: {
+                recent: this._audit.getErrorEntries().slice(-50),
+                stats1h: this._audit.getErrorStats({ since: Date.now() - 60 * 60_000 }),
+            },
             testResult: this._testResult,
             recMode: this._recMode,
         };
