@@ -8,6 +8,7 @@ Chrome Extension (MV3) + scraper Playwright para coleta e análise de dados do I
 
 | Arquivo | O que contém |
 |---|---|
+| [AGENTS.md](AGENTS.md) | Índice único para agentes de IA (entrypoint de contexto rápido) |
 | [BUSINESS.md](BUSINESS.md) | Módulos de negócio, métricas, glossário, o que o ERP calcula |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Módulos técnicos, fluxo de dados, regras de implementação |
 | [SCRAPER.md](SCRAPER.md) | Views, seletores confirmados, parsing, status de cobertura |

@@ -19,15 +19,7 @@ import Storage from './Storage.js';
 import Events from './Events.js';
 import { GamePlay } from '../data/const.js';
 import { humanDelay as _humanDelayBase } from './utils.js';
-
-// ─── Mapeamento recurso → campo do payload ────────────────────────────────────
-const CARGO_FIELD = {
-    wood:    'cargo_resource',
-    wine:    'cargo_tradegood1',
-    marble:  'cargo_tradegood2',
-    glass:   'cargo_tradegood3',
-    sulfur:  'cargo_tradegood4',
-};
+import { RESOURCE_TO_CARGO_FIELD, createCargoPayload } from './resourceContracts.js';
 
 // ─── Chaves de persistência ───────────────────────────────────────────────────
 const SK_QUEUE   = 'port_queue';
@@ -58,7 +50,7 @@ function _calcBoats(fromCityId, amount) {
 
 async function _sendOnce(task) {
     const { fromCityId, toCityId, toIslandId, resource, amount } = task;
-    const field = CARGO_FIELD[resource];
+    const field = RESOURCE_TO_CARGO_FIELD[resource];
     if (!field) throw new Error(`[Port] Recurso desconhecido: ${resource}`);
 
     const { boats, sending } = _calcBoats(fromCityId, amount);
@@ -68,6 +60,7 @@ async function _sendOnce(task) {
     }
 
     const freeBoats = ResourceCache.getFreeTransporters(fromCityId);
+    const cargoPayload = createCargoPayload(resource, sending);
 
     const body = new URLSearchParams({
         action:                'transportOperations',
@@ -83,11 +76,7 @@ async function _sendOnce(task) {
         transportDisplayPrice: 0,
         premiumTransporter:    0,
         normalTransportersMax: freeBoats,
-        cargo_resource:        field === 'cargo_resource'   ? sending : 0,
-        cargo_tradegood1:      field === 'cargo_tradegood1' ? sending : 0,
-        cargo_tradegood2:      field === 'cargo_tradegood2' ? sending : 0,
-        cargo_tradegood3:      field === 'cargo_tradegood3' ? sending : 0,
-        cargo_tradegood4:      field === 'cargo_tradegood4' ? sending : 0,
+        ...cargoPayload,
         capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
         max_capacity:          5,
         jetPropulsion:         0,

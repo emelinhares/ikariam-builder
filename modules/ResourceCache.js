@@ -17,21 +17,16 @@
 
 import Game from './Game.js';
 import Events from './Events.js';
+import { sleep } from './utils.js';
+import { RESOURCE_KEYS, SERVER_RESOURCE_TO_KEY, createEmptyResources } from './resourceContracts.js';
 
 const W = window;
 
 // Mapeamento de recurso no headerData → chave interna
 // res.resource → wood | res['1'] → wine | res['2'] → marble
 // res['3'] → glass | res['4'] → sulfur
-const RES_KEYS = ['wood', 'wine', 'marble', 'glass', 'sulfur'];
 
-const RESOURCE_MAP = {
-    resource: 'wood',
-    '1': 'wine',
-    '2': 'marble',
-    '3': 'glass',
-    '4': 'sulfur',
-};
+const FETCH_ALL_DELAY_MS = 400;
 
 // ─── Cache interno ────────────────────────────────────────────────────────────
 // Map<cityId, CacheItem>
@@ -40,7 +35,15 @@ const _cache = new Map();
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function _emptyResources() {
-    return { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 };
+    return createEmptyResources();
+}
+
+function _projectAmount(resource, current, rate, elapsedH, cap) {
+    const amount = Number(current ?? 0) + Number(rate ?? 0) * elapsedH;
+    if (resource === 'wine') {
+        return Math.max(0, amount);
+    }
+    return Math.min(cap, Math.max(0, amount));
 }
 
 function _buildFromModel(cityId) {
@@ -48,12 +51,31 @@ function _buildFromModel(cityId) {
     if (!city) return null;
 
     // Se for a cidade atual, lê direto do ikariam.model (estrutura real do jogo)
-    const isCurrentCity = cityId === Game.getCityId();
-    const live = isCurrentCity ? Game.getCurrentCityData() : null;
+    const currentCityId = typeof Game.getCityId === 'function' ? Game.getCityId() : null;
+    const isCurrentCity = cityId === currentCityId;
+    const live = (isCurrentCity && typeof Game.getCurrentCityData === 'function')
+        ? Game.getCurrentCityData()
+        : null;
 
-    const resources   = live?.resources   ?? { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 };
-    const production  = live?.production  ?? { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 };
-    const maxResources = live?.maxResources ?? Infinity;
+    const cityResources = city.resources ?? {};
+
+    const resources = live?.resources ?? {
+        wood: Number(cityResources.wood ?? 0),
+        wine: Number(cityResources.wine ?? 0),
+        marble: Number(cityResources.marble ?? 0),
+        glass: Number(cityResources.glass ?? 0),
+        sulfur: Number(cityResources.sulfur ?? 0),
+    };
+
+    const production = live?.production ?? {
+        wood: Number(cityResources.woodProduction ?? 0),
+        wine: Number(cityResources.wineProduction ?? 0),
+        marble: Number(cityResources.marbleProduction ?? 0),
+        glass: Number(cityResources.glassProduction ?? 0),
+        sulfur: Number(cityResources.sulfurProduction ?? 0),
+    };
+
+    const maxResources = live?.maxResources ?? Number(cityResources.maxResources ?? Infinity);
 
     return {
         cityId,
@@ -117,7 +139,9 @@ const ResourceCache = {
      */
     updateFromResponse(g, forceCityId = null) {
         if (!g) return;
-        const cityId = forceCityId ?? Game.getCityId();
+        const fallbackCityId = typeof Game.getCityId === 'function' ? Game.getCityId() : null;
+        const cityId = forceCityId ?? g?.headerData?.currentCityId ?? fallbackCityId;
+        if (cityId == null) return;
         if (!_cache.has(cityId)) this.refresh(cityId); // garante entrada no cache
         const cached = _cache.get(cityId);
         if (!cached) return;
@@ -128,7 +152,7 @@ const ResourceCache = {
         // Recursos atuais
         const res = hd.currentResources;
         if (res) {
-            for (const [serverKey, localKey] of Object.entries(RESOURCE_MAP)) {
+            for (const [serverKey, localKey] of Object.entries(SERVER_RESOURCE_TO_KEY)) {
                 if (res[serverKey] !== undefined) {
                     cached.resources[localKey] = Number(res[serverKey]);
                 }
@@ -186,12 +210,10 @@ const ResourceCache = {
         const proj     = {};
         const cap      = cached.maxResources;
 
-        for (const k of RES_KEYS) {
+        for (const k of RESOURCE_KEYS) {
             const cur  = cached.resources[k]  ?? 0;
             const rate = cached.production[k] ?? 0;
-            proj[k] = k === 'wine'
-                ? Math.max(0, cur + rate * elapsedH)
-                : Math.min(cap, Math.max(0, cur + rate * elapsedH));
+            proj[k] = _projectAmount(k, cur, rate, elapsedH, cap);
         }
 
         return proj;
@@ -216,9 +238,7 @@ const ResourceCache = {
             const cap  = cached.maxResources;
 
             // Quantidade atual projetada (desde o último snapshot)
-            const projected = res === 'wine'
-                ? Math.max(0, cur + rate * elapsedH)
-                : Math.min(cap, Math.max(0, cur + rate * elapsedH));
+            const projected = _projectAmount(res, cur, rate, elapsedH, cap);
 
             if (projected >= needed) continue;
 
@@ -272,7 +292,7 @@ const ResourceCache = {
                 console.warn(`[ResourceCache] fetchAll falhou (city ${city.id}):`, e);
                 this.refresh(city.id);
             }
-            await new Promise(r => setTimeout(r, 400));
+            await sleep(FETCH_ALL_DELAY_MS);
         }
     },
 
