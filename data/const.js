@@ -1,6 +1,10 @@
 // const.js — constantes do jogo
 // Fonte: ERP_FOUNDATION.md, IKARIAM_MODEL_MAP.md, IKAEASY const.js
 
+import { WINE_USE as WINE_USE_TABLE } from './wine.js';
+import { Research as RESEARCH_TREE } from './research.js';
+import { ACADEMY_MAX_SCIENTISTS } from './effects.js';
+
 // ─── Recursos ─────────────────────────────────────────────────────────────────
 export const Resources = Object.freeze({
     WOOD:    'wood',
@@ -103,6 +107,7 @@ export const TRAVEL = Object.freeze({
 //   Níveis 1–10: porto básico.
 //   Níveis 11–60: requerem pesquisa "Doca" (segundo porto desbloqueado).
 export const PORT_LOADING_SPEED = Object.freeze({
+     0:    10,
      1:    10,  2:    18,  3:    28,  4:    40,  5:    54,
      6:    70,  7:    88,  8:   108,  9:   118, 10:   130,
     11:   510, 12:   588, 13:   672, 14:   768, 15:   870,
@@ -161,4 +166,34 @@ export const GamePlay = Object.freeze({
     RESOURCES_PER_TRANSPORT:      500,
     RESOURCE_PROTECTION_WAREHOUSE: 480,
     BASE_RESOURCE_PROTECTION:      100,
+});
+
+// ─── Compat / contratos legados de dados ─────────────────────────────────────
+
+export const WINE_USE = WINE_USE_TABLE;
+
+export const MAX_SCIENTISTS = Object.freeze(
+    ACADEMY_MAX_SCIENTISTS
+        .map((v, idx) => (idx === 0 ? 0 : (v ?? 0)))
+        .reduce((acc, cur, idx) => {
+            if (idx === 0) {
+                acc.push(cur);
+                return acc;
+            }
+            const prev = acc[idx - 1];
+            acc.push(cur <= prev ? prev + 1 : cur);
+            return acc;
+        }, [])
+);
+
+export const Research = RESEARCH_TREE;
+
+export const PremiumFeatures = Object.freeze({
+    PREMIUM_ACCOUNT:         'premiumAccount',
+    DOUBLED_STORAGE_CAPACITY:'doubledStorageCapacity',
+    DOUBLED_SAFE_CAPACITY:   'doubledSafeCapacity',
+});
+
+export const CityType = Object.freeze({
+    OWN: 'ownCity',
 });

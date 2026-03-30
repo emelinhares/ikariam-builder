@@ -3,6 +3,7 @@
 // Trigger em DC_HEADER_DATA (a cada XHR) para detecção mais rápida possível.
 
 import { getMinWineLevel, getMaxServableWineLevel, WINE_USE } from '../data/wine.js';
+import { TASK_TYPE } from './taskTypes.js';
 
 export class HR {
     constructor({ events, audit, config, state, queue }) {
@@ -120,11 +121,11 @@ export class HR {
             );
 
             // Ajustar taberna para nível mínimo (evitar consumo desnecessário)
-            if (!this._queue.hasPendingType('WINE_ADJUST', city.id)) {
+            if (!this._queue.hasPendingType(TASK_TYPE.WINE_ADJUST, city.id)) {
                 const minLevel = getMinWineLevel(spendings);
                 if (minLevel >= 0 && minLevel !== city.tavern.wineLevel) {
                     this._queue.add({
-                        type:     'WINE_ADJUST',
+                        type:     TASK_TYPE.WINE_ADJUST,
                         priority: 0,
                         cityId:   city.id,
                         payload: {
@@ -208,7 +209,7 @@ export class HR {
         if (satisfaction <= 0) return;
 
         // Sem ajuste pendente (evitar sobreposição)
-        if (this._queue.getPending(city.id).some(t => t.type === 'WINE_ADJUST')) return;
+        if (this._queue.getPending(city.id).some(t => t.type === TASK_TYPE.WINE_ADJUST)) return;
 
         // Segurança: servidor debita 1h de vinho ao mudar nível
         const wine      = city.resources?.wine ?? 0;
@@ -246,7 +247,7 @@ export class HR {
         );
 
         this._queue.add({
-            type:     'WINE_ADJUST',
+            type:     TASK_TYPE.WINE_ADJUST,
             priority: 20,
             cityId:   city.id,
             payload:  { wineLevel: targetLevel },
