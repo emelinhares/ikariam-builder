@@ -58,3 +58,51 @@ export class Storage {
         });
     }
 }
+
+// ── Compat layer (testes legados) ─────────────────────────────────────────────
+
+function _compatPrefix() {
+    const host   = location?.host?.match?.(/(s\d+)-?([a-z]+)?\.ikariam/i);
+    const world  = host?.[1] ?? 's0';
+    const server = host?.[2] ?? 'xx';
+    const avatar = window?.ikariam?.model?.avatarId ?? '0';
+    return `IA_${server}_${world}_${avatar}_`;
+}
+
+export function _key(name) {
+    return _compatPrefix() + name;
+}
+
+const _syncCache = new Map();
+
+const StorageCompat = {
+    async get(name) {
+        const key = _key(name);
+        const result = await chrome.storage.local.get(key);
+        return result?.[key] ?? null;
+    },
+
+    set(name, value) {
+        const key = _key(name);
+        _syncCache.set(key, value);
+        return chrome.storage.local.set({ [key]: value });
+    },
+
+    remove(name) {
+        const key = _key(name);
+        _syncCache.delete(key);
+        return chrome.storage.local.remove(key);
+    },
+
+    getSync(name, fallback = null) {
+        const key = _key(name);
+        return _syncCache.has(key) ? _syncCache.get(key) : fallback;
+    },
+
+    setSync(name, value) {
+        const key = _key(name);
+        _syncCache.set(key, value);
+    },
+};
+
+export default StorageCompat;

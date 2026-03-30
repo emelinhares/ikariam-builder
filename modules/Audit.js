@@ -3,6 +3,8 @@
 
 import { Events }  from './Events.js';
 import { nanoid }  from './utils.js';
+import StorageCompat from './Storage.js';
+import Game from './Game.js';
 
 const MAX_ENTRIES   = 200;
 const PERSIST_EVERY = 10;  // persistir a cada N novas entradas
@@ -97,3 +99,102 @@ export class Audit {
         await this._storage.set('audit_log', []);
     }
 }
+
+// ── Compat layer (testes legados) ─────────────────────────────────────────────
+
+export const REASON = Object.freeze({
+    WAITING_LOCAL:     'waiting_local',
+    WINE_CRITICAL:     'wine_critical',
+    GOAL_ENQUEUED:     'goal_enqueued',
+    PATROL_SCHEDULED:  'patrol_scheduled',
+    XHR_SYNC:          'xhr_sync',
+    TRANSPORT_SKIP:    'transport_skip',
+    WINE_NORMAL:       'wine_normal',
+});
+
+const _legacy = {
+    _log: [],
+    _stats: {
+        transportsAvoided: 0,
+        goldSaved: 0,
+        xhrSyncs: 0,
+        heartbeats: 0,
+        heartbeatAvgS: null,
+        lastHeartbeatTs: null,
+        startedAt: null,
+    },
+
+    async init() {
+        this._stats.startedAt = Game.getServerTime();
+        return this;
+    },
+
+    async reset() {
+        this._log = [];
+        this._stats = {
+            transportsAvoided: 0,
+            goldSaved: 0,
+            xhrSyncs: 0,
+            heartbeats: 0,
+            heartbeatAvgS: null,
+            lastHeartbeatTs: null,
+            startedAt: null,
+        };
+    },
+
+    reason(type, msg, data) {
+        const entry = {
+            type,
+            msg,
+            ts: Game.getServerTime(),
+            ...(data !== undefined ? { data } : {}),
+        };
+        this._log.push(entry);
+        if (this._log.length > 200) this._log = this._log.slice(-200);
+    },
+
+    getLog(limit = null) {
+        if (typeof limit === 'number') {
+            return this._log.slice(-limit);
+        }
+        return [...this._log];
+    },
+
+    clearLog() {
+        this._log = [];
+    },
+
+    incTransportAvoided(goldSaved = 0) {
+        this._stats.transportsAvoided += 1;
+        this._stats.goldSaved += Number(goldSaved) || 0;
+        this.reason(REASON.TRANSPORT_SKIP, `Transporte evitado (+${goldSaved} ouro)`);
+    },
+
+    incXhrSync() {
+        this._stats.xhrSyncs += 1;
+        this.reason(REASON.XHR_SYNC, 'XHR sync');
+    },
+
+    recordHeartbeat() {
+        const now = Game.getServerTime();
+        this._stats.heartbeats += 1;
+        if (this._stats.lastHeartbeatTs != null) {
+            const dt = now - this._stats.lastHeartbeatTs;
+            this._stats.heartbeatAvgS = this._stats.heartbeatAvgS == null
+                ? dt
+                : (this._stats.heartbeatAvgS * 0.8 + dt * 0.2);
+        }
+        this._stats.lastHeartbeatTs = now;
+    },
+
+    getStats() {
+        return { ...this._stats };
+    },
+
+    // Mantém método para compat; não usado nos testes atuais.
+    async persist() {
+        await StorageCompat.set('audit_legacy', { log: this._log, stats: this._stats });
+    },
+};
+
+export default _legacy;

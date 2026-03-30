@@ -5,6 +5,7 @@
 
 import { PORT_LOADING_SPEED, TRAVEL, TradeGoodOrdinals } from '../data/const.js';
 import { createEmptyResources } from './resourceContracts.js';
+import { TASK_TYPE } from './taskTypes.js';
 
 export class COO {
     constructor({ events, audit, config, state, queue, client, storage }) {
@@ -24,7 +25,7 @@ export class COO {
 
         // JIT: novo BUILD na fila → agendar transporte de recursos
         this._events.on(E.QUEUE_TASK_ADDED, ({ task }) => {
-            if (task.type === 'BUILD') this._scheduleJITForBuild(task);
+            if (task.type === TASK_TYPE.BUILD) this._scheduleJITForBuild(task);
         });
 
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
@@ -55,7 +56,7 @@ export class COO {
         if (ctx) {
             for (const [cityId, cityCtx] of ctx.cities) {
                 cityCtx.pendingTransports = this._queue.getPending()
-                    .filter(t => t.type === 'TRANSPORT' && t.payload?.toCityId === cityId);
+                    .filter(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.toCityId === cityId);
             }
         }
     }
@@ -136,7 +137,7 @@ export class COO {
         const boats      = Math.ceil(amount / 500);
 
         this._queue.add({
-            type:     'TRANSPORT',
+            type:     TASK_TYPE.TRANSPORT,
             priority: 10,
             cityId:   sourceCity.id,
             payload: {
@@ -178,7 +179,7 @@ export class COO {
         // Vinho já comprometido = em trânsito (frotas) + pendente na fila
         const inTransit = this._state.getInTransit(cityId);
         const queuedWine = this._queue.getPending()
-            .filter(t => t.type === 'TRANSPORT' && t.payload?.toCityId === cityId && t.payload?.cargo?.wine)
+            .filter(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.toCityId === cityId && t.payload?.cargo?.wine)
             .reduce((sum, t) => sum + (t.payload.cargo.wine ?? 0), 0);
         const committed = (inTransit.wine ?? 0) + queuedWine;
 
@@ -211,7 +212,7 @@ export class COO {
         const boats = Math.ceil(toSend / 500);
 
         this._queue.add({
-            type:     'TRANSPORT',
+            type:     TASK_TYPE.TRANSPORT,
             priority: 0,  // urgente
             cityId:   source.id,
             payload: {
@@ -272,8 +273,8 @@ export class COO {
             if (excess <= 0) continue;
 
             // Verificar se já há transporte pendente deste recurso desta cidade
-            const existente = this._queue.getPending(city.id)
-                .find(t => t.type === 'TRANSPORT' && t.payload?.cargo?.[res]);
+                const existente = this._queue.getPending(city.id)
+                    .find(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.cargo?.[res]);
             if (existente) {
                 this._audit.debug('COO',
                     `Overflow ${res} em ${city.name}: TRANSPORT já pendente [${existente.id}] — ignorado`
@@ -295,7 +296,7 @@ export class COO {
             const boats = Math.ceil(toSend / 500);
 
             this._queue.add({
-                type:     'TRANSPORT',
+                type:     TASK_TYPE.TRANSPORT,
                 priority: 30,
                 cityId:   city.id,
                 payload: {
@@ -353,7 +354,7 @@ export class COO {
                 // Incluir recursos em trânsito chegando nesta cidade
                 const inTransit  = this._state.getInTransit?.(city.id)?.[res] ?? 0;
                 const inQueue    = this._queue.getPending()
-                    .filter(t => t.type === 'TRANSPORT' && t.payload?.toCityId === city.id && t.payload?.cargo?.[res])
+                    .filter(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.toCityId === city.id && t.payload?.cargo?.[res])
                     .reduce((sum, t) => sum + (t.payload.cargo[res] ?? 0), 0);
                 const effective  = onHand + inTransit + inQueue;
 
@@ -363,7 +364,7 @@ export class COO {
 
                 // Já há transporte pendente cobrindo este recurso? (dupla verificação)
                 const existing = this._queue.getPending(city.id)
-                    .find(t => t.type === 'TRANSPORT' && t.payload?.toCityId === city.id && t.payload?.cargo?.[res]);
+                    .find(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.toCityId === city.id && t.payload?.cargo?.[res]);
                 if (existing) continue;
 
                 // Tentar fonte única
@@ -375,7 +376,7 @@ export class COO {
                     );
                     const boats = Math.ceil(deficit / 500);
                     this._queue.add({
-                        type:     'TRANSPORT',
+                        type:     TASK_TYPE.TRANSPORT,
                         priority: 20,
                         cityId:   source.id,
                         payload: {
@@ -415,7 +416,7 @@ export class COO {
                     for (const { city: src, amount: partial } of sources) {
                         const boats = Math.ceil(partial / 500);
                         this._queue.add({
-                            type:     'TRANSPORT',
+                            type:     TASK_TYPE.TRANSPORT,
                             priority: 20,
                             cityId:   src.id,
                             payload: {
@@ -486,7 +487,7 @@ export class COO {
 
         // 1. Transportes pendentes na fila (ainda não saíram)
         for (const task of this._queue.getPending()) {
-            if (task.type !== 'TRANSPORT') continue;
+            if (task.type !== TASK_TYPE.TRANSPORT) continue;
             const from  = task.payload?.fromCityId;
             const cargo = task.payload?.cargo;
             if (!from || !cargo) continue;

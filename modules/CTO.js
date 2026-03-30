@@ -3,6 +3,7 @@
 // Não faz requests — emite tasks RESEARCH para o TaskQueue.
 
 import { COST_REDUCERS } from '../data/research.js';
+import { TASK_TYPE } from './taskTypes.js';
 
 export class CTO {
     constructor({ events, audit, config, state, queue }) {
@@ -46,7 +47,7 @@ export class CTO {
 
         // Verificar se já tem RESEARCH pendente na fila
         const alreadyQueued = this._queue.getPending()
-            .some(t => t.type === 'RESEARCH' && t.payload?.researchId === next);
+            .some(t => t.type === TASK_TYPE.RESEARCH && t.payload?.researchId === next);
         if (alreadyQueued) return;
 
         // Encontrar cidade com academia (cientistas alocados)
@@ -64,7 +65,7 @@ export class CTO {
         );
 
         this._queue.add({
-            type:     'RESEARCH',
+            type:     TASK_TYPE.RESEARCH,
             priority: 30,
             cityId:   cityWithAcademy.id,
             payload:  { researchId: next },

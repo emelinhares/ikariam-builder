@@ -15,6 +15,7 @@
 
 import { nanoid, humanDelay } from './utils.js';
 import { GameError }          from './GameClient.js';
+import { TASK_TYPE }          from './taskTypes.js';
 
 export const TASK_PHASE = Object.freeze({
     SUSTENTO:   1,
@@ -51,13 +52,13 @@ export class TaskQueue {
     /** Fase padrão por tipo de task. Pode ser sobrescrita passando `phase` no taskData. */
     _defaultPhase(type, payload) {
         switch (type) {
-            case 'WINE_ADJUST':    return TASK_PHASE.SUSTENTO;
-            case 'TRANSPORT':      return payload?.wineEmergency ? TASK_PHASE.SUSTENTO : TASK_PHASE.LOGISTICA;
-            case 'BUILD':          return TASK_PHASE.CONSTRUCAO;
-            case 'RESEARCH':
-            case 'WORKER_REALLOC': return TASK_PHASE.PESQUISA;
-            case 'NOISE':
-            case 'NAVIGATE':       return TASK_PHASE.RUIDO;
+            case TASK_TYPE.WINE_ADJUST:    return TASK_PHASE.SUSTENTO;
+            case TASK_TYPE.TRANSPORT:      return payload?.wineEmergency ? TASK_PHASE.SUSTENTO : TASK_PHASE.LOGISTICA;
+            case TASK_TYPE.BUILD:          return TASK_PHASE.CONSTRUCAO;
+            case TASK_TYPE.RESEARCH:
+            case TASK_TYPE.WORKER_REALLOC: return TASK_PHASE.PESQUISA;
+            case TASK_TYPE.NOISE:
+            case TASK_TYPE.NAVIGATE:       return TASK_PHASE.RUIDO;
             default:               return TASK_PHASE.LOGISTICA;
         }
     }
@@ -75,7 +76,7 @@ export class TaskQueue {
             // BUILD e RESEARCH são decisões efêmeras — re-criadas pelo CFO/CTO a cada ciclo.
             // Restaurar apenas tasks operacionais (TRANSPORT, WINE_ADJUST) que representam
             // operações em andamento que devem ser completadas entre sessões.
-            const EPHEMERAL_TYPES = new Set(['BUILD', 'RESEARCH']);
+            const EPHEMERAL_TYPES = new Set([TASK_TYPE.BUILD, TASK_TYPE.RESEARCH]);
             const ephemeralDropped = saved.filter(t => t.status !== 'done' && EPHEMERAL_TYPES.has(t.type));
             if (ephemeralDropped.length > 0) {
                 this._audit?.info?.('TaskQueue',
@@ -113,7 +114,7 @@ export class TaskQueue {
         // Deduplicação: type + cityId + phase (fases distintas coexistem — ex: TRANSPORT
         // de sustento e TRANSPORT de logística são tasks legítimas em paralelo).
         // Exceção: NOISE nunca deduplica (múltiplas são intencionais).
-        if (taskData.type !== 'NOISE') {
+        if (taskData.type !== TASK_TYPE.NOISE) {
             const duplicate = this._queue.find(t =>
                 t.type   === taskData.type &&
                 t.cityId === taskData.cityId &&
@@ -167,7 +168,7 @@ export class TaskQueue {
     /** Verifica se há BUILD pendente para uma cidade. */
     hasPendingBuild(cityId) {
         return this._queue.some(t =>
-            t.type === 'BUILD' && t.cityId === cityId &&
+            t.type === TASK_TYPE.BUILD && t.cityId === cityId &&
             (t.status === 'pending' || t.status === 'in-flight')
         );
     }
@@ -192,7 +193,7 @@ export class TaskQueue {
     /** Verifica se há TRANSPORT de sustento (vinho emergencial) pendente para uma cidade destino. */
     hasPendingSustentoTransport(cityId) {
         return this._queue.some(t =>
-            t.type   === 'TRANSPORT' &&
+            t.type   === TASK_TYPE.TRANSPORT &&
             t.phase  === TASK_PHASE.SUSTENTO &&
             t.payload?.toCityId === cityId &&
             (t.status === 'pending' || t.status === 'in-flight')
@@ -307,7 +308,7 @@ export class TaskQueue {
             // esperando todos os probes completarem (serialização da chain interna).
             if (this._state.isProbing()) {
                 // NOISE: atrasar menos (é baixa prioridade, não crítico)
-                const delayMs = task.type === 'NOISE' ? 10_000 : 30_000;
+                const delayMs = task.type === TASK_TYPE.NOISE ? 10_000 : 30_000;
                 this._reschedule(task, delayMs);
                 this._audit.debug('TaskQueue',
                     `Task [${task.id}] ${task.type} pausada durante fetchAllCities — reagendando em ${delayMs / 1000}s`
@@ -342,31 +343,56 @@ export class TaskQueue {
             }
 
         } catch (err) {
-            task.attempts++;
+            const consumeGuardAttempt = this._config.get('guardConsumesAttempt') !== false;
+            const isGuardCancel = err instanceof GameError && err.type === 'GUARD_CANCEL';
+            const isGuardError  = err instanceof GameError && err.guard;
 
-            if (err instanceof GameError && err.type === 'GUARD_CANCEL') {
+            // Política de tentativa:
+            // - GUARD_CANCEL nunca consome attempt.
+            // - GUARD pode consumir ou não, conforme config.guardConsumesAttempt.
+            // - Demais erros consomem attempt normalmente.
+            const shouldConsumeAttempt = !isGuardCancel && (!isGuardError || consumeGuardAttempt);
+            if (shouldConsumeAttempt) {
+                task.attempts++;
+            }
+
+            if (isGuardCancel) {
                 // GUARD_CANCEL: task já movida para histórico dentro do guard (ex: cidade já construindo).
                 // Não incrementar tentativas, não re-agendar — CFO vai re-criar quando necessário.
                 this._audit.info('TaskQueue',
                     `↷ [${task.id}] ${task.type} cancelado: ${err.message}`
                 );
 
-            } else if (err instanceof GameError && err.guard) {
+            } else if (isGuardError) {
                 // GUARD: pré-condição não atendida — task já reagendada dentro de _runGuards,
                 // OU o GUARD veio de _dispatch (ex: endUpgradeTime=-1 no upgradeBuilding).
                 // Se a task ainda está in-flight, reagendar com delay padrão.
                 if (task.status === 'in-flight') {
                     this._reschedule(task, 30 * 60_000); // 30min — aguardar transporte ou fim de build
                 }
-                // Attempts SÃO incrementados para evitar loops infinitos.
-                // Se atingir maxAttempts via guard repetido, cancelar a task.
+
+                // Quando GUARD não consome attempt, controlar loop por guardAttempts separado.
+                if (!consumeGuardAttempt) {
+                    task.guardAttempts = (task.guardAttempts ?? 0) + 1;
+                }
+
+                const maxGuardAttempts = task.maxGuardAttempts ?? Math.max(task.maxAttempts * 4, 8);
                 this._audit.debug('TaskQueue',
-                    `↷ [${task.id}] ${task.type} guard (${task.attempts}/${task.maxAttempts}): ${err.message}`
+                    consumeGuardAttempt
+                        ? `↷ [${task.id}] ${task.type} guard (${task.attempts}/${task.maxAttempts}): ${err.message}`
+                        : `↷ [${task.id}] ${task.type} guard (${task.guardAttempts}/${maxGuardAttempts}, sem consumir attempt): ${err.message}`
                 );
-                if (task.attempts >= task.maxAttempts) {
+
+                const shouldFailByGuard = consumeGuardAttempt
+                    ? (task.attempts >= task.maxAttempts)
+                    : ((task.guardAttempts ?? 0) >= maxGuardAttempts);
+
+                if (shouldFailByGuard) {
                     task.status = 'failed';
                     this._audit.warn('TaskQueue',
-                        `✗ [${task.id}] ${task.type} cancelado após ${task.maxAttempts}× guard sem sucesso — ${err.message}`,
+                        consumeGuardAttempt
+                            ? `✗ [${task.id}] ${task.type} cancelado após ${task.maxAttempts}× guard sem sucesso — ${err.message}`
+                            : `✗ [${task.id}] ${task.type} cancelado após ${maxGuardAttempts}× guard consecutivo (sem consumo de attempt) — ${err.message}`,
                         { cityId: task.cityId }
                     );
                     this._events.emit(this._events.E.QUEUE_TASK_FAILED, { task, error: err.message, fatal: false });
@@ -412,15 +438,15 @@ export class TaskQueue {
 
     async _runGuards(task) {
         switch (task.type) {
-            case 'BUILD':
+            case TASK_TYPE.BUILD:
                 await this._guardBuild(task);
                 break;
-            case 'TRANSPORT':
+            case TASK_TYPE.TRANSPORT:
                 await this._guardTransport(task);
                 break;
-            case 'WINE_ADJUST':
-            case 'RESEARCH':
-            case 'NOISE':
+            case TASK_TYPE.WINE_ADJUST:
+            case TASK_TYPE.RESEARCH:
+            case TASK_TYPE.NOISE:
                 // Todas as ações POST exigem estar na cidade correta
                 await this._guardNavigate(task.cityId);
                 break;
@@ -488,6 +514,37 @@ export class TaskQueue {
             throw new GameError('GUARD', `GUARD TRANSPORT: cidade origem ${task.payload.fromCityId} não encontrada no estado`);
         }
 
+        if (!task.payload?.toCityId || !task.payload?.toIslandId) {
+            throw new GameError('GUARD', 'GUARD TRANSPORT: destino inválido (toCityId/toIslandId ausente)');
+        }
+
+        if (Number(task.payload.fromCityId) === Number(task.payload.toCityId)) {
+            throw new GameError('GUARD',
+                `GUARD TRANSPORT: origem e destino iguais (${task.payload.fromCityId}) — transporte inválido`
+            );
+        }
+
+        const cargoEntries = Object.entries(task.payload.cargo ?? {});
+        const cargoPositive = cargoEntries.filter(([, v]) => (Number(v) || 0) > 0);
+        if (cargoPositive.length === 0) {
+            throw new GameError('GUARD',
+                `GUARD TRANSPORT: carga vazia para ${origin.name} → ${task.payload.toCityId}`
+            );
+        }
+
+        const boatsRequired = Math.max(...cargoPositive.map(([, v]) => Math.ceil((Number(v) || 0) / 500)));
+        if (!Number.isFinite(boatsRequired) || boatsRequired <= 0) {
+            throw new GameError('GUARD',
+                `GUARD TRANSPORT: cálculo de barcos inválido (boatsRequired=${boatsRequired})`
+            );
+        }
+
+        if ((Number(task.payload.boats) || 0) < boatsRequired) {
+            throw new GameError('GUARD',
+                `GUARD TRANSPORT: navios insuficientes (${task.payload.boats}) para a maior coluna de carga (precisa ${boatsRequired})`
+            );
+        }
+
         // Navegar para cidade origem — servidor exige currentCityId ativo (armadilha documentada)
         const activeBefore = this._state.getActiveCityId();
         if (activeBefore !== task.payload.fromCityId) {
@@ -543,7 +600,7 @@ export class TaskQueue {
 
     async _dispatch(task) {
         switch (task.type) {
-            case 'BUILD': {
+            case TASK_TYPE.BUILD: {
                 await this._client.upgradeBuilding(
                     task.cityId,
                     task.payload.position,
@@ -562,7 +619,11 @@ export class TaskQueue {
                 return;
             }
 
-            case 'TRANSPORT':
+            case TASK_TYPE.TRANSPORT:
+                // Soma da carga para validação defensiva no GameClient.
+                // Em caso de divergência entre payloads, o client recusa antes do POST.
+                task.payload.expectedCargoTotal = Object.values(task.payload.cargo ?? {})
+                    .reduce((s, v) => s + Math.max(0, Number(v) || 0), 0);
                 this._audit.info('TaskQueue',
                     `DISPATCH TRANSPORT: de cidade ${task.payload.fromCityId} → cidade ${task.payload.toCityId} (island ${task.payload.toIslandId}), ${task.payload.boats} navios, carga=${JSON.stringify(task.payload.cargo)}${task.payload.wineEmergency ? ' [EMERGÊNCIA]' : ''}`
                 );
@@ -571,13 +632,14 @@ export class TaskQueue {
                     task.payload.toCityId,
                     task.payload.toIslandId,
                     task.payload.cargo,
-                    task.payload.boats
+                    task.payload.boats,
+                    task.payload.expectedCargoTotal
                 );
 
-            case 'RESEARCH':
+            case TASK_TYPE.RESEARCH:
                 return this._client.startResearch(task.cityId, task.payload.researchId);
 
-            case 'WINE_ADJUST': {
+            case TASK_TYPE.WINE_ADJUST: {
                 // Posição da taberna no grid da cidade — obrigatória no payload real (confirmado via REC)
                 const tavernSlot = this._state.getCity(task.cityId)?.buildings
                     ?.find(b => b.building === 'tavern');
@@ -590,11 +652,11 @@ export class TaskQueue {
                 return this._client.setTavernWine(task.cityId, tavernSlot.position, task.payload.wineLevel);
             }
 
-            case 'NAVIGATE':
-            case 'NOISE':
+            case TASK_TYPE.NAVIGATE:
+            case TASK_TYPE.NOISE:
                 return this._client.navigate(task.cityId);
 
-            case 'WORKER_REALLOC': {
+            case TASK_TYPE.WORKER_REALLOC: {
                 // Payload confirmado via REC: screen=academy, s={qtd}
                 // Outros tipos de realocação (madeira, luxo) usam populationManagement — não capturado.
                 const { position, scientists } = task.payload;
@@ -623,7 +685,7 @@ export class TaskQueue {
         const city = cities[Math.floor(Math.random() * cities.length)];
 
         this.add({
-            type:         'NOISE',
+            type:         TASK_TYPE.NOISE,
             priority:     50,
             cityId:       city.id,
             payload:      { view },

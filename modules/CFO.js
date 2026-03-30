@@ -11,6 +11,7 @@ import { getWarehouseSafe, getCorruption,
          WAREHOUSE_CAPACITY, TOWN_HALL_MAX_CITIZENS,
          ACADEMY_MAX_SCIENTISTS }                                        from '../data/effects.js';
 import { PORT_LOADING_SPEED, BuildingsId }                              from '../data/const.js';
+import { TASK_TYPE }                                                    from './taskTypes.js';
 
 // Edifícios que aumentam produção de recursos (tratamento especial de ROI)
 const PRODUCTION_BUILDINGS = new Set([
@@ -36,7 +37,7 @@ export class CFO {
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
         // Reavaliar após BUILD concluído (pode ter desbloqueado próximo)
         this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
-            if (task.type === 'BUILD') {
+            if (task.type === TASK_TYPE.BUILD) {
                 this._audit.info('CFO', `BUILD concluído em cidade ${task.cityId} — reavaliando slot`);
                 this.evaluateCity(task.cityId);
             }
@@ -185,7 +186,7 @@ export class CFO {
         }
 
         this._queue.add({
-            type:     'BUILD',
+            type:     TASK_TYPE.BUILD,
             priority: Math.max(0, 100 - best.score),
             cityId,
             payload: {
@@ -338,7 +339,7 @@ export class CFO {
             const impact    = Math.min(1, (speedNext - speedNow) / Math.max(speedNow, 1));
             // urgency: transportes pendentes indicam gargalo logístico
             const pending   = this._queue?.getPending(city.id)
-                ?.filter(t => t.type === 'TRANSPORT').length ?? 0;
+                ?.filter(t => t.type === TASK_TYPE.TRANSPORT).length ?? 0;
             const urgency   = Math.min(1, 0.3 + pending * 0.15);
             const saturation = speedNow > 5000 ? 0.6 : 0; // porto rápido = menos urgente
             return Math.round(urgency * impact * (1 - saturation) * 100) + 10;

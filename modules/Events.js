@@ -96,3 +96,6 @@ export const Events = {
         UI_COMMAND:           'ui:command',          // { type, ...args }
     }),
 };
+
+// Compatibilidade com testes/consumidores legados que importam default.
+export default Events;
