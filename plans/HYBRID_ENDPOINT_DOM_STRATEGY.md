@@ -41,6 +41,32 @@ Initial mapping from current code/docs:
 - WORKER_REALLOC scientists: **Endpoint+HTML**
 - unresolved actions listed in endpoint gaps: **UI-only/manual-blocked until mapped**
 
+### 2.3 Detailed capability matrix
+
+The matrix below makes path selection explicit for runtime and review.
+
+| Action family | Capability class | Endpoint prerequisites | HTML prerequisites | Live DOM prerequisites | Success detectors | Hard-fail detectors | Fallback policy |
+|---|---|---|---|---|---|---|---|
+| BUILD upgrade | Endpoint+HTML | fresh token, city context lock, target slot | parse `upgradeHref` with current `level`, parse `actionRequest` refresh | optional for visual confirmation only | `provideFeedback` success, no `confirmResourcePremiumBuy`, expected construction delta | `confirmResourcePremiumBuy`, queue occupied, invalid level token pair | do not use DOM write fallback; guard and reschedule |
+| TRANSPORT send | Endpoint+HTML then DOM-assisted observe | origin city lock, destination ids, transporter availability | parse destination `islandId`, `max_capacity`, form context | read live mission/eta consistency when needed | feedback success, `freeTransporters` delta, mission appears in military list | no transporter delta, missing mission, explicit server error feedback | fallback allowed only for state acquisition, not blind write |
+| TRANSPORT abort | Endpoint-only | valid `eventId`, city context lock, fresh token | none | optional check mission removed | abort feedback plus mission disappearance | event not found, mission still present after retry window | no DOM write fallback; guard with reason code |
+| WINE adjust tavern | Endpoint+HTML | city lock, tavern position | parse valid `amount` range from tavern context | optional inspect satisfaction side effects | wine spending change or expected stable state at same index | invalid amount, no state transition | fallback to re-open tavern context then retry endpoint |
+| WORKER realloc academy | Endpoint+HTML | city lock, fresh token | parse worker form shape and max bounds | optional read displayed worker counters | worker totals changed to requested values and research/gold effects coherent | bounds violation or unchanged workers after success claim | fallback to context refresh only |
+| WORKER realloc townHall | Endpoint+HTML and DOM-assisted bounds | city lock, fresh token | parse workerPlan form in townHall context | read `input*` and `data-max` constraints before write | worker distribution changed and downstream production updated | invalid combination rejected by server, no worker delta | fallback allowed for DOM bounds re-read then endpoint retry |
+| RESEARCH start switch | Endpoint+HTML | city lock, fresh token | parse advisor link and category route | optional progress widget read | feedback success and active research context changed | insufficient points or no category transition | fallback only to re-open advisor context |
+| CULTURAL assign museum | Endpoint+HTML | city lock, fresh token | parse assign form and city goods fields | optional free goods display check | feedback success and goods distribution delta | inconsistent totals or missing assign fields | fallback to form refresh then endpoint retry |
+| MARKET offers update | Endpoint+HTML | city lock, fresh token | parse complete offer field set | optional tab state check | feedback success and offer table reflects posted set | partial field set, silent no-op | fallback to reopen own-offers tab then retry endpoint |
+| MILITARY advisor monitor | DOM-assisted read | none for write path | optional viewscript extraction from response | parse movement table and action links in live DOM | mission rows parsed with stable ids and eta | selector miss, malformed row payload | no write, degrade to guarded monitoring mode |
+| TRADE routes premium edit | UI-only manual-blocked until confirmed | premium eligibility, fresh token | parse premium form shape | verify premium UI constraints | successful route activation state change | premium denial, incomplete form state | keep blocked until deterministic write contract is validated |
+
+#### Matrix operating rules
+
+1. Endpoint write is the only allowed side-effect path unless capability explicitly states otherwise.
+2. HTML and DOM layers are considered evidence layers for prerequisites and detectors.
+3. When detectors disagree, outcome is `guard-reschedule` and never `success`.
+4. Any selector miss on DOM-assisted paths emits `hybrid:selector_miss` and downgrades confidence.
+5. UI-only/manual-blocked actions remain blocked until request shape and detector set are both validated.
+
 ---
 
 ## 3) Proposed design

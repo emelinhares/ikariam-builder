@@ -250,7 +250,7 @@ export class TaskQueue {
             this._persist();
         }
 
-        if (!this._executing && mode !== 'MANUAL' && !this._state.isProbing()) {
+        if (!this._executing && mode !== 'MANUAL') {
             const ready = this._queue
                 .filter(t => t.status === 'pending' && t.scheduledFor <= now)
                 .sort((a, b) =>
@@ -277,6 +277,16 @@ export class TaskQueue {
     // ── Execução ──────────────────────────────────────────────────────────────
 
     async _execute(task) {
+        if (this._hasTaskTimedOut(task)) {
+            this._failTask(task, {
+                error: `SLA de task excedido (${this._formatMs(this._getTaskAgeMs(task))} > ${this._formatMs(this._getTaskTimeoutMs(task))})`,
+                reasonCode: 'TASK_SLA_TIMEOUT',
+                fatal: false,
+                outcomeClass: 'hard-fail',
+            });
+            return;
+        }
+
         // Preempção: se chegou task de fase mais urgente enquanto esta ainda estava pending,
         // ceder para ela. O próximo _tick vai selecioná-la corretamente.
         const now = Date.now();
@@ -330,18 +340,21 @@ export class TaskQueue {
             }
 
             // 2. Verificar probing (fetchAllCities em andamento)
-            // TODOS os tipos pausam durante probing — não só BUILD.
-            // Razão: probes usam GameClient._enqueue. Se um TRANSPORT ou WINE_ADJUST
-            // também enfileirar via _enqueue durante probing, o dispatch fica preso
-            // esperando todos os probes completarem (serialização da chain interna).
             if (this._state.isProbing()) {
-                // NOISE: atrasar menos (é baixa prioridade, não crítico)
-                const delayMs = task.type === TASK_TYPE.NOISE ? 10_000 : 30_000;
-                this._reschedule(task, delayMs);
-                this._audit.debug('TaskQueue',
-                    `Task [${task.id}] ${task.type} pausada durante fetchAllCities — reagendando em ${delayMs / 1000}s`
+                const canBypassProbing = this._canRunDuringProbing(task);
+                if (!canBypassProbing) {
+                    // NOISE: atrasar menos (é baixa prioridade, não crítico)
+                    const delayMs = task.type === TASK_TYPE.NOISE ? 10_000 : 30_000;
+                    this._reschedule(task, delayMs, 'PROBING_IN_PROGRESS');
+                    this._audit.debug('TaskQueue',
+                        `Task [${task.id}] ${task.type} pausada durante fetchAllCities — reagendando em ${delayMs / 1000}s`
+                    );
+                    return;
+                }
+
+                this._audit.warn('TaskQueue',
+                    `Exceção de probing: permitindo ${task.type} urgente [${task.id}] durante fetchAllCities`
                 );
-                return;
             }
 
             // 3. Adquirir session lock — garante exclusividade durante navigate + action.
@@ -405,7 +418,7 @@ export class TaskQueue {
                 // OU o GUARD veio de _dispatch (ex: endUpgradeTime=-1 no upgradeBuilding).
                 // Se a task ainda está in-flight, reagendar com delay padrão.
                 if (task.status === 'in-flight') {
-                    this._reschedule(task, 30 * 60_000); // 30min — aguardar transporte ou fim de build
+                    this._reschedule(task, 30 * 60_000, err?.code ?? 'GUARD_PRECONDITION_NOT_MET'); // 30min — aguardar transporte ou fim de build
                 }
 
                 // Quando GUARD não consome attempt, controlar loop por guardAttempts separado.
@@ -437,59 +450,36 @@ export class TaskQueue {
                     : ((task.guardAttempts ?? 0) >= maxGuardAttempts);
 
                 if (shouldFailByGuard) {
-                    task.status = 'failed';
-                    this._audit.warn('TaskQueue',
-                        consumeGuardAttempt
-                            ? `✗ [${task.id}] ${task.type} cancelado após ${task.maxAttempts}× guard sem sucesso — ${err.message}`
-                            : `✗ [${task.id}] ${task.type} cancelado após ${maxGuardAttempts}× guard consecutivo (sem consumo de attempt) — ${err.message}`,
-                        { cityId: task.cityId }
-                    );
-                    this._events.emit(this._events.E.QUEUE_TASK_FAILED, { task, error: err.message, fatal: false });
-                    this._moveToHistory(task);
+                    this._failTask(task, {
+                        error: consumeGuardAttempt
+                            ? `Guard esgotado após ${task.maxAttempts} tentativa(s): ${err.message}`
+                            : `Guard esgotado após ${maxGuardAttempts} bloqueio(s) consecutivo(s): ${err.message}`,
+                        reasonCode: guardReasonCode,
+                        fatal: false,
+                        outcomeClass: 'hard-fail',
+                    });
                 }
                 this._persist();
 
             } else if (err instanceof GameError && err.fatal) {
-                this._captureHybridAttemptOutcome(task, {
-                    actionType: task.type,
-                    pathUsed: pathDecision.pathDecision,
-                    prereqCheck: 'pass',
-                    responseSignals: ['fatal_error'],
-                    outcomeClass: 'hard-fail',
-                    nextStep: 'fail',
+                this._failTask(task, {
+                    error: err.message,
                     reasonCode: err?.code ?? err?.type ?? 'FATAL_ERROR',
+                    fatal: true,
+                    outcomeClass: 'hard-fail',
                 });
-                task.status = 'failed';
-                const elapsed = Date.now() - this._executingStartedAt;
-                this._audit.error('TaskQueue',
-                    `✗ [${task.id}] ${task.type} FATAL em ${elapsed}ms: ${err.message}`,
-                    { type: err.type, cityId: task.cityId }
-                );
-                this._events.emit(this._events.E.QUEUE_TASK_FAILED, { task, error: err.message, fatal: true });
-                this._persist();
 
             } else if (task.attempts >= task.maxAttempts) {
-                this._captureHybridAttemptOutcome(task, {
-                    actionType: task.type,
-                    pathUsed: pathDecision.pathDecision,
-                    prereqCheck: 'pass',
-                    responseSignals: ['retry_exhausted'],
-                    outcomeClass: 'hard-fail',
-                    nextStep: 'fail',
+                this._failTask(task, {
+                    error: err.message,
                     reasonCode: err?.code ?? 'ATTEMPTS_EXHAUSTED',
+                    fatal: false,
+                    outcomeClass: 'hard-fail',
                 });
-                task.status = 'failed';
-                const elapsed = Date.now() - this._executingStartedAt;
-                this._audit.error('TaskQueue',
-                    `✗ [${task.id}] ${task.type} falhou ${task.maxAttempts}× em ${elapsed}ms: ${err.message}`,
-                    { cityId: task.cityId }
-                );
-                this._events.emit(this._events.E.QUEUE_TASK_FAILED, { task, error: err.message, fatal: false });
-                this._persist();
 
             } else {
                 // RETRY: reagendar em 30s
-                this._reschedule(task, 30_000);
+                this._reschedule(task, 30_000, err?.code ?? 'RETRY_TRANSIENT_ERROR');
                 this._audit.warn('TaskQueue',
                     `↺ [${task.id}] ${task.type} retry ${task.attempts}/${task.maxAttempts}: ${err.message}`
                 );
@@ -553,7 +543,7 @@ export class TaskQueue {
 
         // Verificar slot bloqueado por pesquisa
         if (city.lockedPositions.has(task.payload.position)) {
-            this._reschedule(task, 3_600_000);
+            this._reschedule(task, 3_600_000, 'GUARD_BUILD_SLOT_LOCKED');
             throw new GameError('GUARD', `GUARD BUILD: slot ${task.payload.position} bloqueado por pesquisa em ${city.name} — reagendando em 1h`);
         }
 
@@ -567,7 +557,7 @@ export class TaskQueue {
         // Verificar ouro suficiente (se CFO disponível)
         if (this._cfo && task.payload.cost) {
             if (!this._cfo.canAfford(task.cityId, task.payload.cost)) {
-                this._reschedule(task, 3_600_000);
+                this._reschedule(task, 3_600_000, 'GUARD_BUILD_INSUFFICIENT_RESOURCES');
                 throw new GameError('GUARD', `GUARD BUILD: recursos insuficientes para ${task.payload.building} em ${city.name} — aguardando transporte (1h)`);
             }
         }
@@ -630,7 +620,7 @@ export class TaskQueue {
 
         if (!task.payload.wineEmergency && freeT < task.payload.boats) {
             const waitMs = (task.payload.estimatedReturnS ?? 3600) * 1000;
-            this._reschedule(task, waitMs);
+            this._reschedule(task, waitMs, 'GUARD_TRANSPORT_NO_FREE_BOATS');
             throw new GameError('GUARD',
                 `GUARD TRANSPORT: sem barcos livres em ${origin.name}: ${freeT} livre(s) < ${task.payload.boats} necessário(s) — aguardando ${Math.round(waitMs / 60000)}min`
             );
@@ -651,7 +641,7 @@ export class TaskQueue {
 
             if (loadFactor < minFactor) {
                 const waitMs = (task.payload.estimatedReturnS ?? 3600) * 1000;
-                this._reschedule(task, waitMs);
+                this._reschedule(task, waitMs, 'GUARD_TRANSPORT_LOAD_FACTOR_LOW');
                 throw new GameError('GUARD',
                     `GUARD TRANSPORT: carga ${(loadFactor * 100).toFixed(0)}% < mínimo ${(minFactor * 100).toFixed(0)}% em ${origin.name} (maior recurso=${largestCargo}, navios=${boatsActual}, cap/recurso=${perResCapacity}) — aguardando`
                 );
@@ -772,9 +762,75 @@ export class TaskQueue {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    _reschedule(task, delayMs) {
+    _reschedule(task, delayMs, reasonCode = null) {
         task.status       = 'pending';
         task.scheduledFor = Date.now() + delayMs;
+        task.lastRescheduleAt = Date.now();
+        task.lastBlockerCode = reasonCode ?? task.lastBlockerCode ?? null;
+        task.reasonCode = reasonCode ?? task.reasonCode;
+        this._persist();
+    }
+
+    _canRunDuringProbing(task) {
+        if (!task) return false;
+        if (task.type === TASK_TYPE.WINE_ADJUST && task.payload?.wineEmergency) return true;
+        if (task.type === TASK_TYPE.TRANSPORT && task.payload?.wineEmergency) return true;
+        return false;
+    }
+
+    _getTaskTimeoutMs(task) {
+        const byType = {
+            [TASK_TYPE.WINE_ADJUST]: this._config.get('taskTimeoutWineAdjustMs') ?? 20 * 60_000,
+            [TASK_TYPE.TRANSPORT]: this._config.get('taskTimeoutTransportMs') ?? 4 * 60 * 60_000,
+            [TASK_TYPE.BUILD]: this._config.get('taskTimeoutBuildMs') ?? 8 * 60 * 60_000,
+            [TASK_TYPE.RESEARCH]: this._config.get('taskTimeoutResearchMs') ?? 12 * 60 * 60_000,
+            [TASK_TYPE.WORKER_REALLOC]: this._config.get('taskTimeoutWorkerReallocMs') ?? 30 * 60_000,
+            [TASK_TYPE.NOISE]: this._config.get('taskTimeoutNoiseMs') ?? 30 * 60_000,
+            [TASK_TYPE.NAVIGATE]: this._config.get('taskTimeoutNavigateMs') ?? 10 * 60_000,
+        };
+        return byType[task?.type] ?? (this._config.get('taskTimeoutDefaultMs') ?? 4 * 60 * 60_000);
+    }
+
+    _getTaskAgeMs(task) {
+        const createdAt = Number(task?.createdAt ?? task?.scheduledFor ?? Date.now());
+        return Math.max(0, Date.now() - createdAt);
+    }
+
+    _hasTaskTimedOut(task) {
+        return this._getTaskAgeMs(task) > this._getTaskTimeoutMs(task);
+    }
+
+    _formatMs(ms) {
+        const sec = Math.max(0, Math.round(ms / 1000));
+        if (sec < 120) return `${sec}s`;
+        const min = Math.round(sec / 60);
+        if (min < 180) return `${min}min`;
+        const h = (min / 60).toFixed(1);
+        return `${h}h`;
+    }
+
+    _failTask(task, { error, reasonCode, fatal = false, outcomeClass = 'hard-fail' } = {}) {
+        const terminalReasonCode = reasonCode ?? task.reasonCode ?? 'TASK_FAILED';
+        task.status = 'failed';
+        task.terminalReasonCode = terminalReasonCode;
+        task.endedAt = Date.now();
+
+        this._captureHybridAttemptOutcome(task, {
+            actionType: task.type,
+            pathUsed: task.pathDecision?.pathDecision ?? 'endpoint',
+            prereqCheck: 'pass',
+            responseSignals: [fatal ? 'fatal_error' : 'task_failed'],
+            outcomeClass,
+            nextStep: 'fail',
+            reasonCode: terminalReasonCode,
+        });
+
+        this._audit.error('TaskQueue',
+            `✗ [${task.id}] ${task.type} failed: ${error}`,
+            { cityId: task.cityId, reasonCode: terminalReasonCode, fatal }
+        );
+        this._events.emit(this._events.E.QUEUE_TASK_FAILED, { task, error, fatal });
+        this._moveToHistory(task);
         this._persist();
     }
 

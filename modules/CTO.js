@@ -50,13 +50,14 @@ export class CTO {
             .some(t => t.type === TASK_TYPE.RESEARCH && t.payload?.researchId === next);
         if (alreadyQueued) return;
 
-        // Encontrar cidade com academia (cientistas alocados)
-        const cityWithAcademy = this._state.getAllCities()
-            .find(c => (c.workers?.scientists ?? 0) > 0)
-            ?? this._state.getAllCities()[0];
+        // Encontrar cidade operacional para academia.
+        const cities = this._state.getAllCities();
+        const cityWithAcademy = this._pickOperationalAcademyCity(cities);
 
         if (!cityWithAcademy) {
-            this._audit.warn('CTO', 'Nenhuma cidade com academia disponível');
+            this._audit.warn('CTO',
+                `Pesquisa #${next} não enfileirada: nenhuma cidade atende precondições operacionais da academia`
+            );
             return;
         }
 
@@ -76,6 +77,36 @@ export class CTO {
         });
 
         this._events.emit(this._events.E.CTO_RESEARCH_START, { researchId: next });
+    }
+
+    _pickOperationalAcademyCity(cities = []) {
+        if (!Array.isArray(cities) || cities.length === 0) return null;
+
+        const academyCities = cities
+            .map((c) => {
+                const academy = (c.buildings ?? [])
+                    .filter(b => b.building === 'academy')
+                    .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0] ?? null;
+                const scientists = Number(c.workers?.scientists ?? 0);
+                return {
+                    city: c,
+                    academyLevel: Number(academy?.level ?? 0),
+                    scientists,
+                    confidence: this._state.getConfidence?.(c.id) ?? 'MEDIUM',
+                };
+            })
+            .filter((entry) => entry.academyLevel > 0 && entry.scientists > 0)
+            .filter((entry) => entry.confidence !== 'LOW');
+
+        if (!academyCities.length) return null;
+
+        academyCities.sort((a, b) =>
+            (b.scientists - a.scientists) ||
+            (b.academyLevel - a.academyLevel) ||
+            (Number(a.city.id) - Number(b.city.id))
+        );
+
+        return academyCities[0].city;
     }
 
     _getNextResearch(investigated) {

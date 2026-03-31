@@ -81,16 +81,24 @@ export class Planner {
 
         // Wake-ups reativos: BUILD ou TRANSPORT concluído → mini-ciclo em 10s
         this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
-            if (task.type === 'BUILD' || task.type === 'TRANSPORT') {
+            if (task.type === 'BUILD' || task.type === 'TRANSPORT' || task.type === 'WINE_ADJUST') {
                 this._scheduleReactiveCycle(task.type);
             }
         });
 
         // Falha de task → replaneja logística imediatamente
         this._events.on(E.QUEUE_TASK_FAILED, ({ task }) => {
-            if (task.type === 'TRANSPORT' || task.type === 'BUILD') {
+            if (task.type === 'TRANSPORT' || task.type === 'BUILD' || task.type === 'WINE_ADJUST') {
                 this._scheduleReactiveCycle(task.type, 'FAILED');
             }
+        });
+
+        // Eventos de sustento críticos devem disparar replanejamento reativo.
+        this._events.on(E.HR_WINE_EMERGENCY, ({ cityId }) => {
+            this._scheduleReactiveCycle('HR_WINE_EMERGENCY', `CITY_${cityId}`);
+        });
+        this._events.on(E.HR_WINE_ADJUSTED, ({ cityId }) => {
+            this._scheduleReactiveCycle('HR_WINE_ADJUSTED', `CITY_${cityId}`);
         });
 
         this._audit.info('Planner', 'Planner iniciado — timers adaptativos + wake-ups reativos ativos');

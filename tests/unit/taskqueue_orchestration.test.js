@@ -291,5 +291,64 @@ describe('TaskQueue orchestration', () => {
       }),
     }));
   });
+
+  test('durante probing, task urgente de sustento pode executar sem reschedule', async () => {
+    const { queue, state, client } = createQueueHarness({
+      state: { isProbing: vi.fn(() => true) },
+      client: { acquireSession: vi.fn(async (fn) => fn()) },
+    });
+
+    queue._runGuards = vi.fn(async () => {});
+    queue._dispatch = vi.fn(async () => ({}));
+    const rescheduleSpy = vi.spyOn(queue, '_reschedule');
+
+    const task = {
+      id: 'wine-urgent',
+      type: 'WINE_ADJUST',
+      cityId: 101,
+      phase: TASK_PHASE.SUSTENTO,
+      priority: 0,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 2,
+      createdAt: Date.now(),
+      scheduledFor: Date.now(),
+      payload: { wineLevel: 0, wineEmergency: true },
+    };
+
+    await queue._execute(task);
+
+    expect(state.isProbing).toHaveBeenCalled();
+    expect(client.acquireSession).toHaveBeenCalledTimes(1);
+    expect(rescheduleSpy).not.toHaveBeenCalled();
+  });
+
+  test('falha task quando SLA por tipo é excedido', async () => {
+    const { queue, events } = createQueueHarness();
+    queue._runGuards = vi.fn(async () => {});
+    queue._dispatch = vi.fn(async () => ({}));
+
+    const task = {
+      id: 'build-timeout',
+      type: 'BUILD',
+      cityId: 101,
+      phase: TASK_PHASE.CONSTRUCAO,
+      priority: 10,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3,
+      createdAt: Date.now() - (9 * 60 * 60 * 1000), // > timeout BUILD default (8h)
+      scheduledFor: Date.now(),
+      payload: { position: 1 },
+    };
+
+    await queue._execute(task);
+
+    expect(task.status).toBe('failed');
+    expect(task.terminalReasonCode).toBe('TASK_SLA_TIMEOUT');
+    expect(queue._dispatch).not.toHaveBeenCalled();
+    const failedEvt = events.emit.mock.calls.find(([evt]) => evt === events.E.QUEUE_TASK_FAILED);
+    expect(failedEvt).toBeTruthy();
+  });
 });
 

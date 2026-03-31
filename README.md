@@ -66,6 +66,38 @@ Formato recomendado por release:
 
 ## Patch Notes
 
+### Versão 5.1.0 — 2026-03-30
+
+**Resumo**
+- Release de evolução funcional focada em governança de decisão entre módulos de negócio (Planner/CFO/COO/CTO/CSO/MnA), endurecimento da orquestração em fila e consolidação de contratos documentais para reduzir divergência entre comportamento real e documentação técnica.
+
+**Novas features**
+- Expansão da lógica de governança e priorização no ciclo de decisão multi-módulo com reforço de critérios de ação por contexto operacional: [modules/Planner.js](modules/Planner.js), [modules/CFO.js](modules/CFO.js), [modules/COO.js](modules/COO.js), [modules/CTO.js](modules/CTO.js), [modules/CSO.js](modules/CSO.js), [modules/MnA.js](modules/MnA.js).
+- Atualização da estratégia híbrida endpoint/dom com impactos explícitos de execução e roteamento de decisão: [plans/HYBRID_ENDPOINT_DOM_STRATEGY.md](plans/HYBRID_ENDPOINT_DOM_STRATEGY.md), [modules/TaskQueue.js](modules/TaskQueue.js).
+
+**Bugfixes**
+- Correções de fluxo e orquestração na fila para reduzir inconsistências de execução em cenários compostos de decisão e despacho de tasks: [modules/TaskQueue.js](modules/TaskQueue.js), [tests/unit/taskqueue_orchestration.test.js](tests/unit/taskqueue_orchestration.test.js).
+- Ajustes de comportamento em decisões econômicas e de planejamento para cenários de borda e conflitos de prioridade: [modules/CFO.js](modules/CFO.js), [tests/unit/cfo_scopeA.test.js](tests/unit/cfo_scopeA.test.js), [tests/unit/planner.test.js](tests/unit/planner.test.js).
+
+**Melhorias técnicas**
+- Hardening dos módulos de negócio com contratos mais explícitos para governança e menor acoplamento implícito entre decisões de curto e médio prazo: [modules/CFO.js](modules/CFO.js), [modules/CTO.js](modules/CTO.js), [modules/MnA.js](modules/MnA.js), [modules/COO.js](modules/COO.js), [modules/CSO.js](modules/CSO.js).
+
+**Documentação**
+- Atualização dos contratos de endpoints e modelo de jogo para manter aderência ao comportamento efetivo da automação: [ENDPOINTS.md](ENDPOINTS.md), [GAME_MODEL.md](GAME_MODEL.md), [plans/HYBRID_ENDPOINT_DOM_STRATEGY.md](plans/HYBRID_ENDPOINT_DOM_STRATEGY.md).
+
+**Testes**
+- Ampliação da cobertura unitária em governança, orquestração e critérios de decisão de negócio: [tests/unit/taskqueue_orchestration.test.js](tests/unit/taskqueue_orchestration.test.js), [tests/unit/cfo_scopeA.test.js](tests/unit/cfo_scopeA.test.js), [tests/unit/planner.test.js](tests/unit/planner.test.js), [tests/unit/governance_gaps.test.js](tests/unit/governance_gaps.test.js).
+
+**Riscos conhecidos**
+- A estratégia híbrida endpoint/dom segue dependente da estabilidade de contratos do jogo e pode exigir ajustes rápidos em mudanças de payload/markup em produção: [ENDPOINTS.md](ENDPOINTS.md), [GAME_MODEL.md](GAME_MODEL.md), [plans/HYBRID_ENDPOINT_DOM_STRATEGY.md](plans/HYBRID_ENDPOINT_DOM_STRATEGY.md).
+
+**Arquivos críticos impactados**
+- Orquestração e decisão: [modules/TaskQueue.js](modules/TaskQueue.js), [modules/Planner.js](modules/Planner.js), [modules/CFO.js](modules/CFO.js), [modules/COO.js](modules/COO.js), [modules/CTO.js](modules/CTO.js), [modules/CSO.js](modules/CSO.js), [modules/MnA.js](modules/MnA.js).
+- Contratos/documentação: [ENDPOINTS.md](ENDPOINTS.md), [GAME_MODEL.md](GAME_MODEL.md), [plans/HYBRID_ENDPOINT_DOM_STRATEGY.md](plans/HYBRID_ENDPOINT_DOM_STRATEGY.md), [README.md](README.md).
+- Testes: [tests/unit/taskqueue_orchestration.test.js](tests/unit/taskqueue_orchestration.test.js), [tests/unit/cfo_scopeA.test.js](tests/unit/cfo_scopeA.test.js), [tests/unit/planner.test.js](tests/unit/planner.test.js), [tests/unit/governance_gaps.test.js](tests/unit/governance_gaps.test.js).
+
+---
+
 ### Versão 5.0.0 — 2026-03-30
 
 **Resumo**
