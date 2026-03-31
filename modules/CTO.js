@@ -3,6 +3,9 @@
 // Não faz requests — emite tasks RESEARCH para o TaskQueue.
 
 import { COST_REDUCERS } from '../data/research.js';
+import { Research } from '../data/research.js';
+import { EMPIRE_STAGE } from './EmpireStage.js';
+import { GLOBAL_GOAL } from './GoalEngine.js';
 import { TASK_TYPE } from './taskTypes.js';
 
 export class CTO {
@@ -20,11 +23,11 @@ export class CTO {
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
     }
 
-    replan(ctx = null) { this._checkAndQueue(); }
+    replan(ctx = null) { this._checkAndQueue(ctx); }
 
     // ── Avaliação ─────────────────────────────────────────────────────────────
 
-    _checkAndQueue() {
+    _checkAndQueue(ctx = null) {
         const research = this._state.research;
         if (!research) return;
 
@@ -39,7 +42,11 @@ export class CTO {
             return;
         }
 
-        const next = this._getNextResearch(research.investigated);
+        const stage = ctx?.stage ?? null;
+        const goal = ctx?.globalGoal ?? null;
+        const plan = this._buildResearchPlan(stage, goal);
+
+        const next = this._getNextResearch(research.investigated, plan);
         if (!next) {
             this._audit.info('CTO', 'Todos os redutores de custo pesquisados — nada a fazer.');
             return;
@@ -69,9 +76,13 @@ export class CTO {
             type:     TASK_TYPE.RESEARCH,
             priority: 30,
             cityId:   cityWithAcademy.id,
-            payload:  { researchId: next },
+            payload:  {
+                researchId: next,
+                stage,
+                strategicGoal: goal,
+            },
             scheduledFor: Date.now(),
-            reason:   `CTO: Iniciar pesquisa #${next} (redutor de custo de construção)`,
+            reason:   `CTO: Iniciar pesquisa #${next} (stage=${stage ?? 'N/A'} goal=${goal ?? 'N/A'})`,
             module:   'CTO',
             confidence: 'HIGH',
         });
@@ -109,9 +120,46 @@ export class CTO {
         return academyCities[0].city;
     }
 
-    _getNextResearch(investigated) {
-        if (!investigated) return COST_REDUCERS[0] ?? null;
-        for (const id of COST_REDUCERS) {
+    _buildResearchPlan(stage = null, goal = null) {
+        if (stage === EMPIRE_STAGE.BOOTSTRAP || stage === EMPIRE_STAGE.EARLY_GROWTH) {
+            return [
+                Research.Economy.PULLEY,
+                Research.Economy.CONSERVATION,
+                Research.Economy.GEOMETRY,
+                Research.Economy.ARCHITECTURE,
+                Research.Science.PAPER,
+                Research.Science.INK,
+            ];
+        }
+
+        if (stage === EMPIRE_STAGE.PRE_EXPANSION || goal === GLOBAL_GOAL.PREPARE_EXPANSION) {
+            return [
+                Research.Seafaring.EXPANSION,
+                Research.Economy.ARCHITECTURE,
+                Research.Economy.GEOMETRY,
+                Research.Economy.PULLEY,
+                Research.Science.PAPER,
+                Research.Science.INK,
+            ];
+        }
+
+        if (stage === EMPIRE_STAGE.SPECIALIZATION) {
+            return [
+                Research.Economy.IMPROVED_RESOURCE_GATHERING,
+                Research.Economy.ARCHITECTURE,
+                Research.Science.PAPER,
+                Research.Science.INK,
+                Research.Science.MECHANICAL_PEN,
+                ...COST_REDUCERS,
+            ];
+        }
+
+        return COST_REDUCERS;
+    }
+
+    _getNextResearch(investigated, plan = COST_REDUCERS) {
+        if (!investigated) return plan[0] ?? null;
+        for (const id of plan) {
             if (!investigated.has(id)) return id;
         }
         return null; // todos pesquisados

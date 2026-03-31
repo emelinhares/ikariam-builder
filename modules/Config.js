@@ -20,6 +20,10 @@ const DEFAULTS = Object.freeze({
     transportSafetyBufferS:    300,    // margem de segurança JIT (5 min)
     hubRefreshIntervalMs:      900_000,// recalcular hub a cada 15 min
     minStockFraction:          0.20,   // mínimo proativo por recurso = 20% da capacidade
+    producerSafetyStockMultiplier: 1.35, // produtor mantém buffer maior para evitar drenagem burra
+    overflowThresholdPct:       0.95,   // gatilho clássico de overflow por %
+    overflowTimeToCapHours:     2,      // gatilho antecipado por tempo até cap
+    overflowTargetTimeToCapHours: 6,    // alvo de alívio após envio de overflow
 
     // ── HR ────────────────────────────────────────────────────────────────────
     wineEmergencyHours:        4,      // alerta P0 se vinho restante < X horas

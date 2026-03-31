@@ -7,6 +7,7 @@ function createQueueHarness(overrides = {}) {
       QUEUE_TASK_STARTED: 'queue:taskStarted',
       QUEUE_TASK_DONE: 'queue:taskDone',
       QUEUE_TASK_FAILED: 'queue:taskFailed',
+      QUEUE_TASK_OUTCOME: 'queue:taskOutcome',
       QUEUE_TASK_CANCELLED: 'queue:taskCancelled',
       QUEUE_MODE_CHANGED: 'queue:modeChanged',
       HYBRID_PATH_DECIDED: 'hybrid:path_decided',
@@ -38,11 +39,15 @@ function createQueueHarness(overrides = {}) {
   const state = {
     isProbing: vi.fn(() => false),
     getAllCities: vi.fn(() => []),
+    getCity: vi.fn(() => null),
+    fleetMovements: [],
     ...overrides.state,
   };
 
   const client = {
     acquireSession: vi.fn(async (fn) => fn()),
+    probeCityData: vi.fn(async () => {}),
+    fetchMilitaryAdvisor: vi.fn(async () => {}),
     ...overrides.client,
   };
 
@@ -241,12 +246,22 @@ describe('TaskQueue orchestration', () => {
   });
 
   test('emite eventos híbridos de path decision e outcome em execução bem-sucedida', async () => {
+    const movements = [];
     const { queue, events, client } = createQueueHarness({
       client: {
         acquireSession: vi.fn(async (fn) => fn()),
+        fetchMilitaryAdvisor: vi.fn(async () => {
+          movements.push({
+            isOwn: true,
+            isReturn: false,
+            originCityId: 101,
+            targetCityId: 202,
+          });
+        }),
       },
       state: {
         isProbing: vi.fn(() => false),
+        fleetMovements: movements,
       },
     });
 
@@ -300,6 +315,13 @@ describe('TaskQueue orchestration', () => {
 
     queue._runGuards = vi.fn(async () => {});
     queue._dispatch = vi.fn(async () => ({}));
+    queue._postValidateTaskOutcome = vi.fn(async (task, { executionStartedAt }) => queue._createTaskOutcome(task, {
+      executionStartedAt,
+      outcomeClass: 'success',
+      reasonCode: 'TEST_SUCCESS',
+      evidence: ['forced=success'],
+      nextStep: 'none',
+    }));
     const rescheduleSpy = vi.spyOn(queue, '_reschedule');
 
     const task = {

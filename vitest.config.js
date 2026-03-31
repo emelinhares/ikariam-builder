@@ -5,6 +5,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.js'],
+    exclude: [
+      'node_modules/**',
+      'dist/**',
+      '.claude/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

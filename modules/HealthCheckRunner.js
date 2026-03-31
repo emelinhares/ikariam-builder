@@ -33,6 +33,8 @@ export class HealthCheckRunner {
                 passed: 0,
                 failed: 0,
                 blocked: 0,
+                inconclusive: 0,
+                timeout: 0,
                 skipped: 0,
                 durationMs: 0,
                 passRate: 0,
@@ -93,6 +95,8 @@ export class HealthCheckRunner {
                 passed: 0,
                 failed: 0,
                 blocked: 0,
+                inconclusive: 0,
+                timeout: 0,
                 skipped: 0,
                 durationMs: 0,
                 passRate: 0,
@@ -505,7 +509,7 @@ export class HealthCheckRunner {
     }
 
     _finalRunStatus() {
-        if (this._status.metrics.failed > 0) return 'failed';
+        if (this._status.metrics.failed > 0 || this._status.metrics.inconclusive > 0 || this._status.metrics.timeout > 0) return 'failed';
         if (this._status.metrics.blocked > 0) return 'blocked';
         return 'done';
     }
@@ -515,14 +519,18 @@ export class HealthCheckRunner {
         const passed = scenarios.filter(s => s.status === 'passed').length;
         const failed = scenarios.filter(s => s.status === 'failed').length;
         const blocked = scenarios.filter(s => s.status === 'blocked').length;
+        const inconclusive = scenarios.filter(s => s.status === 'inconclusive').length;
+        const timeout = scenarios.filter(s => s.status === 'timeout').length;
         const skipped = scenarios.filter(s => s.status === 'skipped').length;
-        const done = passed + failed + blocked;
+        const done = passed + failed + blocked + inconclusive + timeout;
         const passRate = done > 0 ? Number(((passed / done) * 100).toFixed(1)) : 0;
 
         this._status.metrics = {
             passed,
             failed,
             blocked,
+            inconclusive,
+            timeout,
             skipped,
             durationMs: Date.now() - runStartedAt,
             passRate,
@@ -566,6 +574,8 @@ export class HealthCheckRunner {
         lines.push(`- Passed: ${report.summary.metrics.passed}`);
         lines.push(`- Failed: ${report.summary.metrics.failed}`);
         lines.push(`- Blocked: ${report.summary.metrics.blocked}`);
+        lines.push(`- Inconclusive: ${report.summary.metrics.inconclusive ?? 0}`);
+        lines.push(`- Timeout: ${report.summary.metrics.timeout ?? 0}`);
         lines.push(`- Skipped: ${report.summary.metrics.skipped}`);
         lines.push(`- Pass rate: ${report.summary.metrics.passRate}%`);
         lines.push(`- Duration: ${Math.round(report.summary.metrics.durationMs / 1000)}s`);
@@ -636,14 +646,70 @@ export class HealthCheckRunner {
                 done = true;
                 cleanup();
                 evidence.push(`taskDone=${taskId}`);
-                resolve({ status: 'passed', taskId, evidence, error: null });
+                if (t?.lastOutcome) {
+                    evidence.push(`outcomeClass=${t.lastOutcome.outcomeClass}`);
+                    evidence.push(`reasonCode=${t.lastOutcome.reasonCode ?? 'N/A'}`);
+                    evidence.push(...(Array.isArray(t.lastOutcome.evidence) ? t.lastOutcome.evidence.map(ev => `outcomeEvidence=${ev}`) : []));
+                }
+                resolve({ status: 'passed', taskId, evidence, error: null, outcome: t?.lastOutcome ?? null });
             });
             const offFailed = this._events.on(this._events.E.QUEUE_TASK_FAILED, ({ task: t, error }) => {
                 if (t?.id !== taskId || done) return;
                 done = true;
                 cleanup();
                 evidence.push(`taskFailed=${taskId}`);
-                resolve({ status: 'failed', taskId, evidence, error: String(error ?? 'Task falhou') });
+                if (t?.lastOutcome) {
+                    evidence.push(`outcomeClass=${t.lastOutcome.outcomeClass}`);
+                    evidence.push(`reasonCode=${t.lastOutcome.reasonCode ?? 'N/A'}`);
+                }
+                resolve({ status: 'failed', taskId, evidence, error: String(error ?? 'Task falhou'), outcome: t?.lastOutcome ?? null });
+            });
+            const offOutcome = this._events.on(this._events.E.QUEUE_TASK_OUTCOME, ({ task: t, outcome }) => {
+                if (t?.id !== taskId || done || !outcome) return;
+                evidence.push(`outcomeClass=${outcome.outcomeClass}`);
+                evidence.push(`reasonCode=${outcome.reasonCode ?? 'N/A'}`);
+                evidence.push(`nextStep=${outcome.nextStep ?? 'none'}`);
+                if (Array.isArray(outcome.evidence)) {
+                    for (const ev of outcome.evidence.slice(0, 10)) evidence.push(`outcomeEvidence=${ev}`);
+                }
+
+                if (outcome.outcomeClass === 'guard_reschedule' || outcome.outcomeClass === 'guard_cancel') {
+                    done = true;
+                    cleanup();
+                    resolve({
+                        status: 'blocked',
+                        taskId,
+                        evidence,
+                        error: `Task ${taskId} bloqueada por guard (${outcome.reasonCode ?? 'GUARD'})`,
+                        outcome,
+                    });
+                    return;
+                }
+
+                if (outcome.outcomeClass === 'inconclusive') {
+                    done = true;
+                    cleanup();
+                    resolve({
+                        status: 'inconclusive',
+                        taskId,
+                        evidence,
+                        error: `Task ${taskId} inconclusiva (${outcome.reasonCode ?? 'INCONCLUSIVE'})`,
+                        outcome,
+                    });
+                    return;
+                }
+
+                if (outcome.outcomeClass === 'failed') {
+                    done = true;
+                    cleanup();
+                    resolve({
+                        status: 'failed',
+                        taskId,
+                        evidence,
+                        error: `Task ${taskId} falhou (${outcome.reasonCode ?? 'FAILED'})`,
+                        outcome,
+                    });
+                }
             });
 
             const pollTimer = setInterval(() => {
@@ -674,10 +740,11 @@ export class HealthCheckRunner {
                     evidence.push(`rescheduleDelayMs=${waitMs}`);
                     evidence.push(`attempts=${snapshot.attempts ?? 0}/${snapshot.maxAttempts ?? '?'}`);
                     resolve({
-                        status: 'failed',
+                        status: 'blocked',
                         taskId,
                         evidence,
                         error: `Guard reagendou task ${taskId} (pending em ${Math.round(waitMs / 1000)}s)`,
+                        outcome: snapshot.lastOutcome ?? null,
                     });
                 }
             }, Math.max(50, pollIntervalMs));
@@ -692,9 +759,13 @@ export class HealthCheckRunner {
                         evidence.push(`scheduledForAtTimeout=${new Date(snapshot.scheduledFor).toISOString()}`);
                     }
                     evidence.push(`attempts=${snapshot.attempts ?? 0}/${snapshot.maxAttempts ?? '?'}`);
+                    if (snapshot.lastOutcome) {
+                        evidence.push(`lastOutcomeClass=${snapshot.lastOutcome.outcomeClass}`);
+                        evidence.push(`lastReasonCode=${snapshot.lastOutcome.reasonCode ?? 'N/A'}`);
+                    }
                 }
                 cleanup();
-                resolve({ status: 'failed', taskId, evidence, error: `Timeout aguardando conclusão da task ${taskId}` });
+                resolve({ status: 'timeout', taskId, evidence, error: `Timeout aguardando conclusão da task ${taskId}` });
             }, timeoutMs);
 
             const cleanup = () => {
@@ -703,6 +774,7 @@ export class HealthCheckRunner {
                 offStarted();
                 offDone();
                 offFailed();
+                offOutcome();
             };
         });
     }

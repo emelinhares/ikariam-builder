@@ -1,0 +1,128 @@
+[
+  {
+    "stepIndex": 1,
+    "actionType": "harvest.bootstrap",
+    "actionTarget": "s72-br.ikariam.gameforge.com",
+    "entityType": "unknown",
+    "status": "done",
+    "serverTime": 1774981897,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&cityId=19251"
+  },
+  {
+    "stepIndex": 2,
+    "actionType": "harvest.init",
+    "actionTarget": "global:city-catalog",
+    "entityType": "view",
+    "status": "done",
+    "serverTime": 1774981897,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&cityId=19251"
+  },
+  {
+    "stepIndex": 3,
+    "actionType": "harvest.city.switch",
+    "actionTarget": "city:19251",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981897,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&cityId=19251"
+  },
+  {
+    "stepIndex": 4,
+    "actionType": "harvest.city.views",
+    "actionTarget": "city:19251",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981911,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 5,
+    "actionType": "harvest.city.buildings",
+    "actionTarget": "city:19251",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981917,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 6,
+    "actionType": "harvest.city.switch",
+    "actionTarget": "city:19252",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981923,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19252"
+  },
+  {
+    "stepIndex": 7,
+    "actionType": "harvest.city.views",
+    "actionTarget": "city:19252",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981927,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 8,
+    "actionType": "harvest.city.buildings",
+    "actionTarget": "city:19252",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981933,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 9,
+    "actionType": "harvest.city.switch",
+    "actionTarget": "city:19253",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981939,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19253"
+  },
+  {
+    "stepIndex": 10,
+    "actionType": "harvest.city.views",
+    "actionTarget": "city:19253",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981943,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 11,
+    "actionType": "harvest.city.buildings",
+    "actionTarget": "city:19253",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981950,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 12,
+    "actionType": "harvest.city.switch",
+    "actionTarget": "city:19254",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981957,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19254"
+  },
+  {
+    "stepIndex": 13,
+    "actionType": "harvest.city.views",
+    "actionTarget": "city:19254",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981961,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  },
+  {
+    "stepIndex": 14,
+    "actionType": "harvest.city.buildings",
+    "actionTarget": "city:19254",
+    "entityType": "city",
+    "status": "done",
+    "serverTime": 1774981967,
+    "bridgeLocation": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1"
+  }
+]

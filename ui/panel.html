@@ -36,6 +36,20 @@
         <!-- Tab: Overview -->
         <div id="tab-overview" class="erp-tab-content">
 
+            <div class="erp-card">
+                <div class="erp-card-title">Resumo Estratégico do Império</div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:6px 12px;font-size:12px;">
+                    <span>Stage: <strong id="erp-strategy-stage">—</strong></span>
+                    <span>Global Goal: <strong id="erp-strategy-goal">—</strong></span>
+                    <span style="grid-column:1/-1;">Goal Reason: <span id="erp-strategy-goal-reason">—</span></span>
+                    <span>Empire Readiness: <strong id="erp-strategy-readiness">0%</strong></span>
+                    <span>Expansion Ready: <strong id="erp-strategy-expansion">false</strong></span>
+                    <span>Consolidation Needed: <strong id="erp-strategy-consolidation">false</strong></span>
+                    <span>Fleet Readiness: <strong id="erp-strategy-fleet-readiness">0%</strong></span>
+                    <span>Fleet Blocked: <strong id="erp-strategy-fleet-blocked">false</strong></span>
+                </div>
+            </div>
+
             <!-- Alertas ativos -->
             <div id="erp-alerts-container"></div>
 
@@ -63,6 +77,29 @@
                 <div id="erp-ov-cities"></div>
             </div>
 
+            <div class="erp-card">
+                <div class="erp-card-title">Growth / Finance</div>
+                <div style="font-size:12px;display:grid;gap:4px;">
+                    <div>Empire Readiness: <strong id="erp-growth-readiness">0%</strong></div>
+                    <div>Next Milestone: <span id="erp-growth-next-milestone">—</span></div>
+                    <div>Next Recommended Phase: <span id="erp-growth-next-phase">—</span></div>
+                    <div>Fleet Capacity: <span id="erp-growth-fleet-capacity">—</span></div>
+                    <div>Fleet Buy Recommendation: <span id="erp-growth-fleet-buy">—</span></div>
+                    <div>Reasons: <span id="erp-growth-reasons">—</span></div>
+                    <div>Blocking Factors: <span id="erp-growth-blocking">—</span></div>
+                </div>
+            </div>
+
+            <div class="erp-card">
+                <div class="erp-card-title">Research Estratégica</div>
+                <div style="font-size:12px;display:grid;gap:4px;">
+                    <div>Pesquisa Atual: <span id="erp-research-current">—</span></div>
+                    <div>Próxima Pesquisa: <span id="erp-research-next">—</span></div>
+                    <div>Motivo Estratégico: <span id="erp-research-reason">—</span></div>
+                    <div>Alinhamento com Goal: <span id="erp-research-alignment">—</span></div>
+                </div>
+            </div>
+
             <!-- Botões de controle -->
             <div style="display:flex;gap:8px;margin-top:4px;">
                 <button class="erp-btn" id="erp-btn-refresh">⟳ Refresh</button>
@@ -73,12 +110,20 @@
         <!-- Tab: Fila -->
         <div id="tab-queue" class="erp-tab-content" style="display:none">
             <div class="erp-card">
+                <div class="erp-card-title">Bloqueios Ativos</div>
+                <div id="erp-ops-blockers"></div>
+            </div>
+            <div class="erp-card">
                 <div class="erp-card-title">Em execução / pendente</div>
                 <div id="erp-queue-active"></div>
             </div>
             <div class="erp-card">
                 <div class="erp-card-title">Concluídas (últimas 20)</div>
                 <div id="erp-queue-done"></div>
+            </div>
+            <div class="erp-card">
+                <div class="erp-card-title">Outcomes Recentes</div>
+                <div id="erp-ops-outcomes"></div>
             </div>
         </div>
 

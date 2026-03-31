@@ -48,6 +48,13 @@ export class TaskQueue {
         this._attemptSeq = 0;
     }
 
+    static CRITICAL_OUTCOME_TYPES = Object.freeze(new Set([
+        TASK_TYPE.BUILD,
+        TASK_TYPE.TRANSPORT,
+        TASK_TYPE.WINE_ADJUST,
+        TASK_TYPE.WORKER_REALLOC,
+    ]));
+
     /** Injetar referência ao CFO após construção (evitar circular). */
     setCFO(cfo) { this._cfo = cfo; }
 
@@ -220,6 +227,9 @@ export class TaskQueue {
     /** Retorna histórico das últimas 50 tasks concluídas. */
     getHistory() { return [...this._done]; }
 
+    /** Retorna snapshot das tasks ativas (pending, in-flight, blocked, waiting_resources, etc). */
+    getActive() { return [...this._queue]; }
+
     /** Muda OperationMode e emite evento. */
     async setMode(mode) {
         await this._config.set('operationMode', mode);
@@ -277,13 +287,23 @@ export class TaskQueue {
     // ── Execução ──────────────────────────────────────────────────────────────
 
     async _execute(task) {
+        const executionStartedAt = Date.now();
+
         if (this._hasTaskTimedOut(task)) {
+            const timeoutReason = `SLA de task excedido (${this._formatMs(this._getTaskAgeMs(task))} > ${this._formatMs(this._getTaskTimeoutMs(task))})`;
             this._failTask(task, {
-                error: `SLA de task excedido (${this._formatMs(this._getTaskAgeMs(task))} > ${this._formatMs(this._getTaskTimeoutMs(task))})`,
+                error: timeoutReason,
                 reasonCode: 'TASK_SLA_TIMEOUT',
                 fatal: false,
                 outcomeClass: 'hard-fail',
             });
+            this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'failed',
+                reasonCode: 'TASK_SLA_TIMEOUT',
+                evidence: [timeoutReason],
+                nextStep: 'cancel',
+            }));
             return;
         }
 
@@ -327,17 +347,33 @@ export class TaskQueue {
             if (mode === 'MANUAL') {
                 task.status = 'blocked';
                 this._persist();
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'inconclusive',
+                    reasonCode: 'OPERATION_MODE_MANUAL',
+                    evidence: ['operationMode=MANUAL'],
+                    nextStep: 'wait_mode_change',
+                }));
                 return;
             }
             if (mode === 'SAFE' && task.confidence !== 'HIGH') {
                 task.status = 'blocked';
                 this._audit.warn('TaskQueue',
                     `SAFE MODE: task ${task.id} suspensa — confiança ${task.confidence}`,
-                    { cityId: task.cityId }
+                        { cityId: task.cityId }
                 );
                 this._persist();
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'inconclusive',
+                    reasonCode: 'OPERATION_MODE_SAFE_CONFIDENCE_BLOCK',
+                    evidence: [`confidence=${task.confidence ?? 'UNKNOWN'}`],
+                    nextStep: 'wait_mode_change',
+                }));
                 return;
             }
+
+            const validationBaseline = this._captureValidationBaseline(task);
 
             // 2. Verificar probing (fetchAllCities em andamento)
             if (this._state.isProbing()) {
@@ -349,6 +385,16 @@ export class TaskQueue {
                     this._audit.debug('TaskQueue',
                         `Task [${task.id}] ${task.type} pausada durante fetchAllCities — reagendando em ${delayMs / 1000}s`
                     );
+                    this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                        executionStartedAt,
+                        outcomeClass: 'guard_reschedule',
+                        reasonCode: 'PROBING_IN_PROGRESS',
+                        evidence: [
+                            `delayMs=${delayMs}`,
+                            `nextScheduledFor=${new Date(task.scheduledFor).toISOString()}`,
+                        ],
+                        nextStep: 'reschedule',
+                    }));
                     return;
                 }
 
@@ -377,14 +423,40 @@ export class TaskQueue {
                 nextStep: 'task_complete',
             });
 
-            // 5. Sucesso
-            task.status = 'done';
-            this._persist();
-            this._events.emit(this._events.E.QUEUE_TASK_DONE, { task });
-            const elapsed = Date.now() - this._executingStartedAt;
-            this._audit.info('TaskQueue',
-                `✓ [${task.id}] ${task.type} concluído em ${elapsed}ms`);
-            this._moveToHistory(task);
+            const outcome = await this._postValidateTaskOutcome(task, {
+                validationBaseline,
+                executionStartedAt,
+                dispatchResult,
+            });
+
+            this._recordTaskOutcome(task, outcome);
+
+            if (outcome.outcomeClass === 'success') {
+                task.status = 'done';
+                task.terminalReasonCode = outcome.reasonCode ?? null;
+                this._persist();
+                this._events.emit(this._events.E.QUEUE_TASK_DONE, { task, result: dispatchResult, outcome });
+                const elapsed = Date.now() - this._executingStartedAt;
+                this._audit.info('TaskQueue',
+                    `✓ [${task.id}] ${task.type} concluído em ${elapsed}ms`);
+                this._moveToHistory(task);
+            } else {
+                task.attempts++;
+                if (task.attempts >= task.maxAttempts || outcome.outcomeClass === 'failed') {
+                    this._failTask(task, {
+                        error: `Pós-validação sem evidência de sucesso (${outcome.reasonCode})`,
+                        reasonCode: outcome.reasonCode ?? 'POST_VALIDATION_FAILED',
+                        fatal: false,
+                        outcomeClass: 'hard-fail',
+                    });
+                } else {
+                    const waitMs = this._getValidationRescheduleMs(task, outcome);
+                    this._reschedule(task, waitMs, outcome.reasonCode ?? 'POST_VALIDATION_INCONCLUSIVE');
+                    this._audit.warn('TaskQueue',
+                        `↺ [${task.id}] ${task.type} pós-validação inconclusiva (${task.attempts}/${task.maxAttempts}) — retry em ${Math.round(waitMs / 1000)}s`
+                    );
+                }
+            }
 
             // Incrementar contador de noise
             this._noiseCounter++;
@@ -412,6 +484,13 @@ export class TaskQueue {
                 this._audit.info('TaskQueue',
                     `↷ [${task.id}] ${task.type} cancelado: ${err.message}`
                 );
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'guard_cancel',
+                    reasonCode: err?.code ?? 'GUARD_CANCEL',
+                    evidence: [err.message],
+                    nextStep: 'cancel',
+                }));
 
             } else if (isGuardError) {
                 // GUARD: pré-condição não atendida — task já reagendada dentro de _runGuards,
@@ -428,6 +507,17 @@ export class TaskQueue {
 
                 const guardReasonCode = err?.code ?? task.reasonCode ?? 'GUARD_PRECONDITION_NOT_MET';
                 task.lastBlockerCode = guardReasonCode;
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'guard_reschedule',
+                    reasonCode: guardReasonCode,
+                    evidence: [
+                        err.message,
+                        `attempts=${task.attempts}/${task.maxAttempts}`,
+                        task.scheduledFor ? `nextScheduledFor=${new Date(task.scheduledFor).toISOString()}` : 'nextScheduledFor=N/A',
+                    ],
+                    nextStep: 'reschedule',
+                }));
                 this._captureHybridAttemptOutcome(task, {
                     actionType: task.type,
                     pathUsed: pathDecision.pathDecision,
@@ -468,6 +558,13 @@ export class TaskQueue {
                     fatal: true,
                     outcomeClass: 'hard-fail',
                 });
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'failed',
+                    reasonCode: err?.code ?? err?.type ?? 'FATAL_ERROR',
+                    evidence: [err.message],
+                    nextStep: 'cancel',
+                }));
 
             } else if (task.attempts >= task.maxAttempts) {
                 this._failTask(task, {
@@ -476,6 +573,13 @@ export class TaskQueue {
                     fatal: false,
                     outcomeClass: 'hard-fail',
                 });
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'failed',
+                    reasonCode: err?.code ?? 'ATTEMPTS_EXHAUSTED',
+                    evidence: [err.message],
+                    nextStep: 'cancel',
+                }));
 
             } else {
                 // RETRY: reagendar em 30s
@@ -483,6 +587,16 @@ export class TaskQueue {
                 this._audit.warn('TaskQueue',
                     `↺ [${task.id}] ${task.type} retry ${task.attempts}/${task.maxAttempts}: ${err.message}`
                 );
+                this._recordTaskOutcome(task, this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'inconclusive',
+                    reasonCode: err?.code ?? 'RETRY_TRANSIENT_ERROR',
+                    evidence: [
+                        err.message,
+                        `attempts=${task.attempts}/${task.maxAttempts}`,
+                    ],
+                    nextStep: 'retry',
+                }));
             }
 
         } finally {
@@ -614,8 +728,9 @@ export class TaskQueue {
         // Ler freeTransporters APÓS navigate (estado atualizado pelo DC_HEADER_DATA da resposta)
         const freeT = this._state.getCity(task.payload.fromCityId)?.freeTransporters ?? 0;
         const maxT  = this._state.getCity(task.payload.fromCityId)?.maxTransporters  ?? 0;
+        const essential = this._isEssentialTransport(task);
         this._audit.debug('TaskQueue',
-            `GUARD TRANSPORT: ${origin.name} transportadores ${freeT}/${maxT} livres, precisa ${task.payload.boats}, carga=${JSON.stringify(task.payload.cargo)}, wineEmergency=${!!task.payload.wineEmergency}`
+            `GUARD TRANSPORT: ${origin.name} transportadores ${freeT}/${maxT} livres, precisa ${task.payload.boats}, carga=${JSON.stringify(task.payload.cargo)}, wineEmergency=${!!task.payload.wineEmergency}, essential=${essential}`
         );
 
         if (!task.payload.wineEmergency && freeT < task.payload.boats) {
@@ -638,12 +753,20 @@ export class TaskQueue {
             );
             const loadFactor = perResCapacity > 0 ? largestCargo / perResCapacity : 0;
             const minFactor  = this._config.get('transportMinLoadFactor');
+            const isEssential = this._isEssentialTransport(task);
 
-            if (loadFactor < minFactor) {
+            if (loadFactor < minFactor && !isEssential) {
                 const waitMs = (task.payload.estimatedReturnS ?? 3600) * 1000;
                 this._reschedule(task, waitMs, 'GUARD_TRANSPORT_LOAD_FACTOR_LOW');
                 throw new GameError('GUARD',
                     `GUARD TRANSPORT: carga ${(loadFactor * 100).toFixed(0)}% < mínimo ${(minFactor * 100).toFixed(0)}% em ${origin.name} (maior recurso=${largestCargo}, navios=${boatsActual}, cap/recurso=${perResCapacity}) — aguardando`
+                );
+            }
+
+            if (loadFactor < minFactor && isEssential) {
+                this._audit.info('TaskQueue',
+                    `GUARD TRANSPORT: exceção controlada de loadFactor para transporte essencial (${task.reasonCode ?? 'N/A'}) — ` +
+                    `carga ${(loadFactor * 100).toFixed(0)}% < mínimo ${(minFactor * 100).toFixed(0)}%`
                 );
             }
         }
@@ -769,6 +892,14 @@ export class TaskQueue {
         task.lastBlockerCode = reasonCode ?? task.lastBlockerCode ?? null;
         task.reasonCode = reasonCode ?? task.reasonCode;
         this._persist();
+    }
+
+    _isEssentialTransport(task) {
+        const p = task?.payload ?? {};
+        if (p.wineEmergency) return true;
+        const moduleIsCoo = (task?.module ?? '') === 'COO';
+        if (!moduleIsCoo) return false;
+        return !!(p.jitBuild || p.minStock || p.overflowRelief);
     }
 
     _canRunDuringProbing(task) {
@@ -984,6 +1115,271 @@ export class TaskQueue {
         const c = String(raw ?? '').toUpperCase();
         if (c === 'HIGH' || c === 'MEDIUM' || c === 'LOW') return c;
         return 'MEDIUM';
+    }
+
+    _isCriticalOutcomeTask(task) {
+        return !!task && TaskQueue.CRITICAL_OUTCOME_TYPES.has(task.type);
+    }
+
+    _captureValidationBaseline(task) {
+        if (!this._isCriticalOutcomeTask(task)) return null;
+
+        const city = this._state.getCity?.(task.cityId) ?? null;
+        const slot = city && Number.isFinite(Number(task.payload?.position))
+            ? city.buildings?.find?.(b => Number(b?.position) === Number(task.payload?.position))
+            : null;
+
+        return {
+            capturedAt: Date.now(),
+            build: {
+                underConstruction: city?.underConstruction ?? null,
+                level: Number(slot?.level ?? -1),
+                isUpgrading: !!slot?.isUpgrading,
+            },
+            wineLevel: Number(city?.tavern?.wineLevel ?? NaN),
+            scientists: Number(city?.workers?.scientists ?? NaN),
+            transportCount: this._countRelevantTransportMovements(task),
+        };
+    }
+
+    async _postValidateTaskOutcome(task, { validationBaseline, executionStartedAt } = {}) {
+        if (!this._isCriticalOutcomeTask(task)) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'TASK_NON_CRITICAL_DISPATCH_OK',
+                evidence: ['nonCriticalTask=true'],
+                nextStep: 'none',
+            });
+        }
+
+        switch (task.type) {
+            case TASK_TYPE.BUILD:
+                return await this._validateBuildOutcome(task, validationBaseline, executionStartedAt);
+            case TASK_TYPE.TRANSPORT:
+                return await this._validateTransportOutcome(task, validationBaseline, executionStartedAt);
+            case TASK_TYPE.WINE_ADJUST:
+                return await this._validateWineAdjustOutcome(task, validationBaseline, executionStartedAt);
+            case TASK_TYPE.WORKER_REALLOC:
+                return await this._validateWorkerReallocOutcome(task, validationBaseline, executionStartedAt);
+            default:
+                return this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'inconclusive',
+                    reasonCode: 'POST_VALIDATION_TYPE_UNSUPPORTED',
+                    evidence: [`type=${task.type}`],
+                    nextStep: 'retry',
+                });
+        }
+    }
+
+    async _validateBuildOutcome(task, baseline, executionStartedAt) {
+        const evidence = [];
+        try {
+            await this._client.probeCityData(task.cityId);
+            evidence.push('probeCityData=ok');
+        } catch (err) {
+            evidence.push(`probeCityData=error:${err.message}`);
+        }
+
+        const city = this._state.getCity?.(task.cityId) ?? null;
+        const expectedPos = Number(task.payload?.position);
+        const slot = city?.buildings?.find?.(b => Number(b?.position) === expectedPos) ?? null;
+        const nowUC = Number(city?.underConstruction ?? -1);
+        const nowLevel = Number(slot?.level ?? -1);
+
+        evidence.push(`underConstructionBefore=${baseline?.build?.underConstruction ?? 'N/A'}`);
+        evidence.push(`underConstructionAfter=${city?.underConstruction ?? 'N/A'}`);
+        evidence.push(`slotLevelBefore=${baseline?.build?.level ?? 'N/A'}`);
+        evidence.push(`slotLevelAfter=${nowLevel}`);
+
+        const hasUpgradeEvidence = (
+            nowUC === expectedPos
+            || slot?.isUpgrading === true
+            || (Number.isFinite(nowLevel) && nowLevel > Number(baseline?.build?.level ?? -1))
+        );
+
+        if (hasUpgradeEvidence) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'BUILD_STATE_CONFIRMED',
+                evidence,
+                nextStep: 'none',
+            });
+        }
+
+        return this._createTaskOutcome(task, {
+            executionStartedAt,
+            outcomeClass: 'inconclusive',
+            reasonCode: 'BUILD_POST_STATE_NOT_CONFIRMED',
+            evidence,
+            nextStep: 'retry',
+        });
+    }
+
+    async _validateTransportOutcome(task, baseline, executionStartedAt) {
+        const evidence = [];
+        try {
+            await this._client.fetchMilitaryAdvisor();
+            evidence.push('fetchMilitaryAdvisor=ok');
+        } catch (err) {
+            evidence.push(`fetchMilitaryAdvisor=error:${err.message}`);
+        }
+
+        const before = Number(baseline?.transportCount ?? 0);
+        const after = this._countRelevantTransportMovements(task);
+        evidence.push(`transportCountBefore=${before}`);
+        evidence.push(`transportCountAfter=${after}`);
+
+        if (after > before) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'TRANSPORT_MOVEMENT_CONFIRMED',
+                evidence,
+                nextStep: 'none',
+            });
+        }
+
+        return this._createTaskOutcome(task, {
+            executionStartedAt,
+            outcomeClass: 'inconclusive',
+            reasonCode: 'TRANSPORT_POST_STATE_NOT_CONFIRMED',
+            evidence,
+            nextStep: 'retry',
+        });
+    }
+
+    async _validateWineAdjustOutcome(task, baseline, executionStartedAt) {
+        const evidence = [];
+        try {
+            await this._client.probeCityData(task.cityId);
+            evidence.push('probeCityData=ok');
+        } catch (err) {
+            evidence.push(`probeCityData=error:${err.message}`);
+        }
+
+        const city = this._state.getCity?.(task.cityId) ?? null;
+        const before = Number(baseline?.wineLevel ?? NaN);
+        const after = Number(city?.tavern?.wineLevel ?? NaN);
+        evidence.push(`wineLevelBefore=${Number.isFinite(before) ? before : 'N/A'}`);
+        evidence.push(`wineLevelAfter=${Number.isFinite(after) ? after : 'N/A'}`);
+
+        if (Number.isFinite(before) && Number.isFinite(after) && before !== after) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'WINE_LEVEL_CHANGED',
+                evidence,
+                nextStep: 'none',
+            });
+        }
+
+        return this._createTaskOutcome(task, {
+            executionStartedAt,
+            outcomeClass: 'inconclusive',
+            reasonCode: 'WINE_LEVEL_UNCHANGED',
+            evidence,
+            nextStep: 'retry',
+        });
+    }
+
+    async _validateWorkerReallocOutcome(task, baseline, executionStartedAt) {
+        const evidence = [];
+        try {
+            await this._client.probeCityData(task.cityId);
+            evidence.push('probeCityData=ok');
+        } catch (err) {
+            evidence.push(`probeCityData=error:${err.message}`);
+        }
+
+        const city = this._state.getCity?.(task.cityId) ?? null;
+        const before = Number(baseline?.scientists ?? NaN);
+        const after = Number(city?.workers?.scientists ?? NaN);
+        evidence.push(`scientistsBefore=${Number.isFinite(before) ? before : 'N/A'}`);
+        evidence.push(`scientistsAfter=${Number.isFinite(after) ? after : 'N/A'}`);
+
+        if (Number.isFinite(before) && Number.isFinite(after) && before !== after) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'WORKER_ALLOCATION_CHANGED',
+                evidence,
+                nextStep: 'none',
+            });
+        }
+
+        return this._createTaskOutcome(task, {
+            executionStartedAt,
+            outcomeClass: 'inconclusive',
+            reasonCode: 'WORKER_ALLOCATION_UNCHANGED',
+            evidence,
+            nextStep: 'retry',
+        });
+    }
+
+    _countRelevantTransportMovements(task) {
+        if (task?.type !== TASK_TYPE.TRANSPORT) return 0;
+        const fromCityId = Number(task?.payload?.fromCityId ?? task?.cityId ?? -1);
+        const toCityId = Number(task?.payload?.toCityId ?? -1);
+        if (!Number.isFinite(fromCityId) || !Number.isFinite(toCityId)) return 0;
+
+        return (this._state.fleetMovements ?? []).filter((m) => {
+            if (!m?.isOwn || m?.isReturn) return false;
+            const from = Number(m.originCityId ?? m.sourceCityId ?? -1);
+            const to = Number(m.targetCityId ?? m.destinationCityId ?? -1);
+            return from === fromCityId && to === toCityId;
+        }).length;
+    }
+
+    _getValidationRescheduleMs(task, outcome) {
+        if (outcome?.outcomeClass === 'guard_reschedule') return 30_000;
+        if (task.type === TASK_TYPE.BUILD) return 90_000;
+        if (task.type === TASK_TYPE.TRANSPORT) return 60_000;
+        if (task.type === TASK_TYPE.WINE_ADJUST) return 45_000;
+        if (task.type === TASK_TYPE.WORKER_REALLOC) return 45_000;
+        return 30_000;
+    }
+
+    _createTaskOutcome(task, {
+        executionStartedAt,
+        outcomeClass,
+        reasonCode,
+        evidence,
+        nextStep,
+    } = {}) {
+        return {
+            taskId: task.id,
+            taskType: task.type,
+            type: task.type,
+            cityId: task.cityId,
+            timestamp: Date.now(),
+            latencyMs: Math.max(0, Date.now() - Number(executionStartedAt ?? Date.now())),
+            outcomeClass,
+            reasonCode: reasonCode ?? null,
+            evidence: Array.isArray(evidence) ? evidence : [],
+            nextStep: nextStep ?? 'none',
+        };
+    }
+
+    _recordTaskOutcome(task, outcome) {
+        if (!task || !outcome) return outcome;
+        task.lastOutcome = outcome;
+        task.outcomeHistory = [
+            ...(Array.isArray(task.outcomeHistory) ? task.outcomeHistory : []),
+            outcome,
+        ].slice(-10);
+
+        const ev = this._events?.E?.QUEUE_TASK_OUTCOME;
+        if (ev) this._events.emit(ev, { task, outcome });
+
+        const line = `${task.type} outcome=${outcome.outcomeClass} reason=${outcome.reasonCode ?? 'N/A'}`;
+        if (outcome.outcomeClass === 'failed') this._audit.error('TaskOutcome', line, outcome, task.cityId);
+        else if (outcome.outcomeClass === 'inconclusive' || outcome.outcomeClass === 'guard_reschedule') this._audit.warn('TaskOutcome', line, outcome, task.cityId);
+        else this._audit.info('TaskOutcome', line, outcome, task.cityId);
+
+        return outcome;
     }
 
     _moveToHistory(task) {

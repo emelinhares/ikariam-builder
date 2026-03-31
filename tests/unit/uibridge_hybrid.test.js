@@ -83,6 +83,7 @@ describe('UIBridge hybrid projection', () => {
     };
     const queue = {
       getPending: vi.fn(() => [pending]),
+      getActive: vi.fn(() => [pending]),
       getHistory: vi.fn(() => []),
       setMode: vi.fn(async () => {}),
       cancel: vi.fn(() => true),
@@ -96,8 +97,50 @@ describe('UIBridge hybrid projection', () => {
     };
     const config = { get: vi.fn((k) => k === 'operationMode' ? 'FULL-AUTO' : null) };
     const dc = { setRecMode: vi.fn() };
+    const planner = {
+      getLastSummary: vi.fn(() => ({
+        stage: 'PRE_EXPANSION',
+        globalGoal: 'PREPARE_EXPANSION',
+        goalReason: 'pre_expansion_ready_for_expansion',
+        empireReadiness: 0.88,
+        expansionReady: true,
+        consolidationNeeded: false,
+      })),
+      getLastContext: vi.fn(() => ({
+        stage: 'PRE_EXPANSION',
+        globalGoal: 'PREPARE_EXPANSION',
+        goalReason: 'pre_expansion_ready_for_expansion',
+        readiness: {
+          empireReadiness: 0.88,
+          expansionReady: true,
+          consolidationNeeded: false,
+          reasons: ['empire_population_ok:1200'],
+          blockingFactors: [],
+          cityReadinessByCityId: {
+            101: {
+              cityReadiness: 0.91,
+              reasons: ['city_101_population_ok:450'],
+              blockingFactors: [],
+            },
+          },
+        },
+        cities: new Map([[101, { wineHours: 12.4 }]]),
+      })),
+    };
+    const coo = {
+      getHub: vi.fn(() => ({ id: 101, name: 'Alpha' })),
+      getCityClassifications: vi.fn(() => new Map([[101, {
+        cityId: 101,
+        islandResource: 'wine',
+        productionPerHour: { wood: 1200, wine: 580 },
+        storagePressure: 0.62,
+        timeToCapHours: { wood: 2.2, wine: 5.3 },
+        minTimeToCapHours: 2.2,
+        roles: ['PRODUCER_WINE', 'HUB', 'BUILD_FOCUS'],
+      }]])),
+    };
 
-    const bridge = new UIBridge({ events, state, queue, audit, config, dc, healthCheck: null });
+    const bridge = new UIBridge({ events, state, queue, audit, config, dc, healthCheck: null, planner, coo });
     bridge.init();
 
     events.emit(events.E.HYBRID_PATH_DECIDED, {
@@ -119,6 +162,29 @@ describe('UIBridge hybrid projection', () => {
     expect(uiState.nextAction.hybrid.blockerCode).toBe('HYBRID_INCONCLUSIVE_TRANSPORT');
     expect(uiState.queue.pending[0].hybrid.attemptOutcome.reasonCode).toBe('HYBRID_INCONCLUSIVE_TRANSPORT');
     expect(uiState.errorTelemetry.hybrid).toEqual({ pathDecided: 1, attemptOutcome: 1 });
+
+    expect(uiState.strategicSummary).toMatchObject({
+      currentStage: 'PRE_EXPANSION',
+      globalGoal: 'PREPARE_EXPANSION',
+      goalReason: 'pre_expansion_ready_for_expansion',
+      empireReadiness: 0.88,
+      expansionReady: true,
+      consolidationNeeded: false,
+    });
+
+    expect(uiState.cities[0]).toMatchObject({
+      islandResource: 'wine',
+      storagePressure: 0.62,
+      minTimeToCapHours: 2.2,
+      roles: ['PRODUCER_WINE', 'HUB', 'BUILD_FOCUS'],
+      readiness: 0.91,
+      wineCoverageHours: 12.4,
+      isHub: true,
+    });
+
+    expect(uiState.operations.queueCurrent[0].id).toBe('t1');
+    expect(uiState.growthFinance.empireReadiness).toBe(0.88);
+    expect(uiState.research.goalAlignment).toBe('PREPARE_EXPANSION');
   });
 });
 
