@@ -8,6 +8,7 @@ function createEventBus() {
       QUEUE_TASK_STARTED: 'queue:taskStarted',
       QUEUE_TASK_DONE: 'queue:taskDone',
       QUEUE_TASK_FAILED: 'queue:taskFailed',
+      QUEUE_TASK_OUTCOME: 'queue:taskOutcome',
     },
     on(event, handler) {
       if (!listeners.has(event)) listeners.set(event, new Set());
@@ -135,7 +136,7 @@ describe('HealthCheckRunner', () => {
     }
   });
 
-  test('falha rápido quando task de healthcheck é reagendada por guard após iniciar', async () => {
+  test('classifica guard reschedule como blocked (não timeout cego)', async () => {
     const { runner, events, queue } = createHarness();
     await runner.init();
 
@@ -162,7 +163,7 @@ describe('HealthCheckRunner', () => {
     taskState.scheduledFor = Date.now() + 5_000;
 
     const result = await p;
-    expect(result.status).toBe('failed');
+    expect(result.status).toBe('blocked');
     expect(result.error).toContain('Guard reagendou task');
     expect(result.evidence).toEqual(expect.arrayContaining([
       `taskAdded=${taskState.id}`,
@@ -173,7 +174,7 @@ describe('HealthCheckRunner', () => {
     expect(result.evidence.some(e => e.startsWith('attempts='))).toBe(true);
   });
 
-  test('em timeout real inclui snapshot da task nas evidências', async () => {
+  test('em timeout real inclui snapshot da task nas evidências e status timeout', async () => {
     const { runner, events, queue } = createHarness();
     await runner.init();
 
@@ -196,7 +197,7 @@ describe('HealthCheckRunner', () => {
     events.emit(events.E.QUEUE_TASK_STARTED, { task: { id: taskState.id } });
 
     const result = await p;
-    expect(result.status).toBe('failed');
+    expect(result.status).toBe('timeout');
     expect(result.error).toContain(`Timeout aguardando conclusão da task ${taskState.id}`);
     expect(result.evidence.some(e => e.startsWith('taskStatusAtTimeout='))).toBe(true);
     expect(result.evidence.some(e => e.startsWith('scheduledForAtTimeout='))).toBe(true);

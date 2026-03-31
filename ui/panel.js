@@ -190,6 +190,16 @@ function _renderOverview() {
     const $ = (id) => _root.getElementById(id);
     const s = _uiState;
 
+    const strategic = s.strategicSummary ?? {};
+    $('erp-strategy-stage').textContent = strategic.currentStage ?? '—';
+    $('erp-strategy-goal').textContent = strategic.globalGoal ?? '—';
+    $('erp-strategy-goal-reason').textContent = strategic.goalReason ?? '—';
+    $('erp-strategy-readiness').textContent = `${Math.round((Number(strategic.empireReadiness ?? 0) || 0) * 100)}%`;
+    $('erp-strategy-expansion').textContent = strategic.expansionReady ? 'true' : 'false';
+    $('erp-strategy-consolidation').textContent = strategic.consolidationNeeded ? 'true' : 'false';
+    $('erp-strategy-fleet-readiness').textContent = `${Math.round((Number(strategic.fleetReadiness ?? 0) || 0) * 100)}%`;
+    $('erp-strategy-fleet-blocked').textContent = strategic.blockedByFleet ? 'true' : 'false';
+
     // Alertas
     const alertsEl = $('erp-alerts-container');
     alertsEl.innerHTML = '';
@@ -239,13 +249,38 @@ function _renderOverview() {
     if (!s.cities.length) {
         citiesEl.innerHTML = '<div class="erp-empty">Nenhuma cidade</div>';
     }
+
+    const growth = s.growthFinance ?? {};
+    $('erp-growth-readiness').textContent = `${Math.round((Number(growth.empireReadiness ?? 0) || 0) * 100)}%`;
+    $('erp-growth-next-milestone').textContent = growth.nextMilestone ?? '—';
+    $('erp-growth-next-phase').textContent = growth.nextRecommendedPhase ?? '—';
+    $('erp-growth-fleet-capacity').textContent = `${Number(growth.freeCargoShips ?? 0)}/${Number(growth.totalCargoShips ?? 0)}${growth.blockedByFleet ? ' (blocked)' : ''}`;
+    $('erp-growth-fleet-buy').textContent = Number(growth.recommendedCargoShipsToBuy ?? 0) > 0
+        ? `Buy +${Number(growth.recommendedCargoShipsToBuy)}`
+        : 'No buy recommendation';
+    $('erp-growth-reasons').textContent = (growth.reasons ?? []).slice(0, 4).join(' • ') || '—';
+    $('erp-growth-blocking').textContent = (growth.blockingFactors ?? []).slice(0, 4).join(' • ') || '—';
+
+    const research = s.research ?? {};
+    const currentResearch = research.currentResearch?.id
+        ? `#${research.currentResearch.id}${research.currentResearch.finishTs ? ` (ETA ${_fmtCountdown(research.currentResearch.finishTs * 1000)})` : ''}`
+        : '—';
+    const nextResearch = research.nextResearch?.id
+        ? `#${research.nextResearch.id}`
+        : '—';
+    $('erp-research-current').textContent = currentResearch;
+    $('erp-research-next').textContent = nextResearch;
+    $('erp-research-reason').textContent = research.strategicReason ?? '—';
+    $('erp-research-alignment').textContent = research.goalAlignment ?? '—';
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
 
 function _renderQueue() {
     const s = _uiState;
-    const active = [...(s.queue.pending ?? []), ...(s.queue.inFlight ?? [])];
+    const active = (s.operations?.queueCurrent?.length
+        ? s.operations.queueCurrent
+        : [...(s.queue.pending ?? []), ...(s.queue.inFlight ?? [])]);
 
     const activeEl = _root.getElementById('erp-queue-active');
     activeEl.innerHTML = '';
@@ -291,6 +326,29 @@ function _renderQueue() {
         fleetEl.innerHTML = '';
     }
 
+    const blockersEl = _root.getElementById('erp-ops-blockers');
+    if (blockersEl) {
+        blockersEl.innerHTML = '';
+        const blockers = s.operations?.activeBlockers ?? [];
+        if (!blockers.length) {
+            blockersEl.innerHTML = '<div class="erp-empty">Sem bloqueios ativos</div>';
+        } else {
+            for (const b of blockers) {
+                const row = document.createElement('div');
+                row.className = 'erp-task-row';
+                row.style.opacity = '0.9';
+                row.innerHTML = `
+                    <span class="erp-task-type" style="background:#3a2020;border-color:#5c2c2c;color:#f85149;">BLOCK</span>
+                    <div class="erp-task-info">
+                        <div>${_esc(b.type)} • cidade ${_esc(b.cityId)}</div>
+                        <div class="erp-task-reason">status=${_esc(b.status)} • code=${_esc(b.blockerCode ?? 'N/A')}</div>
+                    </div>
+                `;
+                blockersEl.appendChild(row);
+            }
+        }
+    }
+
     const doneEl = _root.getElementById('erp-queue-done');
     doneEl.innerHTML = '';
     const done = s.queue.completed ?? [];
@@ -299,6 +357,30 @@ function _renderQueue() {
     } else {
         for (const task of [...done].reverse()) {
             doneEl.appendChild(_renderTaskRow(task, false));
+        }
+    }
+
+    const outcomesEl = _root.getElementById('erp-ops-outcomes');
+    if (outcomesEl) {
+        outcomesEl.innerHTML = '';
+        const outcomes = s.operations?.outcomesRecent ?? [];
+        if (!outcomes.length) {
+            outcomesEl.innerHTML = '<div class="erp-empty">Sem outcomes recentes</div>';
+        } else {
+            for (const out of outcomes) {
+                const row = document.createElement('div');
+                row.className = 'erp-task-row';
+                row.style.cssText = 'font-size:12px;opacity:0.9;';
+                row.innerHTML = `
+                    <span class="erp-task-type ${_esc(out.type)}">${_esc(out.outcomeClass ?? out.type)}</span>
+                    <div class="erp-task-info">
+                        <div>${_esc(out.type)} • cidade ${_esc(out.cityId)} • goal=${_esc(out.strategicGoal ?? 'N/A')}</div>
+                        <div class="erp-task-reason">reasonCode=${_esc(out.reasonCode ?? 'N/A')} • latency=${out.latency != null ? `${Math.round(out.latency)}ms` : 'N/A'}</div>
+                        ${(out.evidence ?? []).length ? `<div class="erp-task-reason">evidence: ${_esc(out.evidence.join(' | '))}</div>` : ''}
+                    </div>
+                `;
+                outcomesEl.appendChild(row);
+            }
         }
     }
 }
@@ -313,9 +395,16 @@ function _renderTaskRow(task, showCancel) {
 
     const info = document.createElement('div');
     info.className = 'erp-task-info';
+    const strategicGoal = task.payload?.strategicGoal ?? task.strategicGoal ?? _uiState?.strategicSummary?.globalGoal ?? null;
+    const outcomeClass = task.lastOutcome?.outcomeClass ?? task.hybrid?.attemptOutcome?.outcomeClass ?? null;
+    const reasonCode = task.lastOutcome?.reasonCode ?? task.hybrid?.blockerCode ?? task.reasonCode ?? null;
+    const latency = task.lastOutcome?.latencyMs ?? null;
+    const evidence = Array.isArray(task.lastOutcome?.evidence) ? task.lastOutcome.evidence.slice(0, 2) : [];
     info.innerHTML = `
         <div>${_esc(task.reason ?? task.type)}</div>
-        <div class="erp-task-reason">[${task.module ?? '?'}] cidade ${task.cityId} ${task.status === 'blocked' ? '⚠ bloqueado' : ''}</div>
+        <div class="erp-task-reason">[${task.module ?? '?'}] cidade ${task.cityId} ${task.status === 'blocked' ? '⚠ bloqueado' : ''} ${strategicGoal ? `• goal=${_esc(strategicGoal)}` : ''}</div>
+        ${(outcomeClass || reasonCode) ? `<div class="erp-task-reason">outcome=${_esc(outcomeClass ?? 'N/A')} • reasonCode=${_esc(reasonCode ?? 'N/A')} ${latency != null ? `• latency=${Math.round(latency)}ms` : ''}</div>` : ''}
+        ${evidence.length ? `<div class="erp-task-reason">evidence: ${_esc(evidence.join(' | '))}</div>` : ''}
     `;
 
     row.appendChild(typeEl);
@@ -356,6 +445,20 @@ function _renderCities() {
                 <span>💎 ${_fmtNum(city.resources?.glass)}</span>
                 <span>💥 ${_fmtNum(city.resources?.sulfur)}</span>
                 <span>🚢 ${city.freeTransporters ?? '—'}</span>
+            </div>
+            <div style="font-size:11px;color:#8b949e;margin-top:6px;display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:4px 10px;">
+                <span>Island Resource: ${_esc(city.islandResource ?? '—')}</span>
+                <span>Readiness: ${city.readiness != null ? `${Math.round(city.readiness * 100)}%` : '—'}</span>
+                <span>Storage Pressure: ${city.storagePressure != null ? `${Math.round(city.storagePressure * 100)}%` : '—'}</span>
+                <span>Time to Cap: ${city.minTimeToCapHours != null && Number.isFinite(city.minTimeToCapHours) ? `${city.minTimeToCapHours.toFixed(1)}h` : '∞'}</span>
+                <span>Wine Coverage: ${Number.isFinite(city.wineCoverageHours) ? `${city.wineCoverageHours.toFixed(1)}h` : '∞'}</span>
+                <span>Prod/h: ${_renderProdPerHour(city.productionPerHour)}</span>
+            </div>
+            <div style="font-size:11px;color:#8b949e;margin-top:4px;">
+                Roles: ${(city.roles ?? []).length ? (city.roles.map(r => `[${_esc(r)}]`).join(' ')) : '—'}
+            </div>
+            <div style="font-size:11px;color:#8b949e;margin-top:4px;">
+                Blocking factors: ${(city.blockingFactors ?? []).length ? _esc(city.blockingFactors.slice(0, 3).join(' | ')) : '—'}
             </div>
             <div style="font-size:11px;color:#8b949e;margin-top:5px;display:flex;gap:12px;">
                 <span>Gold/h: ${city.goldPerHour >= 0 ? '+' : ''}${_fmtNum(city.goldPerHour)}</span>
@@ -611,4 +714,13 @@ function _fmtTime(ts) {
     if (!ts) return '—';
     const d = new Date(ts);
     return d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function _renderProdPerHour(pph) {
+    if (!pph || typeof pph !== 'object') return '—';
+    const entries = Object.entries(pph)
+        .filter(([, v]) => Number(v) > 0)
+        .slice(0, 3)
+        .map(([k, v]) => `${k}:${_fmtNum(v)}`);
+    return entries.length ? entries.join(' ') : '—';
 }

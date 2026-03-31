@@ -3,6 +3,8 @@
 // Trigger em DC_HEADER_DATA (a cada XHR) para detecção mais rápida possível.
 
 import { getMinWineLevel, getMaxServableWineLevel, WINE_USE } from '../data/wine.js';
+import { EMPIRE_STAGE } from './EmpireStage.js';
+import { GLOBAL_GOAL } from './GoalEngine.js';
 import { TASK_TYPE } from './taskTypes.js';
 
 export class HR {
@@ -89,8 +91,155 @@ export class HR {
 
         for (const city of cities) {
             this._checkWineRisk(city, true, ctx); // ignorar cooldown no replan explícito
-            this._checkWineLevel(city);
+            this._checkWineLevel(city, ctx);
+            this._checkWorkforce(city, ctx);
         }
+    }
+
+    _checkWorkforce(city, ctx = null) {
+        if (!ctx?.cities || !(ctx.cities instanceof Map)) return;
+
+        const cityCtx = ctx.cities.get(city.id);
+        if (!cityCtx) return;
+
+        const currentScientists = Number(city?.workers?.scientists ?? 0);
+        const recommendedScientists = Number(cityCtx.recommendedScientists ?? currentScientists);
+        const idlePopulation = Number(cityCtx.idlePopulation ?? 0);
+        const productionFloorMet = Boolean(cityCtx.productionFloorMet);
+        const blockingFactors = Array.isArray(cityCtx.workforceBlockingFactors)
+            ? cityCtx.workforceBlockingFactors
+            : [];
+        const reasons = Array.isArray(cityCtx.workforceReasons)
+            ? cityCtx.workforceReasons
+            : [];
+
+        // Reação explícita: cidade com população ociosa + produção insuficiente não fica silenciosa.
+        if (idlePopulation > 0 && !productionFloorMet) {
+            cityCtx.workforceActionRecommendation = {
+                type: 'WORKFORCE_REALLOCATE_IDLE',
+                cityId: city.id,
+                recommendedWorkersWood: Number(cityCtx.recommendedWorkersWood ?? city.workers?.wood ?? 0),
+                recommendedWorkersTradegood: Number(cityCtx.recommendedWorkersTradegood ?? city.workers?.tradegood ?? 0),
+                recommendedScientists,
+                blockingFactors,
+                reasons,
+            };
+        }
+
+        if (blockingFactors.length > 0) {
+            this._audit.debug('HR',
+                `Workforce ${city.name}: bloqueada (${blockingFactors.join(' | ')})`
+            );
+            return;
+        }
+
+        // Integração incremental executável no contrato atual: ajuste de cientistas via WORKER_REALLOC.
+        if (recommendedScientists <= currentScientists) return;
+        if (this._queue.hasPendingType(TASK_TYPE.WORKER_REALLOC, city.id)) return;
+
+        const academy = (city.buildings ?? [])
+            .filter(b => b.building === 'academy')
+            .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0] ?? null;
+        if (!academy?.position && academy?.position !== 0) {
+            cityCtx.workforceBlockingFactors = [
+                ...(Array.isArray(cityCtx.workforceBlockingFactors) ? cityCtx.workforceBlockingFactors : []),
+                'academy_position_missing_for_scientist_realloc',
+            ];
+            return;
+        }
+
+        this._queue.add({
+            type: TASK_TYPE.WORKER_REALLOC,
+            priority: 28,
+            cityId: city.id,
+            payload: {
+                position: academy.position,
+                scientists: recommendedScientists,
+                stage: ctx?.stage ?? null,
+                strategicGoal: ctx?.globalGoal ?? null,
+            },
+            scheduledFor: Date.now(),
+            reason: `HR Workforce: cientistas ${currentScientists}→${recommendedScientists} (idle=${idlePopulation}, growth=${ctx?.growthPolicy?.growthStage ?? 'N/A'})`,
+            module: 'HR',
+            confidence: this._state.getConfidence?.(city.id) ?? 'MEDIUM',
+            maxAttempts: 4,
+        });
+
+        this._events.emit(this._events.E.HR_WORKER_REALLOC, {
+            cityId: city.id,
+            action: `Alocar ${recommendedScientists - currentScientists} população ociosa para cientistas`,
+            allocationAfter: {
+                scientists: recommendedScientists,
+            },
+            source: 'WORKFORCE_POLICY',
+        });
+
+        this._audit.info('HR',
+            `Workforce ${city.name}: enfileirado WORKER_REALLOC para ${recommendedScientists} cientistas (antes=${currentScientists}, idle=${idlePopulation})`
+        );
+    }
+
+    _resolveWinePolicy(ctx = null) {
+        const baseThreshold = this._config.get('wineEmergencyHours');
+        const stage = ctx?.stage ?? null;
+        const goal = ctx?.globalGoal ?? null;
+        const growthStage = ctx?.growthPolicy?.growthStage ?? null;
+        const resourceFocus = ctx?.growthPolicy?.recommendedResourceFocus ?? null;
+
+        const policy = {
+            emergencyHoursThreshold: baseThreshold,
+            emergencyMinWineLevel: 0,
+            lowerOnlyIfSatisfactionAtLeast: 1,
+            raiseIfSatisfactionBelow: 1,
+        };
+
+        if (stage === EMPIRE_STAGE.BOOTSTRAP || stage === EMPIRE_STAGE.EARLY_GROWTH) {
+            policy.emergencyHoursThreshold = baseThreshold + 1.5;
+            policy.emergencyMinWineLevel = 1;
+            policy.lowerOnlyIfSatisfactionAtLeast = 3;
+            policy.raiseIfSatisfactionBelow = 2;
+        } else if (stage === EMPIRE_STAGE.PRE_EXPANSION) {
+            policy.emergencyHoursThreshold = baseThreshold + 1;
+            policy.emergencyMinWineLevel = 1;
+            policy.lowerOnlyIfSatisfactionAtLeast = 2;
+            policy.raiseIfSatisfactionBelow = 1.5;
+        } else if (stage === EMPIRE_STAGE.MULTI_CITY_EARLY) {
+            policy.emergencyHoursThreshold = baseThreshold + 1;
+            policy.emergencyMinWineLevel = 1;
+            policy.lowerOnlyIfSatisfactionAtLeast = 2.5;
+            policy.raiseIfSatisfactionBelow = 2;
+        }
+
+        if (goal === GLOBAL_GOAL.SURVIVE) {
+            policy.emergencyHoursThreshold = Math.max(policy.emergencyHoursThreshold, baseThreshold + 2);
+            policy.emergencyMinWineLevel = Math.max(policy.emergencyMinWineLevel, 1);
+            policy.raiseIfSatisfactionBelow = Math.max(policy.raiseIfSatisfactionBelow, 2);
+        } else if (goal === GLOBAL_GOAL.CONSOLIDATE_NEW_CITY) {
+            policy.lowerOnlyIfSatisfactionAtLeast = Math.max(policy.lowerOnlyIfSatisfactionAtLeast, 2.5);
+            policy.raiseIfSatisfactionBelow = Math.max(policy.raiseIfSatisfactionBelow, 1.8);
+        }
+
+        // Overlay incremental de GrowthPolicy para early game.
+        if (growthStage === 'BOOTSTRAP_CITY') {
+            policy.emergencyHoursThreshold = Math.max(policy.emergencyHoursThreshold, baseThreshold + 2);
+            policy.emergencyMinWineLevel = Math.max(policy.emergencyMinWineLevel, 1);
+            policy.lowerOnlyIfSatisfactionAtLeast = Math.max(policy.lowerOnlyIfSatisfactionAtLeast, 3);
+            policy.raiseIfSatisfactionBelow = Math.max(policy.raiseIfSatisfactionBelow, 2);
+        } else if (growthStage === 'STABILIZE_CITY') {
+            policy.emergencyHoursThreshold = Math.max(policy.emergencyHoursThreshold, baseThreshold + 1.5);
+            policy.lowerOnlyIfSatisfactionAtLeast = Math.max(policy.lowerOnlyIfSatisfactionAtLeast, 2.5);
+            policy.raiseIfSatisfactionBelow = Math.max(policy.raiseIfSatisfactionBelow, 1.8);
+        } else if (growthStage === 'PREPARE_EXPANSION' || growthStage === 'CONSOLIDATE_NEW_CITY') {
+            policy.emergencyHoursThreshold = Math.max(policy.emergencyHoursThreshold, baseThreshold + 1);
+            policy.emergencyMinWineLevel = Math.max(policy.emergencyMinWineLevel, 1);
+        }
+
+        if (resourceFocus === 'WINE_AND_GOLD_STABILITY' || resourceFocus === 'SUPPLY_STABILITY') {
+            policy.emergencyHoursThreshold = Math.max(policy.emergencyHoursThreshold, baseThreshold + 2);
+            policy.raiseIfSatisfactionBelow = Math.max(policy.raiseIfSatisfactionBelow, 2);
+        }
+
+        return policy;
     }
 
     // ── Risco de esgotamento ──────────────────────────────────────────────────
@@ -106,7 +255,8 @@ export class HR {
         if (spendings <= 0) return; // cidade não usa vinho
 
         const hoursLeft = wine / spendings;
-        const threshold = this._config.get('wineEmergencyHours');
+        const policy = this._resolveWinePolicy(ctx);
+        const threshold = policy.emergencyHoursThreshold;
 
         // Log apenas quando estado muda significativamente (evitar flood por DC_HEADER_DATA)
         this._logWineIfChanged(city, wine, spendings, hoursLeft, threshold);
@@ -137,17 +287,18 @@ export class HR {
             // Ajustar taberna para nível mínimo (evitar consumo desnecessário)
             if (!this._queue.hasPendingType(TASK_TYPE.WINE_ADJUST, city.id)) {
                 const minLevel = getMinWineLevel(spendings);
-                if (minLevel >= 0 && minLevel !== city.tavern.wineLevel) {
+                const targetLevel = Math.max(minLevel, policy.emergencyMinWineLevel);
+                if (targetLevel >= 0 && targetLevel !== city.tavern.wineLevel) {
                     this._queue.add({
                         type:     TASK_TYPE.WINE_ADJUST,
                         priority: 0,
                         cityId:   city.id,
                         payload: {
-                            wineLevel:     minLevel,
+                            wineLevel:     targetLevel,
                             wineEmergency: true,
                         },
                         scheduledFor: Date.now(),
-                        reason:       `HR Emergência: ajustar taberna → nível ${minLevel} (${hoursLeft.toFixed(1)}h restantes)`,
+                        reason:       `HR Emergência: ajustar taberna → nível ${targetLevel} (${hoursLeft.toFixed(1)}h restantes, stage=${ctx?.stage ?? 'N/A'}, goal=${ctx?.globalGoal ?? 'N/A'})`,
                         module:       'HR',
                         confidence:   'HIGH',
                         maxAttempts:  5,
@@ -205,9 +356,10 @@ export class HR {
     //   Nunca baixamos abaixo do floor — evita loop subir/descer infinito.
     //   O floor é limpo quando a população cresce (satisfazer nível mais alto é necessário).
 
-    _checkWineLevel(city) {
+    _checkWineLevel(city, ctx = null) {
         const current      = city.tavern?.wineLevel ?? 0;
         const satisfaction = city.economy?.satisfaction ?? null;
+        const policy       = this._resolveWinePolicy(ctx);
 
         // Sem taberna física — nada a fazer
         const tavernBuilding = (city.buildings ?? []).find(b => b.building === 'tavern');
@@ -240,10 +392,10 @@ export class HR {
 
         let targetLevel = current;
 
-        if (satisfaction > 1 && current > 0 && current > floor) {
+        if (satisfaction > policy.lowerOnlyIfSatisfactionAtLeast && current > 0 && current > floor) {
             // Acima do necessário e acima do floor confirmado → tentar baixar 1 nível
             targetLevel = current - 1;
-        } else if (satisfaction < 1 && current < maxServable) {
+        } else if (satisfaction < policy.raiseIfSatisfactionBelow && current < maxServable) {
             // Insuficiente → subir 1 nível e registrar que o nível atual é o floor mínimo
             targetLevel = current + 1;
             this._wineLevelFloor.set(city.id, targetLevel);

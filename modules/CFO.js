@@ -7,6 +7,8 @@ import { getWarehouseSafe, getCorruption,
          WAREHOUSE_CAPACITY, TOWN_HALL_MAX_CITIZENS,
          ACADEMY_MAX_SCIENTISTS }                                        from '../data/effects.js';
 import { PORT_LOADING_SPEED, BuildingsId }                              from '../data/const.js';
+import { EMPIRE_STAGE }                                                 from './EmpireStage.js';
+import { GLOBAL_GOAL }                                                  from './GoalEngine.js';
 import { TASK_TYPE }                                                    from './taskTypes.js';
 
 // Edifícios com impacto direto em produção (tratamento específico de ROI)
@@ -52,6 +54,11 @@ export class CFO {
     evaluateCity(cityId, ctx = null) {
         const city     = this._state.getCity(cityId);
         const research = this._state.research;
+        const stage = ctx?.stage ?? null;
+        const strategicGoal = ctx?.globalGoal ?? null;
+        const growthStage = ctx?.growthPolicy?.growthStage ?? null;
+        const recommendedBuildCluster = ctx?.growthPolicy?.recommendedBuildCluster ?? null;
+        const fleetPolicy = ctx?.fleetPolicy ?? null;
         if (!city) return;
 
         // Verificar buildBlocked do Planner — emergência de sustento tem prioridade absoluta
@@ -128,7 +135,13 @@ export class CFO {
             return;
         }
 
-        const candidates = this._getBuildCandidates(city, research);
+        const candidates = this._getBuildCandidates(city, research, {
+            stage,
+            goal: strategicGoal,
+            growthStage,
+            recommendedBuildCluster,
+            fleetPolicy,
+        });
 
         if (!candidates.length) {
             this._audit.info('CFO', `${city.name}: sem candidatos (${city.buildings?.length ?? 0} slots, todos sem tabela de custo ou bloqueados)`);
@@ -271,6 +284,7 @@ export class CFO {
                     waitingResources: true,
                     roi:              Number(best.roi.toFixed(2)),
                     score:            best.score,
+                    strategicGoal,
                     treasury: {
                         localDeficit:          treasury.localDeficit,
                         globalCover:           treasury.globalCover,
@@ -335,6 +349,7 @@ export class CFO {
                 currentLevel: best.toLevel - 1,  // nível ATUAL — confirmado via REC: server valida isso
                 roi:          Number(best.roi.toFixed(2)),
                 score:        best.score,
+                strategicGoal,
             },
             scheduledFor: Date.now(),
             reason:       `CFO: ${best.reason}`,
@@ -489,7 +504,7 @@ export class CFO {
 
     // ── Candidatos de build ───────────────────────────────────────────────────
 
-    _getBuildCandidates(city, research) {
+    _getBuildCandidates(city, research, strategicCtx = null) {
         const candidates  = [];
         const totalCities = this._state.getAllCities().length;
 
@@ -512,7 +527,14 @@ export class CFO {
                 continue;
             }
 
-            const score = this._buildingScore(building, slot.level ?? 0, city, research, totalCities);
+            const score = this._buildingScore(
+                building,
+                slot.level ?? 0,
+                city,
+                research,
+                totalCities,
+                strategicCtx,
+            );
             if (score <= 0) continue;
 
             const roi       = this._calcROI(building, toLevel, slot.level ?? 0, city);
@@ -540,11 +562,12 @@ export class CFO {
     // score = urgency(0–1) × impact(0–1) × (1 - saturation(0–1)) × 100
     // Edifícios sem cálculo específico usam BASE fixo com decaimento por nível.
 
-    _buildingScore(building, currentLevel, city, research, totalCities) {
+    _buildingScore(building, currentLevel, city, research, totalCities, strategicCtx = null) {
         // Corrupção: prioridade absoluta
         if (building === 'palaceColony') {
             const corruption = city.economy?.corruption ?? 0;
-            return corruption > 0.01 ? 100 : 10;
+            const base = corruption > 0.01 ? 100 : 10;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
         if ((city.economy?.corruption ?? 0) > 0.01) {
             // Qualquer outra coisa numa cidade corrompida tem score zero — palaceColony primeiro
@@ -566,7 +589,8 @@ export class CFO {
             const impact     = Math.min(1, (capNext - capNow) / Math.max(capNow, 1));
             // saturation: capacidade já muito grande vs produção (nível alto = menos urgente)
             const saturation = Math.min(1, currentLevel / 30);
-            return Math.round(urgency * impact * (1 - saturation) * 100) + 10;
+            const base = Math.round(urgency * impact * (1 - saturation) * 100) + 10;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
 
         // ── TownHall ─────────────────────────────────────────────────────────
@@ -583,7 +607,8 @@ export class CFO {
             const maxNext = TOWN_HALL_MAX_CITIZENS[nextLevel]    ?? maxNow;
             const impact  = Math.min(1, (maxNext - maxNow) / Math.max(maxNow, 1));
             const saturation = Math.min(1, currentLevel / 40);
-            return Math.round(Math.min(1, urgency) * impact * (1 - saturation) * 100) + 10;
+            const base = Math.round(Math.min(1, urgency) * impact * (1 - saturation) * 100) + 10;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
 
         // ── Port ─────────────────────────────────────────────────────────────
@@ -597,7 +622,8 @@ export class CFO {
                 ?.filter(t => t.type === TASK_TYPE.TRANSPORT).length ?? 0;
             const urgency   = Math.min(1, 0.3 + pending * 0.15);
             const saturation = speedNow > 5000 ? 0.6 : 0; // porto rápido = menos urgente
-            return Math.round(urgency * impact * (1 - saturation) * 100) + 10;
+            const base = Math.round(urgency * impact * (1 - saturation) * 100) + 10;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
 
         // ── Academia ─────────────────────────────────────────────────────────
@@ -613,7 +639,8 @@ export class CFO {
             const pop           = city.economy?.population ?? 0;
             const sciRatio      = pop > 0 ? scientists / pop : 0;
             const saturation    = Math.min(1, sciRatio / 0.30); // >30% da pop em ciência = saturado
-            return Math.round(urgency * impact * (1 - saturation) * 100) + 5;
+            const base = Math.round(urgency * impact * (1 - saturation) * 100) + 5;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
 
         // ── Tavern ───────────────────────────────────────────────────────────
@@ -624,7 +651,8 @@ export class CFO {
             // urgency: quanto abaixo do target (1)
             const urgency    = sat < 1 ? Math.min(1, (1 - sat) / 3) : 0;
             const saturation = sat > 3 ? Math.min(1, (sat - 3) / 5) : 0;
-            return Math.round(urgency * (1 - saturation) * 100) + 10;
+            const base = Math.round(urgency * (1 - saturation) * 100) + 10;
+            return this._applyStrategicBuildingBias(building, base, strategicCtx);
         }
 
         // ── Redutores de custo (BASE fixo com decaimento) ─────────────────────
@@ -638,7 +666,7 @@ export class CFO {
             if (currentLevel >= 20) score = Math.round(score * 0.80);
             if (currentLevel >= 30) score = Math.round(score * 0.70);
             if (currentLevel >= 50) return 0; // cap de desconto atingido
-            return score;
+            return this._applyStrategicBuildingBias(building, score, strategicCtx);
         }
 
         // ── Produção de recursos (BASE fixo) ──────────────────────────────────
@@ -649,7 +677,7 @@ export class CFO {
             let score = PROD_BASE[building];
             if (currentLevel >= 20) score = Math.round(score * 0.85);
             if (currentLevel >= 30) score = Math.round(score * 0.70);
-            return score;
+            return this._applyStrategicBuildingBias(building, score, strategicCtx);
         }
 
         // ── Demais edifícios (BASE fixo baixo) ────────────────────────────────
@@ -660,7 +688,96 @@ export class CFO {
         };
         let score = MISC_BASE[building] ?? 10;
         if (currentLevel >= 20) score = Math.round(score * 0.80);
-        return score;
+        return this._applyStrategicBuildingBias(building, score, strategicCtx);
+    }
+
+    _applyStrategicBuildingBias(building, baseScore, strategicCtx = null) {
+        const stage = strategicCtx?.stage ?? null;
+        const goal  = strategicCtx?.goal ?? null;
+        const growthStage = strategicCtx?.growthStage ?? null;
+        const recommendedBuildCluster = strategicCtx?.recommendedBuildCluster ?? null;
+        const fleetPolicy = strategicCtx?.fleetPolicy ?? null;
+
+        let multiplier = 1;
+
+        if (stage === EMPIRE_STAGE.BOOTSTRAP) {
+            if (['warehouse', 'townHall', 'tavern', 'forester', 'port'].includes(building)) multiplier *= 1.35;
+            if (['embassy', 'museum', 'workshop', 'wall', 'shipyard', 'barracks'].includes(building)) multiplier *= 0.65;
+        }
+
+        if (stage === EMPIRE_STAGE.PRE_EXPANSION) {
+            if (['warehouse', 'townHall', 'port', 'academy', 'palaceColony'].includes(building)) multiplier *= 1.30;
+            if (['museum', 'embassy', 'wall', 'shipyard', 'barracks'].includes(building)) multiplier *= 0.75;
+        }
+
+        if (stage === EMPIRE_STAGE.MULTI_CITY_EARLY) {
+            if (['warehouse', 'townHall', 'tavern', 'port', 'academy'].includes(building)) multiplier *= 1.25;
+            if (['palace', 'palaceColony', 'museum', 'embassy'].includes(building)) multiplier *= 0.70;
+        }
+
+        if (goal === GLOBAL_GOAL.UNBLOCK_PRODUCTION) {
+            if (PRODUCTION_BUILDINGS.has(building) || REDUCER_BUILDINGS.has(building)) multiplier *= 1.25;
+            if (['embassy', 'museum', 'workshop'].includes(building)) multiplier *= 0.80;
+        }
+
+        if (goal === GLOBAL_GOAL.PREPARE_EXPANSION) {
+            if (['warehouse', 'port', 'palaceColony', 'townHall'].includes(building)) multiplier *= 1.20;
+        }
+
+        if (goal === GLOBAL_GOAL.CONSOLIDATE_NEW_CITY) {
+            if (['warehouse', 'townHall', 'tavern', 'academy', 'port'].includes(building)) multiplier *= 1.20;
+            if (['palace', 'palaceColony', 'museum', 'embassy'].includes(building)) multiplier *= 0.75;
+        }
+
+        if (goal === GLOBAL_GOAL.SURVIVE) {
+            if (['warehouse', 'townHall', 'tavern'].includes(building)) multiplier *= 1.25;
+            if (['museum', 'embassy', 'workshop', 'wall', 'shipyard', 'barracks'].includes(building)) multiplier *= 0.60;
+        }
+
+        if (growthStage === 'BOOTSTRAP_CITY') {
+            if (['warehouse', 'townHall', 'tavern', 'forester', 'port'].includes(building)) multiplier *= 1.20;
+            if (['embassy', 'museum', 'workshop', 'wall', 'shipyard', 'barracks'].includes(building)) multiplier *= 0.70;
+        }
+
+        if (growthStage === 'STABILIZE_CITY') {
+            if (['warehouse', 'townHall', 'tavern', 'academy', 'port'].includes(building)) multiplier *= 1.15;
+            if (['museum', 'embassy', 'workshop'].includes(building)) multiplier *= 0.80;
+        }
+
+        if (growthStage === 'THROUGHPUT_GROWTH') {
+            if (PRODUCTION_BUILDINGS.has(building) || REDUCER_BUILDINGS.has(building) || ['warehouse', 'port'].includes(building)) {
+                multiplier *= 1.20;
+            }
+        }
+
+        if (growthStage === 'PREPARE_EXPANSION') {
+            if (['warehouse', 'port', 'palaceColony', 'townHall', 'academy'].includes(building)) multiplier *= 1.22;
+        }
+
+        if (growthStage === 'CONSOLIDATE_NEW_CITY') {
+            if (['warehouse', 'townHall', 'tavern', 'academy', 'port'].includes(building)) multiplier *= 1.18;
+            if (['palace', 'palaceColony', 'embassy', 'museum'].includes(building)) multiplier *= 0.78;
+        }
+
+        if (recommendedBuildCluster === 'SURVIVAL_CORE') {
+            if (['warehouse', 'townHall', 'tavern'].includes(building)) multiplier *= 1.10;
+        }
+        if (recommendedBuildCluster === 'THROUGHPUT_CORE') {
+            if (PRODUCTION_BUILDINGS.has(building) || REDUCER_BUILDINGS.has(building)) multiplier *= 1.10;
+        }
+        if (recommendedBuildCluster === 'EXPANSION_ENABLEMENT') {
+            if (['palaceColony', 'warehouse', 'port'].includes(building)) multiplier *= 1.10;
+        }
+
+        if (fleetPolicy?.blockedByFleet) {
+            if (building === 'port') multiplier *= 1.30;
+            if (['palaceColony', 'palace'].includes(building)) multiplier *= 0.78;
+        }
+        if ((fleetPolicy?.recommendedCargoShipsToBuy ?? 0) > 0) {
+            if (building === 'port') multiplier *= 1.15;
+        }
+
+        return Math.max(0, Math.round(baseScore * multiplier));
     }
 
     // ── ROI por tipo de edifício ──────────────────────────────────────────────

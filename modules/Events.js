@@ -68,6 +68,7 @@ export const Events = {
         QUEUE_TASK_STARTED:   'queue:taskStarted',    // { task }
         QUEUE_TASK_DONE:      'queue:taskCompleted',  // { task, result }
         QUEUE_TASK_FAILED:    'queue:taskFailed',     // { task, error, fatal }
+        QUEUE_TASK_OUTCOME:   'queue:taskOutcome',    // { task, outcome }
         QUEUE_TASK_CANCELLED: 'queue:taskCancelled',  // { taskId }
         QUEUE_BLOCKED:        'queue:blocked',        // { reason }
         QUEUE_MODE_CHANGED:   'queue:modeChanged',    // { mode }

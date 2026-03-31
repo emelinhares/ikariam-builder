@@ -133,6 +133,23 @@ describe('Planner', () => {
     // satisfação <= 0 bloqueia mesmo sem consumo de vinho
     expect(c303.wineHours).toBe(Infinity);
     expect(c303.hasCriticalSupply).toBe(true);
+
+    expect(ctx.stage).toBe('MULTI_CITY_EARLY');
+    expect(ctx.globalGoal).toBe('SURVIVE');
+    expect(ctx.goalReason).toBe('critical_supply_or_cashflow_pressure');
+    expect(ctx.growthPolicy).toBeTruthy();
+    expect(ctx.growthPolicy.growthStage).toBe('CONSOLIDATE_NEW_CITY');
+    expect(Array.isArray(ctx.growthPolicy.milestoneBlockingFactors)).toBe(true);
+    expect(typeof ctx.readiness.workforceReadiness).toBe('number');
+    expect(Array.isArray(ctx.readiness.blockingFactors)).toBe(true);
+    expect(ctx.workforcePolicy).toBeTruthy();
+
+    const wf202 = ctx.cities.get(202);
+    expect(typeof wf202.idlePopulation).toBe('number');
+    expect(typeof wf202.workforceUtilization).toBe('number');
+    expect(typeof wf202.productionFloorMet).toBe('boolean');
+    expect(Array.isArray(wf202.workforceBlockingFactors)).toBe(true);
+    expect(Array.isArray(wf202.workforceReasons)).toBe(true);
   });
 
   test('marca buildBlocked apenas para cidades com emergência', () => {
@@ -171,6 +188,16 @@ describe('Planner', () => {
     expect(doneEvt).toBeTruthy();
 
     const payload = doneEvt[1];
+    expect(payload.ctx.stage).toBe('MULTI_CITY_EARLY');
+    expect(payload.ctx.globalGoal).toBe('SURVIVE');
+    expect(payload.summary.stage).toBe('MULTI_CITY_EARLY');
+    expect(payload.summary.globalGoal).toBe('SURVIVE');
+    expect(payload.summary.growthStage).toBe('CONSOLIDATE_NEW_CITY');
+    expect(payload.summary.nextMilestone).toBe('NEW_CITY_BASELINE_STABILITY');
+    expect(Array.isArray(payload.summary.milestoneBlockingFactors)).toBe(true);
+    expect(typeof payload.summary.workforceReadiness).toBe('number');
+    expect(Array.isArray(payload.summary.workforceBlockingFactors)).toBe(true);
+    expect(Array.isArray(payload.summary.workforceReasons)).toBe(true);
     expect(payload.summary.citiesWithEmergency).toEqual(expect.arrayContaining([101, 303]));
     expect(payload.summary.citiesWithBuildBlocked).toEqual(expect.arrayContaining([101, 303]));
     expect(payload.summary.buildsApproved).toBe(1);

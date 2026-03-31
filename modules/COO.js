@@ -3,9 +3,14 @@
 // Detectar overflow e redistribuir. Identificar hub central.
 // Escuta QUEUE_TASK_ADDED (não CFO_BUILD_APPROVED) — desacoplado do CFO.
 
-import { PORT_LOADING_SPEED, TRAVEL, TradeGoodOrdinals } from '../data/const.js';
+import { PORT_LOADING_SPEED, TRAVEL } from '../data/const.js';
+import { CITY_ROLE, classifyCities } from './CityClassifier.js';
+import { EMPIRE_STAGE } from './EmpireStage.js';
+import { GLOBAL_GOAL } from './GoalEngine.js';
 import { createEmptyResources } from './resourceContracts.js';
 import { TASK_TYPE } from './taskTypes.js';
+
+const RESOURCES = ['wood', 'wine', 'marble', 'glass', 'sulfur'];
 
 export class COO {
     constructor({ events, audit, config, state, queue, client, storage }) {
@@ -18,6 +23,16 @@ export class COO {
         this._storage = storage;
 
         this._hub = null; // cidade hub identificada
+        this._cityClassifications = new Map();
+        this._strategicCtx = { stage: null, globalGoal: null };
+    }
+
+    getHub() {
+        return this._hub ? { ...this._hub } : null;
+    }
+
+    getCityClassifications() {
+        return new Map(this._cityClassifications);
     }
 
     init() {
@@ -48,9 +63,21 @@ export class COO {
     }
 
     replan(ctx = null) {
+        this._strategicCtx = {
+            stage: ctx?.stage ?? null,
+            globalGoal: ctx?.globalGoal ?? null,
+            growthPolicy: ctx?.growthPolicy ?? null,
+            fleetPolicy: ctx?.fleetPolicy ?? null,
+        };
+        const strategicGoal = ctx?.globalGoal ?? null;
+        if (strategicGoal) {
+            this._audit.debug('COO', `Replan com objetivo global=${strategicGoal}`);
+        }
         this._hub = this._identifyHub();
+        this._cityClassifications = this._buildCityClassification();
         this._checkOverflow();
         this._checkMinimumStocks(ctx);
+        this._planFleetCapex(ctx);
 
         // Atualizar contexto com transportes já enfileirados para cada cidade
         if (ctx) {
@@ -61,11 +88,56 @@ export class COO {
         }
     }
 
+    _planFleetCapex(ctx = null) {
+        const fleetPolicy = ctx?.fleetPolicy ?? this._strategicCtx?.fleetPolicy ?? null;
+        const buyNow = Number(fleetPolicy?.recommendedCargoShipsToBuy ?? 0);
+        if (buyNow <= 0) return;
+
+        const alreadyQueued = this._queue.getPending()
+            .some((t) => t.type === TASK_TYPE.NAVIGATE && t.reasonCode === 'FLEET_CAPEX_RECOMMENDATION');
+        if (alreadyQueued) return;
+
+        const cities = this._state.getAllCities();
+        const city = cities.find((c) => c?.isCapital) ?? cities[0];
+        if (!city?.id) return;
+
+        const evidence = [
+            `fleetReadiness=${Number(fleetPolicy?.fleetReadiness ?? 0).toFixed(2)}`,
+            `freeCargoShips=${Number(fleetPolicy?.freeCargoShips ?? 0)}`,
+            `totalCargoShips=${Number(fleetPolicy?.totalCargoShips ?? 0)}`,
+            `recommendedCargoShipsToBuy=${buyNow}`,
+            ...(Array.isArray(fleetPolicy?.fleetBlockingFactors)
+                ? fleetPolicy.fleetBlockingFactors.map((f) => `fleetBlock=${f}`)
+                : []),
+        ];
+
+        this._queue.add({
+            type: TASK_TYPE.NAVIGATE,
+            priority: 8,
+            cityId: city.id,
+            payload: {
+                view: 'port',
+                fleetRecommendation: true,
+                recommendedCargoShipsToBuy: buyNow,
+            },
+            scheduledFor: Date.now(),
+            reason: `COO Fleet CAPEX: recomendar compra de ${buyNow} navios de carga`,
+            reasonCode: 'FLEET_CAPEX_RECOMMENDATION',
+            evidence,
+            module: 'COO',
+            confidence: this._state.getConfidence(city.id),
+        });
+    }
+
     // ── JIT para BUILD ────────────────────────────────────────────────────────
 
     async _scheduleJITForBuild(buildTask) {
         const destCity = this._state.getCity(buildTask.cityId);
         if (!destCity || !buildTask.payload?.cost) return;
+
+        const classifications = this._buildCityClassification({
+            buildFocusCityIds: new Set([buildTask.cityId]),
+        });
 
         const cost      = buildTask.payload.cost;
         const inTransit = this._state.getInTransit(buildTask.cityId);
@@ -94,13 +166,13 @@ export class COO {
             if (deficit <= 0) continue;
 
             // Tentar fonte única primeiro (mais simples, 1 transporte)
-            const singleSource = this._findSource(res, deficit, buildTask.cityId, ledger);
+            const singleSource = this._findSource(res, deficit, buildTask.cityId, ledger, classifications);
 
             if (singleSource) {
                 await this._enqueueJIT(singleSource, destCity, res, deficit, buildTask, ledger);
             } else {
                 // Fonte única não tem o suficiente — tentar múltiplas fontes
-                const sources = this._findMultiSource(res, deficit, buildTask.cityId, ledger);
+                const sources = this._findMultiSource(res, deficit, buildTask.cityId, ledger, classifications);
                 if (!sources) {
                     this._audit.warn('COO',
                         `Sem fonte(s) para ${res} (deficit ${deficit}) para build em ${destCity.name} — ` +
@@ -135,7 +207,8 @@ export class COO {
         const dispatchTs = buildStart - (eta.totalEta * 1000) - bufferMs;
         const sendAt     = Math.max(dispatchTs, Date.now());
         const boats      = Math.ceil(amount / 500);
-        const sourceSafetyStock = this._getCitySafetyStock(sourceCity, res);
+        const sourceClass = this._cityClassifications.get(sourceCity.id) ?? null;
+        const sourceSafetyStock = this._getCitySafetyStock(sourceCity, res, sourceClass);
         const sourceOnHand = Number(sourceCity.resources?.[res] ?? 0);
         const sourceAfter = Math.max(0, sourceOnHand - amount);
         const reasonCode = 'COO_JIT_TRANSPORT_FOR_BUILD';
@@ -164,6 +237,7 @@ export class COO {
                 cargo:            { [res]: amount },
                 boats,
                 totalCargo:       amount,
+                jitBuild:         true,
                 estimatedReturnS: eta.travelTime * 2,
             },
             scheduledFor: sendAt,
@@ -192,8 +266,9 @@ export class COO {
         const wineSpendings = city.production.wineSpendings;
         if (!wineSpendings || wineSpendings <= 0) return;
 
-        // Enviar suficiente para 24h
-        const needed = wineSpendings * 24;
+        // Enviar buffer ajustado por maturidade estratégica
+        const policy = this._resolveTransportPolicy(this._strategicCtx);
+        const needed = wineSpendings * policy.wineEmergencyCoverageHours;
 
         // Vinho já comprometido = em trânsito (frotas) + pendente na fila
         const inTransit = this._state.getInTransit(cityId);
@@ -212,7 +287,8 @@ export class COO {
         const toSend = needed - committed;
         const allCities = this._state.getAllCities().filter(c => c.id !== cityId);
         const ledger = this._buildCommitmentLedger();
-        const source = this._findSource('wine', toSend, cityId, ledger);
+        const classifications = this._buildCityClassification();
+        const source = this._findSource('wine', toSend, cityId, ledger, classifications);
         if (!source) {
             this._audit.warn('COO',
                 `Sem fonte de vinho para emergência em ${city.name}: precisa=${toSend} (total=${needed} committed=${committed}), estoques=${allCities.map(c => `${c.name}=${c.resources.wine??0}`).join(', ')}`,
@@ -253,14 +329,21 @@ export class COO {
     // ── Overflow ──────────────────────────────────────────────────────────────
 
     _checkOverflow() {
-        const cities = this._state.getAllCities();
+        const classifications = this._buildCityClassification();
+        this._cityClassifications = classifications;
+
+        const cities = this._state.getAllCities().slice().sort((a, b) => {
+            const pa = classifications.get(a.id)?.storagePressure ?? 0;
+            const pb = classifications.get(b.id)?.storagePressure ?? 0;
+            return pb - pa;
+        });
         let overflowCount = 0;
 
         // Construir ledger uma vez para todo o ciclo de overflow
         const ledger = this._buildCommitmentLedger();
 
         for (const city of cities) {
-            overflowCount += this._checkCityOverflow(city, ledger);
+            overflowCount += this._checkCityOverflow(city, ledger, classifications);
         }
 
         // Resumo limpo independente de overflow
@@ -275,21 +358,34 @@ export class COO {
         );
     }
 
-    _checkCityOverflow(city, ledger = null) {
+    _checkCityOverflow(city, ledger = null, classifications = null) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
         const maxRes = city.maxResources;
         if (!maxRes || maxRes === 0) return 0;
+        const cityClass = classifications?.get(city.id) ?? this._cityClassifications.get(city.id) ?? null;
         let scheduledCount = 0;
 
         for (const [res, qty] of Object.entries(city.resources)) {
-            if (qty < maxRes * 0.95) continue; // < 95% — sem overflow
+            const overflowByPct = qty >= maxRes * 0.95;
+            const overflowByTime = cityClass?.overflowFlags?.[res] ?? false;
+            if (!overflowByPct && !overflowByTime) continue;
+
+            const timeToCapHours = cityClass?.timeToCapHours?.[res] ?? Infinity;
+            const productionPerHour = cityClass?.productionPerHour?.[res] ?? 0;
 
             this._audit.warn('COO',
-                `Overflow de ${res} em ${city.name}: ${qty}/${maxRes}`,
+                `Overflow de ${res} em ${city.name}: ${qty}/${maxRes} ttc=${Number.isFinite(timeToCapHours) ? timeToCapHours.toFixed(2) : '∞'}h prod=${Math.round(productionPerHour)}/h`,
                 { cityId: city.id }
             );
 
-            const excess = qty - Math.floor(maxRes * 0.80); // manter 80%
+            const desiredTtcHours = this._config.get('overflowTargetTimeToCapHours') ?? 6;
+            const desiredMaxByTtc = Number.isFinite(productionPerHour) && productionPerHour > 0
+                ? Math.max(0, maxRes - Math.ceil(productionPerHour * desiredTtcHours))
+                : qty;
+            const desiredMax = overflowByPct
+                ? Math.floor(maxRes * 0.80)
+                : Math.min(Math.floor(maxRes * 0.90), desiredMaxByTtc);
+            const excess = Math.max(0, qty - desiredMax);
             if (excess <= 0) continue;
 
             // Verificar se já há transporte pendente deste recurso desta cidade
@@ -304,7 +400,7 @@ export class COO {
 
             // Destino inteligente: cidade que mais precisa do recurso
             // (menor estoque relativo à capacidade), fallback para hub
-            const dest = this._findOverflowDest(res, city.id) ?? this._hub;
+            const dest = this._findOverflowDest(res, city.id, classifications, excess) ?? this._hub;
             if (!dest || dest.id === city.id) continue;
 
             // Verificar se dest tem espaço (não está também em overflow)
@@ -326,6 +422,7 @@ export class COO {
                     cargo:       { [res]: toSend },
                     boats,
                     totalCargo:  toSend,
+                    overflowRelief: true,
                 },
                 scheduledFor: Date.now(),
                 reason:       `COO Overflow: ${res}+${toSend} de ${city.name} → ${dest.name}`,
@@ -352,13 +449,17 @@ export class COO {
     // Padrão: 20% da capacidade máxima do armazém de cada cidade.
 
     _checkMinimumStocks(ctx = null) {
+        const strategicGoal = ctx?.globalGoal ?? null;
         const cities = this._state.getAllCities();
         if (!cities.length) return;
 
         const ledger = this._buildCommitmentLedger();
+        const classifications = this._buildCityClassification();
+        this._cityClassifications = classifications;
 
         // Fallback: mínimo padrão = fração da capacidade
-        const minFraction = this._config.get('minStockFraction') ?? 0.20;
+        const policy = this._resolveTransportPolicy(ctx ?? this._strategicCtx);
+        const minFraction = policy.minStockFraction;
         const RESOURCES   = ['wood', 'marble', 'glass', 'sulfur']; // vinho tratado pelo HR
 
         for (const city of cities) {
@@ -390,7 +491,7 @@ export class COO {
                 if (existing) continue;
 
                 // Tentar fonte única
-                const source = this._findSource(res, deficit, city.id, ledger);
+                const source = this._findSource(res, deficit, city.id, ledger, classifications);
                 if (source) {
                     this._audit.info('COO',
                         `Estoque mínimo: ${city.name} precisa +${deficit} de ${res} ` +
@@ -399,7 +500,7 @@ export class COO {
                     const boats = Math.ceil(deficit / 500);
                     this._queue.add({
                         type:     TASK_TYPE.TRANSPORT,
-                        priority: 20,
+                        priority: policy.minStockPriority,
                         cityId:   source.id,
                         payload: {
                             fromCityId:  source.id,
@@ -409,9 +510,12 @@ export class COO {
                             boats,
                             totalCargo:  deficit,
                             minStock:    true,
+                            strategicGoal,
+                            strategicStage: (ctx ?? this._strategicCtx)?.stage ?? null,
                         },
                         scheduledFor: Date.now(),
-                        reason:       `COO MinStock: ${res}+${deficit} → ${city.name} (mín ${minTarget})`,
+                        reason:       `COO MinStock: ${res}+${deficit} → ${city.name} (mín ${minTarget})` +
+                            (strategicGoal ? ` [goal=${strategicGoal}]` : ''),
                         module:       'COO',
                         confidence:   this._state.getConfidence(source.id),
                     });
@@ -424,7 +528,7 @@ export class COO {
                     });
                 } else {
                     // Tentar multi-fonte
-                    const sources = this._findMultiSource(res, deficit, city.id, ledger);
+                    const sources = this._findMultiSource(res, deficit, city.id, ledger, classifications);
                     if (!sources) {
                         this._audit.debug('COO',
                             `MinStock: sem fonte para ${res}+${deficit} em ${city.name} — recursos insuficientes no sistema`
@@ -439,7 +543,7 @@ export class COO {
                         const boats = Math.ceil(partial / 500);
                         this._queue.add({
                             type:     TASK_TYPE.TRANSPORT,
-                            priority: 20,
+                            priority: policy.minStockPriority,
                             cityId:   src.id,
                             payload: {
                                 fromCityId:  src.id,
@@ -449,9 +553,12 @@ export class COO {
                                 boats,
                                 totalCargo:  partial,
                                 minStock:    true,
+                                strategicGoal,
+                                strategicStage: (ctx ?? this._strategicCtx)?.stage ?? null,
                             },
                             scheduledFor: Date.now(),
-                            reason:       `COO MinStock multi: ${res}+${partial} → ${city.name}`,
+                            reason:       `COO MinStock multi: ${res}+${partial} → ${city.name}` +
+                                (strategicGoal ? ` [goal=${strategicGoal}]` : ''),
                             module:       'COO',
                             confidence:   this._state.getConfidence(src.id),
                         });
@@ -469,23 +576,43 @@ export class COO {
      * Encontra a cidade que mais precisa de `resource` (menor % de capacidade),
      * excluindo a cidade origem e cidades já em overflow do mesmo recurso.
      */
-    _findOverflowDest(resource, excludeCityId) {
+    _findOverflowDest(resource, excludeCityId, classifications = null, amountHint = 0) {
+        const _classifications = classifications ?? this._cityClassifications;
         const cities = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
             .filter(c => {
                 const max = c.maxResources ?? 0;
                 if (max === 0) return false;
-                // Não enviar para cidade que também está em overflow
-                return (c.resources[resource] ?? 0) < max * 0.90;
+                const current = c.resources[resource] ?? 0;
+                const space = Math.max(0, max - current);
+                if (space <= 0) return false;
+                const cls = _classifications.get(c.id);
+                if (cls?.overflowFlags?.[resource]) return false;
+                return true;
             });
 
         if (!cities.length) return this._hub ?? null;
 
-        // Cidade com menor % de estoque = mais necessitada
+        // Preferir cidades com necessidade real e espaço disponível.
         return cities.sort((a, b) => {
+            const clsA = _classifications.get(a.id);
+            const clsB = _classifications.get(b.id);
+            const maxA = a.maxResources || 1;
+            const maxB = b.maxResources || 1;
+            const needA = clsA?.deficitFlags?.[resource] ? 1 : 0;
+            const needB = clsB?.deficitFlags?.[resource] ? 1 : 0;
+            if (needB !== needA) return needB - needA;
             const pctA = (a.resources[resource] ?? 0) / (a.maxResources || 1);
             const pctB = (b.resources[resource] ?? 0) / (b.maxResources || 1);
-            return pctA - pctB;
+            if (pctA !== pctB) return pctA - pctB;
+
+            const spaceA = Math.max(0, maxA - (a.resources[resource] ?? 0));
+            const spaceB = Math.max(0, maxB - (b.resources[resource] ?? 0));
+            if (amountHint > 0 && Math.abs(spaceB - spaceA) > 0) return spaceB - spaceA;
+
+            const pressureA = clsA?.storagePressure ?? 1;
+            const pressureB = clsB?.storagePressure ?? 1;
+            return pressureA - pressureB;
         })[0];
     }
 
@@ -547,53 +674,51 @@ export class COO {
 
     // ── Busca de fonte (ledger-aware) ─────────────────────────────────────────
 
-    /** Cidades que produzem `resource` como tradegood da ilha. */
-    _getProducers(resource) {
-        const ordinal = TradeGoodOrdinals[resource.toUpperCase()];
-        if (!ordinal) return [];
-        return this._state.getAllCities().filter(c => c.tradegood === ordinal);
-    }
-
-    _findSource(resource, amount, excludeCityId, ledger = null) {
+    _findSource(resource, amount, excludeCityId, ledger = null, classifications = null) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
+        const _classifications = classifications ?? this._cityClassifications;
 
         const cities = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
             .map(c => {
-                const safetyStock = this._getCitySafetyStock(c, resource);
+                const cityClass = _classifications.get(c.id) ?? null;
+                const safetyStock = this._getCitySafetyStock(c, resource, cityClass);
                 const available = Math.max(0, this._availableAfterCommitments(c.id, resource, _ledger) - safetyStock);
-                return { city: c, available };
+                return {
+                    city: c,
+                    available,
+                    producer: this._isProducerForResource(cityClass, resource),
+                };
             })
             .filter(e => e.available >= amount)
-            .sort((a, b) => b.available - a.available || Number(a.city.id) - Number(b.city.id));
+            .sort((a, b) => {
+                if (b.producer !== a.producer) return Number(b.producer) - Number(a.producer);
+                const aHub = this._hub && a.city.id === this._hub.id ? 1 : 0;
+                const bHub = this._hub && b.city.id === this._hub.id ? 1 : 0;
+                if (bHub !== aHub) return bHub - aHub;
+                return b.available - a.available || Number(a.city.id) - Number(b.city.id);
+            });
 
         if (!cities.length) return null;
-
-        // Prioridade: produtor → hub → mais disponível
-        const producerIds = new Set(this._getProducers(resource).map(p => p.id));
-        const producerEntry = cities.find(e => producerIds.has(e.city.id));
-        if (producerEntry) return producerEntry.city;
-
-        const hubEntry = this._hub ? cities.find(e => e.city.id === this._hub.id) : null;
-        if (hubEntry) return hubEntry.city;
-
         return cities[0].city;
     }
 
     /** Múltiplas fontes para cobrir `amount`. Retorna [{city, amount}] ou null. */
-    _findMultiSource(resource, amount, excludeCityId, ledger = null) {
+    _findMultiSource(resource, amount, excludeCityId, ledger = null, classifications = null) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
-
-        const producerIds = new Set(this._getProducers(resource).map(p => p.id));
+        const _classifications = classifications ?? this._cityClassifications;
 
         const candidates = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
             .map(c => ({
                 city:     c,
                 avail:    Math.max(0,
-                    Math.floor(this._availableAfterCommitments(c.id, resource, _ledger) - this._getCitySafetyStock(c, resource))
+                    Math.floor(
+                        this._availableAfterCommitments(c.id, resource, _ledger) -
+                        this._getCitySafetyStock(c, resource, _classifications.get(c.id) ?? null)
+                    )
                 ),
-                producer: producerIds.has(c.id),
+                producer: this._isProducerForResource(_classifications.get(c.id) ?? null, resource),
             }))
             .filter(e => e.avail > 0)
             // Produtores primeiro, depois por quantidade disponível
@@ -613,13 +738,127 @@ export class COO {
         return remaining <= 0 ? result : null;
     }
 
-    _getCitySafetyStock(city, resource) {
-        const fraction = this._config.get('minStockFraction') ?? 0.20;
+    _getCitySafetyStock(city, resource, cityClass = null) {
+        const policy = this._resolveTransportPolicy(this._strategicCtx);
+        const fraction = policy.minStockFraction;
+        const producerMultiplier = this._config.get('producerSafetyStockMultiplier') ?? 1.35;
         const maxResRaw = city?.maxResources;
         const maxRes = typeof maxResRaw === 'number'
             ? maxResRaw
             : Number(maxResRaw?.[resource] ?? 0);
-        return Math.floor(Math.max(0, maxRes) * fraction);
+        const base = Math.floor(Math.max(0, maxRes) * fraction);
+        const isProducer = this._isProducerForResource(cityClass, resource);
+        return isProducer ? Math.ceil(base * producerMultiplier) : base;
+    }
+
+    _resolveTransportPolicy(ctx = null) {
+        const stage = ctx?.stage ?? null;
+        const goal = ctx?.globalGoal ?? null;
+        const growthStage = ctx?.growthPolicy?.growthStage ?? ctx?.growthStage ?? null;
+        const resourceFocus = ctx?.growthPolicy?.recommendedResourceFocus ?? null;
+        const baseMinStockFraction = this._config.get('minStockFraction') ?? 0.20;
+
+        const policy = {
+            minStockFraction: baseMinStockFraction,
+            minStockPriority: 20,
+            wineEmergencyCoverageHours: 24,
+        };
+
+        if (stage === EMPIRE_STAGE.BOOTSTRAP) {
+            policy.minStockFraction = Math.max(baseMinStockFraction, 0.25);
+            policy.minStockPriority = 24;
+            policy.wineEmergencyCoverageHours = 18;
+        } else if (stage === EMPIRE_STAGE.PRE_EXPANSION) {
+            policy.minStockFraction = Math.max(baseMinStockFraction, 0.30);
+            policy.minStockPriority = 16;
+            policy.wineEmergencyCoverageHours = 30;
+        } else if (stage === EMPIRE_STAGE.MULTI_CITY_EARLY) {
+            policy.minStockFraction = Math.max(baseMinStockFraction, 0.28);
+            policy.minStockPriority = 12;
+            policy.wineEmergencyCoverageHours = 28;
+        }
+
+        if (goal === GLOBAL_GOAL.PREPARE_EXPANSION) {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.32);
+            policy.minStockPriority = Math.min(policy.minStockPriority, 14);
+        }
+        if (goal === GLOBAL_GOAL.CONSOLIDATE_NEW_CITY) {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.30);
+            policy.minStockPriority = Math.min(policy.minStockPriority, 12);
+        }
+        if (goal === GLOBAL_GOAL.SURVIVE) {
+            policy.minStockPriority = Math.max(policy.minStockPriority, 26);
+            policy.wineEmergencyCoverageHours = Math.max(policy.wineEmergencyCoverageHours, 36);
+        }
+
+        // Overlay incremental da policy de crescimento (sem substituir stage/goal atuais).
+        if (growthStage === 'BOOTSTRAP_CITY') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.26);
+            policy.minStockPriority = Math.max(policy.minStockPriority, 24);
+            policy.wineEmergencyCoverageHours = Math.max(policy.wineEmergencyCoverageHours, 20);
+        } else if (growthStage === 'STABILIZE_CITY') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.28);
+            policy.minStockPriority = Math.max(policy.minStockPriority, 20);
+            policy.wineEmergencyCoverageHours = Math.max(policy.wineEmergencyCoverageHours, 24);
+        } else if (growthStage === 'THROUGHPUT_GROWTH') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.24);
+            policy.minStockPriority = Math.max(policy.minStockPriority, 18);
+        } else if (growthStage === 'PREPARE_EXPANSION') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.32);
+            policy.minStockPriority = Math.min(policy.minStockPriority, 14);
+            policy.wineEmergencyCoverageHours = Math.max(policy.wineEmergencyCoverageHours, 30);
+        } else if (growthStage === 'CONSOLIDATE_NEW_CITY') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.30);
+            policy.minStockPriority = Math.min(policy.minStockPriority, 12);
+            policy.wineEmergencyCoverageHours = Math.max(policy.wineEmergencyCoverageHours, 28);
+        }
+
+        if (resourceFocus === 'SUPPLY_STABILITY') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.30);
+        } else if (resourceFocus === 'EXPANSION_STOCKPILE') {
+            policy.minStockFraction = Math.max(policy.minStockFraction, 0.33);
+            policy.minStockPriority = Math.min(policy.minStockPriority, 12);
+        }
+
+        return policy;
+    }
+
+    _isProducerForResource(cityClass, resource) {
+        if (!cityClass) return false;
+        if (resource === 'wine') return cityClass.roles?.includes(CITY_ROLE.PRODUCER_WINE) ?? false;
+        if (resource === 'marble') return cityClass.roles?.includes(CITY_ROLE.PRODUCER_MARBLE) ?? false;
+        if (resource === 'glass') return cityClass.roles?.includes(CITY_ROLE.PRODUCER_CRYSTAL) ?? false;
+        if (resource === 'sulfur') return cityClass.roles?.includes(CITY_ROLE.PRODUCER_SULFUR) ?? false;
+        return false;
+    }
+
+    _buildCityClassification({ buildFocusCityIds = null } = {}) {
+        const cities = this._state.getAllCities();
+        const inTransitByCity = new Map();
+        for (const city of cities) {
+            inTransitByCity.set(city.id, this._state.getInTransit?.(city.id) ?? createEmptyResources());
+        }
+
+        const buildFocus = buildFocusCityIds ?? new Set(
+            this._queue.getPending()
+                .filter(t => t.type === TASK_TYPE.BUILD)
+                .map(t => t.cityId)
+        );
+
+        const classifications = classifyCities(cities, {
+            hubCityId: this._hub?.id ?? null,
+            minStockFraction: this._config.get('minStockFraction') ?? 0.20,
+            overflowThresholdPct: this._config.get('overflowThresholdPct') ?? 0.95,
+            overflowTimeToCapHours: this._config.get('overflowTimeToCapHours') ?? 2,
+            buildFocusCityIds: buildFocus,
+            inTransitByCity,
+        });
+
+        const map = new Map();
+        for (const cls of classifications) {
+            map.set(cls.cityId, cls);
+        }
+        return map;
     }
 
     // ── ETA de transporte ─────────────────────────────────────────────────────

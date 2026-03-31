@@ -262,7 +262,7 @@ async function boot() {
 
     // ── Camada 5: UI ──────────────────────────────────────────────────────────
     window.__ERP_BOOT_STAGE = 'ui.init';
-    const bridge = new UIBridge({ events: Events, state, queue, audit, config, dc, healthCheck });
+    const bridge = new UIBridge({ events: Events, state, queue, audit, config, dc, healthCheck, planner, coo });
     bridge.init();
     const extUrl = document.querySelector('script[data-ext-url]')?.dataset.extUrl ?? '';
     await initPanel({ events: Events, config, extUrl });

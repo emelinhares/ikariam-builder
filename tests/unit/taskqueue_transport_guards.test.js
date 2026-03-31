@@ -116,5 +116,65 @@ describe('TaskQueue transport guards', () => {
       },
     })).rejects.toThrow(/navios insuficientes/i);
   });
+
+  test('bloqueia carga pequena quando não essencial (load factor baixo)', async () => {
+    const { queue } = createQueueHarness({ config: { transportMinLoadFactor: 0.9 } });
+
+    await expect(queue._guardTransport({
+      module: 'COO',
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 999,
+        cargo: { wood: 100 },
+        boats: 1,
+      },
+    })).rejects.toThrow(/carga .*mínimo/i);
+  });
+
+  test('permite exceção controlada de load factor para JIT build', async () => {
+    const { queue } = createQueueHarness({ config: { transportMinLoadFactor: 0.9 } });
+
+    await expect(queue._guardTransport({
+      module: 'COO',
+      reasonCode: 'COO_JIT_TRANSPORT_FOR_BUILD',
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 999,
+        cargo: { wood: 100 },
+        boats: 1,
+        jitBuild: true,
+      },
+    })).resolves.not.toThrow();
+  });
+
+  test('permite exceção controlada de load factor para min-stock e overflow', async () => {
+    const { queue } = createQueueHarness({ config: { transportMinLoadFactor: 0.9 } });
+
+    await expect(queue._guardTransport({
+      module: 'COO',
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 999,
+        cargo: { marble: 120 },
+        boats: 1,
+        minStock: true,
+      },
+    })).resolves.not.toThrow();
+
+    await expect(queue._guardTransport({
+      module: 'COO',
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 999,
+        cargo: { sulfur: 150 },
+        boats: 1,
+        overflowRelief: true,
+      },
+    })).resolves.not.toThrow();
+  });
 });
 

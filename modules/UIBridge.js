@@ -3,9 +3,10 @@
 // panel.js nunca toca em StateManager diretamente — só lê UIState via Events.
 
 import { nanoid } from './utils.js';
+import { COST_REDUCERS } from '../data/research.js';
 
 export class UIBridge {
-    constructor({ events, state, queue, audit, config, dc, healthCheck = null }) {
+    constructor({ events, state, queue, audit, config, dc, healthCheck = null, planner = null, coo = null }) {
         this._events = events;
         this._state  = state;
         this._queue  = queue;
@@ -13,6 +14,8 @@ export class UIBridge {
         this._config = config;
         this._dc     = dc;           // DataCollector — para setRecMode
         this._healthCheck = healthCheck;
+        this._planner = planner;
+        this._coo = coo;
         this._alerts = [];           // Alert[]
         this._rebuildTimer = null;
         this._hybridLatest = new Map(); // taskId -> { pathDecision?, attemptOutcome? }
@@ -94,10 +97,23 @@ export class UIBridge {
     _buildUIState() {
         const mode     = this._config.get('operationMode');
         const cities   = this._state.getAllCities();
-        const allTasks = [
+        const plannerSummary = this._planner?.getLastSummary?.() ?? null;
+        const plannerCtx = this._planner?.getLastContext?.() ?? null;
+        const readinessByCity = plannerCtx?.readiness?.cityReadinessByCityId ?? {};
+        const cityClassifications = this._coo?.getCityClassifications?.() ?? new Map();
+        const hub = this._coo?.getHub?.() ?? null;
+        const activeTasks = this._queue.getActive?.() ?? [
             ...this._queue.getPending(),
+            ...this._queue.getHistory().filter(t => t.status === 'in-flight' || t.status === 'blocked'),
+        ];
+        const allTasks = [
+            ...activeTasks,
             ...this._queue.getHistory(),
         ];
+        const strategicSummary = this._buildStrategicSummary({ plannerSummary, plannerCtx });
+        const operations = this._buildOperations({ activeTasks, allTasks, strategicSummary });
+        const growthFinance = this._buildGrowthFinance({ plannerSummary, plannerCtx, strategicSummary });
+        const research = this._buildResearchSummary({ allTasks, strategicSummary });
         const nextAction = this._buildNextAction(allTasks);
 
         return {
@@ -116,6 +132,10 @@ export class UIBridge {
                 inFlight:  allTasks.filter(t => t.status === 'in-flight' || t.status === 'blocked').map(t => this._withHybridTaskMeta(t)),
                 completed: this._queue.getHistory().slice(-20).map(t => this._withHybridTaskMeta(t)),
             },
+            strategicSummary,
+            operations,
+            growthFinance,
+            research,
             cities: cities.map(c => ({
                 id:               c.id,
                 name:             c.name,
@@ -132,6 +152,17 @@ export class UIBridge {
                 corruption:       c.economy.corruption,
                 construction:     this._buildConstructionInfo(c),
                 freeTransporters: c.freeTransporters,
+                islandResource: cityClassifications.get(c.id)?.islandResource ?? null,
+                productionPerHour: cityClassifications.get(c.id)?.productionPerHour ?? null,
+                storagePressure: cityClassifications.get(c.id)?.storagePressure ?? null,
+                timeToCapHours: cityClassifications.get(c.id)?.timeToCapHours ?? null,
+                minTimeToCapHours: cityClassifications.get(c.id)?.minTimeToCapHours ?? null,
+                roles: cityClassifications.get(c.id)?.roles ?? [],
+                readiness: readinessByCity[c.id]?.cityReadiness ?? null,
+                blockingFactors: readinessByCity[c.id]?.blockingFactors ?? [],
+                readinessReasons: readinessByCity[c.id]?.reasons ?? [],
+                wineCoverageHours: plannerCtx?.cities?.get?.(c.id)?.wineHours ?? this._estimateWineCoverageHours(c),
+                isHub: hub?.id === c.id,
             })),
             cityDetail: null,
             fleetMovements: this._buildFleetMovements(),
@@ -144,6 +175,124 @@ export class UIBridge {
             healthCheck: this._healthCheck?.getState?.() ?? null,
             recMode: this._recMode,
         };
+    }
+
+    _buildStrategicSummary({ plannerSummary = null, plannerCtx = null } = {}) {
+        const readiness = plannerCtx?.readiness ?? {};
+        const fleetPolicy = plannerCtx?.fleetPolicy ?? {};
+        return {
+            currentStage: plannerSummary?.stage ?? plannerCtx?.stage ?? null,
+            globalGoal: plannerSummary?.globalGoal ?? plannerCtx?.globalGoal ?? null,
+            goalReason: plannerSummary?.goalReason ?? plannerCtx?.goalReason ?? null,
+            empireReadiness: readiness.empireReadiness ?? plannerSummary?.empireReadiness ?? 0,
+            expansionReady: Boolean(readiness.expansionReady ?? plannerSummary?.expansionReady),
+            consolidationNeeded: Boolean(readiness.consolidationNeeded ?? plannerSummary?.consolidationNeeded),
+            fleetReadiness: Number(fleetPolicy?.fleetReadiness ?? plannerSummary?.fleetReadiness ?? 1),
+            blockedByFleet: Boolean(fleetPolicy?.blockedByFleet ?? plannerSummary?.blockedByFleet),
+            freeCargoShips: Number(fleetPolicy?.freeCargoShips ?? plannerSummary?.freeCargoShips ?? 0),
+            totalCargoShips: Number(fleetPolicy?.totalCargoShips ?? plannerSummary?.totalCargoShips ?? 0),
+            recommendedCargoShipsToBuy: Number(fleetPolicy?.recommendedCargoShipsToBuy ?? plannerSummary?.recommendedCargoShipsToBuy ?? 0),
+        };
+    }
+
+    _buildOperations({ activeTasks = [], allTasks = [], strategicSummary = null } = {}) {
+        const queueCurrent = activeTasks
+            .filter(t => t.status !== 'done' && t.status !== 'failed')
+            .sort((a, b) => (a.phase ?? 99) - (b.phase ?? 99) || (a.priority ?? 99) - (b.priority ?? 99));
+
+        const outcomesRecent = [...allTasks]
+            .map(t => ({ task: t, outcome: t.lastOutcome ?? t.hybrid?.attemptOutcome ?? null }))
+            .filter(({ outcome }) => !!outcome)
+            .sort((a, b) => (b.outcome?.timestamp ?? 0) - (a.outcome?.timestamp ?? 0))
+            .slice(0, 12)
+            .map(({ task, outcome }) => ({
+                taskId: task.id,
+                type: task.type,
+                cityId: task.cityId,
+                strategicGoal: task.payload?.strategicGoal ?? strategicSummary?.globalGoal ?? null,
+                outcomeClass: outcome?.outcomeClass ?? null,
+                reasonCode: outcome?.reasonCode ?? null,
+                latency: outcome?.latencyMs ?? null,
+                evidence: Array.isArray(outcome?.evidence) ? outcome.evidence.slice(0, 3) : [],
+            }));
+
+        const activeBlockers = activeTasks
+            .filter(t => t.status === 'blocked' || t.status === 'waiting_resources')
+            .map(t => ({
+                taskId: t.id,
+                type: t.type,
+                cityId: t.cityId,
+                blockerCode: t.lastBlockerCode ?? t.reasonCode ?? t.lastOutcome?.reasonCode ?? null,
+                status: t.status,
+            }));
+
+        return {
+            queueCurrent: queueCurrent.map(t => this._withHybridTaskMeta(t)),
+            outcomesRecent,
+            activeBlockers,
+        };
+    }
+
+    _buildGrowthFinance({ plannerSummary = null, plannerCtx = null, strategicSummary = null } = {}) {
+        const readiness = plannerCtx?.readiness ?? {};
+        const reasons = Array.isArray(readiness.reasons) ? readiness.reasons : [];
+        const blockingFactors = Array.isArray(readiness.blockingFactors) ? readiness.blockingFactors : [];
+        const fleetPolicy = plannerCtx?.fleetPolicy ?? {};
+        const phase = strategicSummary?.currentStage;
+        const nextMilestone = strategicSummary?.expansionReady
+            ? 'Expansion gate passed'
+            : 'Stabilize readiness gates';
+        const nextRecommendedPhase = strategicSummary?.expansionReady
+            ? 'PRE_EXPANSION -> MULTI_CITY_EARLY'
+            : phase === 'BOOTSTRAP'
+                ? 'EARLY_GROWTH'
+                : 'CONSOLIDATION';
+
+        return {
+            empireReadiness: readiness.empireReadiness ?? plannerSummary?.empireReadiness ?? 0,
+            reasons,
+            blockingFactors,
+            nextMilestone,
+            nextRecommendedPhase,
+            fleetReadiness: Number(fleetPolicy?.fleetReadiness ?? strategicSummary?.fleetReadiness ?? 1),
+            blockedByFleet: Boolean(fleetPolicy?.blockedByFleet ?? strategicSummary?.blockedByFleet),
+            freeCargoShips: Number(fleetPolicy?.freeCargoShips ?? strategicSummary?.freeCargoShips ?? 0),
+            totalCargoShips: Number(fleetPolicy?.totalCargoShips ?? strategicSummary?.totalCargoShips ?? 0),
+            recommendedCargoShipsToBuy: Number(
+                fleetPolicy?.recommendedCargoShipsToBuy ?? strategicSummary?.recommendedCargoShipsToBuy ?? 0
+            ),
+        };
+    }
+
+    _buildResearchSummary({ allTasks = [], strategicSummary = null } = {}) {
+        const current = this._state.research?.inProgress ?? null;
+        const pendingResearchTask = allTasks
+            .find(t => t.type === 'RESEARCH' && (t.status === 'pending' || t.status === 'planned' || t.status === 'in-flight'));
+        const investigated = this._state.research?.investigated instanceof Set
+            ? this._state.research.investigated
+            : new Set();
+        const fallbackNext = COST_REDUCERS.find(id => !investigated.has(id)) ?? null;
+        const nextResearchId = pendingResearchTask?.payload?.researchId ?? fallbackNext;
+
+        return {
+            currentResearch: current ? {
+                id: current.researchId ?? null,
+                finishTs: current.finishTs ?? null,
+            } : null,
+            nextResearch: nextResearchId ? {
+                id: nextResearchId,
+                reason: pendingResearchTask?.reason ?? 'Research progression by strategic sequence',
+            } : null,
+            strategicReason: pendingResearchTask?.reason ?? `Align research with stage=${strategicSummary?.currentStage ?? 'N/A'}`,
+            goalAlignment: strategicSummary?.globalGoal ?? null,
+        };
+    }
+
+    _estimateWineCoverageHours(city) {
+        const spendings = Number(city?.production?.wineSpendings ?? 0);
+        if (!Number.isFinite(spendings) || spendings <= 0) return Infinity;
+        const wine = Number(city?.resources?.wine ?? 0);
+        return Math.max(0, wine / spendings);
     }
 
     // ── Alertas ───────────────────────────────────────────────────────────────

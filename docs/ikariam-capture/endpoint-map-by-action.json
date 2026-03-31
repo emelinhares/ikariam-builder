@@ -1,0 +1,117 @@
+[
+  {
+    "method": "GET",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1",
+    "hits": 4,
+    "steps": [
+      91,
+      94,
+      97,
+      100
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=townHall&cityId=19251&position=0&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityWorldviewScale=1&backgroundView=city&currentCityId=19251&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      92
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=port&cityId=19251&position=1&backgroundView=city&currentCityId=19251&templateView=townHall&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      92
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=transport&destinationCityId=19252&position=1&activeTab=tabSendTransporter&backgroundView=city&currentCityId=19251&templateView=port&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      93
+    ]
+  },
+  {
+    "method": "GET",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19252",
+    "hits": 1,
+    "steps": [
+      93
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=townHall&cityId=19252&position=0&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityWorldviewScale=1&backgroundView=city&currentCityId=19252&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      95
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=port&cityId=19252&position=1&backgroundView=city&currentCityId=19252&templateView=townHall&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      95
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=transport&destinationCityId=19253&position=1&activeTab=tabSendTransporter&backgroundView=city&currentCityId=19252&templateView=port&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      96
+    ]
+  },
+  {
+    "method": "GET",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19253",
+    "hits": 1,
+    "steps": [
+      96
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=townHall&cityId=19253&position=0&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityWorldviewScale=1&backgroundView=city&currentCityId=19253&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      98
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=port&cityId=19253&position=1&backgroundView=city&currentCityId=19253&templateView=townHall&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      98
+    ]
+  },
+  {
+    "method": "GET",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=city&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityRight=&cityWorldviewScale=1&cityId=19254",
+    "hits": 1,
+    "steps": [
+      99
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=townHall&cityId=19254&position=0&oldBackgroundView=city&containerWidth=1600px&containerHeight=900px&worldviewWidth=1600px&worldviewHeight=854px&cityTop=0px&cityLeft=-1976px&cityWorldviewScale=1&backgroundView=city&currentCityId=19254&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      101
+    ]
+  },
+  {
+    "method": "POST",
+    "url": "https://s72-br.ikariam.gameforge.com/?view=port&cityId=19254&position=1&backgroundView=city&currentCityId=19254&templateView=townHall&actionRequest=001548f6339df788049826cdcad1bd4b&ajax=1",
+    "hits": 1,
+    "steps": [
+      101
+    ]
+  }
+]

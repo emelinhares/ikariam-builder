@@ -43,6 +43,12 @@
 //     - QUEUE_TASK_FAILED → mini-ciclo imediato (COO replaneja logística)
 
 import { WINE_USE } from '../data/wine.js';
+import { getWarehouseSafe } from '../data/effects.js';
+import { detectEmpireStage } from './EmpireStage.js';
+import { chooseGlobalGoal } from './GoalEngine.js';
+import { evaluateGrowthPolicy } from './GrowthPolicy.js';
+import { evaluateFleetPolicy } from './FleetPolicy.js';
+import { evaluateWorkforcePolicy } from './WorkforcePolicy.js';
 
 // Antecedência mínima para acordar antes de um evento (ms)
 const WAKE_LEAD_MS       = 5 * 60 * 1000;   // 5min antes do evento
@@ -69,6 +75,22 @@ export class Planner {
         this._adaptiveTimer  = null;    // setTimeout do próximo wake-up adaptativo
         this._reactiveTimer  = null;    // setTimeout do wake-up reativo (debounced)
         this._lastCycleTs    = 0;       // timestamp do último ciclo concluído
+        this._lastSummary    = null;
+        this._lastContext    = null;
+    }
+
+    getLastSummary() {
+        return this._lastSummary ? { ...this._lastSummary } : null;
+    }
+
+    getLastContext() {
+        if (!this._lastContext) return null;
+        return {
+            ...this._lastContext,
+            cities: this._lastContext.cities instanceof Map
+                ? new Map(this._lastContext.cities)
+                : this._lastContext.cities,
+        };
     }
 
     init() {
@@ -309,6 +331,8 @@ export class Planner {
         );
 
         this._lastCycleTs = Date.now();
+        this._lastSummary = summary;
+        this._lastContext = ctx;
         this._events.emit(this._events.E.PLANNER_CYCLE_DONE, { ts, summary, ctx });
 
         // Agendar próximo wake-up baseado no estado atual
@@ -319,9 +343,12 @@ export class Planner {
 
     _buildContext(ts) {
         const cities    = new Map();
+        const allCities = this._state.getAllCities();
         const threshold = this._config.get('wineEmergencyHours') ?? 4;
+        const queuePending = this._queue.getPending?.() ?? [];
+        const queueHistory = this._queue.getHistory?.() ?? [];
 
-        for (const city of this._state.getAllCities()) {
+        for (const city of allCities) {
             const wine = city.resources?.wine ?? 0;
 
             // wineSpendings pode zerar quando estoque acaba — usar WINE_USE como fallback
@@ -353,7 +380,160 @@ export class Planner {
             });
         }
 
-        return { ts, cities };
+        const stageInfoBase = detectEmpireStage({
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        const goalInfoBase = chooseGlobalGoal({
+            stage: stageInfoBase.stage,
+            stageMetrics: stageInfoBase.metrics,
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        const readinessBase = {
+            cityReadiness: stageInfoBase.metrics?.cityReadiness ?? 0,
+            empireReadiness: stageInfoBase.metrics?.expansionReadiness ?? 0,
+            expansionReady: Boolean(stageInfoBase.metrics?.expansionReady),
+            consolidationNeeded: Boolean(stageInfoBase.metrics?.consolidationNeeded),
+            reasons: stageInfoBase.metrics?.readinessReasons ?? [],
+            blockingFactors: stageInfoBase.metrics?.readinessBlockingFactors ?? [],
+            cityReadinessByCityId: stageInfoBase.metrics?.cityReadinessByCityId ?? {},
+        };
+
+        const growthPolicyBase = evaluateGrowthPolicy({
+            stage: stageInfoBase.stage,
+            globalGoal: goalInfoBase.goal,
+            readiness: readinessBase,
+            stageMetrics: stageInfoBase.metrics,
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        const fleetPolicy = evaluateFleetPolicy({
+            stage: stageInfoBase.stage,
+            globalGoal: goalInfoBase.goal,
+            growthStage: growthPolicyBase.growthStage,
+            empireReadiness: readinessBase.empireReadiness,
+            cities: allCities,
+            cityContexts: cities,
+            stageMetrics: {
+                ...stageInfoBase.metrics,
+                capitalAtRisk: this._estimateCapitalAtRisk(allCities),
+            },
+            queuePending,
+            queueHistory,
+        });
+
+        const stageInfo = detectEmpireStage({
+            cities: allCities,
+            cityContexts: cities,
+            fleetPolicy,
+        });
+
+        const readiness = {
+            cityReadiness: stageInfo.metrics?.cityReadiness ?? 0,
+            empireReadiness: stageInfo.metrics?.expansionReadiness ?? 0,
+            expansionReady: Boolean(stageInfo.metrics?.expansionReady),
+            consolidationNeeded: Boolean(stageInfo.metrics?.consolidationNeeded),
+            reasons: stageInfo.metrics?.readinessReasons ?? [],
+            blockingFactors: stageInfo.metrics?.readinessBlockingFactors ?? [],
+            cityReadinessByCityId: stageInfo.metrics?.cityReadinessByCityId ?? {},
+        };
+
+        const goalInfo = chooseGlobalGoal({
+            stage: stageInfo.stage,
+            stageMetrics: stageInfo.metrics,
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        const growthPolicy = evaluateGrowthPolicy({
+            stage: stageInfo.stage,
+            globalGoal: goalInfo.goal,
+            readiness,
+            stageMetrics: stageInfo.metrics,
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        const workforcePolicy = evaluateWorkforcePolicy({
+            cities: allCities,
+            cityContexts: cities,
+            stage: stageInfo.stage,
+            globalGoal: goalInfo.goal,
+            growthStage: growthPolicy.growthStage,
+            readiness,
+        });
+
+        const readinessWithWorkforce = {
+            ...readiness,
+            empireReadiness: Number((((readiness.empireReadiness ?? 0) + (workforcePolicy.workforceReadiness ?? 0)) / 2).toFixed(2)),
+            reasons: [
+                ...(Array.isArray(readiness.reasons) ? readiness.reasons : []),
+                ...(Array.isArray(workforcePolicy.reasons) ? workforcePolicy.reasons : []),
+            ],
+            blockingFactors: [
+                ...(Array.isArray(readiness.blockingFactors) ? readiness.blockingFactors : []),
+                ...(Array.isArray(workforcePolicy.blockingFactors) ? workforcePolicy.blockingFactors : []),
+            ],
+            workforceReadiness: Number(workforcePolicy.workforceReadiness ?? 0),
+            workforceTelemetry: workforcePolicy.telemetry ?? {},
+        };
+
+        for (const [cityId, citySignal] of workforcePolicy.perCity ?? []) {
+            const cityCtx = cities.get(cityId);
+            if (!cityCtx) continue;
+            cityCtx.idlePopulation = citySignal.idlePopulation;
+            cityCtx.workforceUtilization = citySignal.workforceUtilization;
+            cityCtx.productionFloorMet = citySignal.productionFloorMet;
+            cityCtx.recommendedWorkersWood = citySignal.recommendedWorkersWood;
+            cityCtx.recommendedWorkersTradegood = citySignal.recommendedWorkersTradegood;
+            cityCtx.recommendedScientists = citySignal.recommendedScientists;
+            cityCtx.workforceBlockingFactors = citySignal.workforceBlockingFactors;
+            cityCtx.workforceReasons = citySignal.workforceReasons;
+        }
+
+        const growthPolicyWithWorkforce = evaluateGrowthPolicy({
+            stage: stageInfo.stage,
+            globalGoal: goalInfo.goal,
+            readiness: readinessWithWorkforce,
+            stageMetrics: stageInfo.metrics,
+            cities: allCities,
+            cityContexts: cities,
+        });
+
+        this._audit.info('Planner',
+            `Estratégia global: stage=${stageInfo.stage} goal=${goalInfo.goal} ` +
+            `growth=${growthPolicyWithWorkforce.growthStage} milestone=${growthPolicyWithWorkforce.nextMilestone}`
+        );
+
+        return {
+            ts,
+            cities,
+            stage: stageInfo.stage,
+            stageMetrics: stageInfo.metrics,
+            readiness: readinessWithWorkforce,
+            globalGoal: goalInfo.goal,
+            goalReason: goalInfo.reason,
+            goalTelemetry: goalInfo.telemetry,
+            growthPolicy: growthPolicyWithWorkforce,
+            fleetPolicy,
+            workforcePolicy,
+        };
+    }
+
+    _estimateCapitalAtRisk(cities = []) {
+        return (Array.isArray(cities) ? cities : []).reduce((sum, city) => {
+            const warehouseLevel = (city?.buildings ?? [])
+                .filter((b) => b?.building === 'warehouse')
+                .reduce((max, b) => Math.max(max, Number(b?.level ?? 0)), 0);
+            const safeCapacity = getWarehouseSafe(warehouseLevel);
+            const cityAtRisk = Object.values(city?.resources ?? {})
+                .reduce((s, qty) => s + Math.max(0, Number(qty ?? 0) - safeCapacity), 0);
+            return sum + cityAtRisk;
+        }, 0);
     }
 
     _markBuildBlocked(ctx) {
@@ -376,6 +556,24 @@ export class Planner {
         return {
             ts:                     ctx.ts,
             durationMs,
+            stage:                  ctx.stage ?? null,
+            cityReadiness:          ctx.readiness?.cityReadiness ?? 0,
+            empireReadiness:        ctx.readiness?.empireReadiness ?? 0,
+            expansionReady:         Boolean(ctx.readiness?.expansionReady),
+            consolidationNeeded:    Boolean(ctx.readiness?.consolidationNeeded),
+            globalGoal:             ctx.globalGoal ?? null,
+            goalReason:             ctx.goalReason ?? null,
+            growthStage:            ctx.growthPolicy?.growthStage ?? null,
+            nextMilestone:          ctx.growthPolicy?.nextMilestone ?? null,
+            milestoneBlockingFactors: ctx.growthPolicy?.milestoneBlockingFactors ?? [],
+            workforceReadiness:     Number(ctx.readiness?.workforceReadiness ?? 0),
+            workforceBlockingFactors: Array.isArray(ctx.workforcePolicy?.blockingFactors) ? ctx.workforcePolicy.blockingFactors : [],
+            workforceReasons:       Array.isArray(ctx.workforcePolicy?.reasons) ? ctx.workforcePolicy.reasons : [],
+            fleetReadiness:          Number(ctx.fleetPolicy?.fleetReadiness ?? 1),
+            blockedByFleet:          Boolean(ctx.fleetPolicy?.blockedByFleet),
+            freeCargoShips:          Number(ctx.fleetPolicy?.freeCargoShips ?? 0),
+            totalCargoShips:         Number(ctx.fleetPolicy?.totalCargoShips ?? 0),
+            recommendedCargoShipsToBuy: Number(ctx.fleetPolicy?.recommendedCargoShipsToBuy ?? 0),
             citiesWithEmergency:    entries.filter(([, c]) => c.hasCriticalSupply).map(([id]) => id),
             citiesWithBuildBlocked: entries.filter(([, c]) => c.buildBlocked).map(([id]) => id),
             buildsApproved:         entries.filter(([, c]) => c.buildApprovedBy).length,
