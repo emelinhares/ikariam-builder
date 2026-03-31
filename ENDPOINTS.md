@@ -106,6 +106,17 @@ jetPropulsion=0                          ← 1 se tiver pesquisa de propulsão
 currentTab=tabSendTransporter
 actionRequest={token}
 ```
+**Payload real validado no `rec_2113`:**
+``` 
+action=transportOperations function=loadTransportersWithFreight
+destinationCityId=6580 islandId=1030
+premiumTransporter=0 normalTransportersMax=62
+cargo_resource=0 cargo_tradegood1=0 cargo_tradegood2=0 cargo_tradegood3=0 cargo_tradegood4=31000
+capacity=5 max_capacity=5 jetPropulsion=0 transporters=62
+currentCityId=6581 currentTab=tabSendTransporter
+```
+> Referência: `REQ` capturado em [`rec_2113.txt`](rec_2113.txt).
+
 **Fórmula de carga — CONFIRMADA em 2026-03-28:**
 ```
 capacity    = transporters × max_capacity      (ex: 3 × 5 = 15)
@@ -114,6 +125,7 @@ cargo_total = capacity × 100                   (ex: 15 × 100 = 1.500 unidades)
 > ⚠️ O campo `capacity` no HTML do form de transport começa em `0` (valor do slider).
 > Nunca usar esse `0` — sempre calcular `transporters × max_capacity`.
 > Confirmado: 3 barcos enviados, `freeTransporters` caiu de 65→62, 1.500 vinho debitado.
+> ⚠️ Campos de viewport (`mainbox_*`, `sidebar_*`, `containerWidth`, `worldview*`, `cityTop`, `cityLeft`) aparecem nos requests de navegação e podem vir com ruído (`NaN`). Não usar esses campos na assinatura funcional da action.
 
 **Feedback de sucesso:** "A tua ordem foi executada."
 
@@ -173,6 +185,11 @@ GET /index.php?action=UpgradeExistingBuilding&actionRequest={token}&cityId={city
 1. GET `view={edificio}&cityId={id}&position={slot}` → extrair `actionRequest` de `upd[1].actionRequest`
 2. Extrair `level` do `upgradeHref` no HTML retornado (ex: `action=UpgradeExistingBuilding&...&level=9`)
 3. GET imediato `action=UpgradeExistingBuilding&actionRequest={token}&cityId=...&level={nivelAtual}&...&ajax=1`
+
+**Dados de custo e tempo confirmados em `rec_2113`:**
+- `ul.resources li.wood|li.marble|li.crystal` no HTML de `VIEW` traz custo do próximo nível.
+- `li.time` traz tempo resumido e tooltip com tempo completo (inclui segundos).
+- Quando upgrade entra em progresso, o HTML passa a expor `buildingCountdown.startdate` e `buildingCountdown.duration` (milissegundos) para ETA preciso.
 
 ### `CityScreen` function=`cancelBuilding` — Cancelar construção em andamento
 ```
@@ -332,6 +349,25 @@ position=0
 currentCityId={cityId}
 backgroundView=city
 ```
+
+### `IslandScreen` function=`workerPlan` — **REALOCAR WORKERS DA CIDADE** ✅ confirmado no rec_2113
+```
+action=IslandScreen
+function=workerPlan
+screen=TownHall
+cityId={cityId}
+wood={qtdMadeira}
+luxury={qtdTradegood}
+scientists={qtdCientistas}
+priests={qtdSacerdotes}
+type=
+currentCityId={cityId}
+actionRequest={token}
+```
+**Notas:**
+- Captura real observada com payload completo via `townHall`.
+- Este endpoint cobre a lacuna de "populationManagement" para automação server-side.
+- Recomenda-se ler limites pelo DOM da townHall antes de enviar (inputs `data-max`) para evitar rejeição.
 
 ### `CityScreen` — Renomear cidade
 ```
@@ -778,6 +814,6 @@ O `receiverId` (avatarId) está em `cityDetails` templateData → `js_selectedCi
 | Iniciar pesquisa específica | ⚠️ não capturado | Clicar numa pesquisa no researchAdvisor |
 | `resourceTradeType` 333 vs 444 | ⚠️ confirmar | 333=comprar? 444=vender? Testar com oferta conhecida |
 | `deleteOffer` | ⚠️ não capturado | Pode ser `updateOffers` com qtd=0 |
-| `populationManagement` (townHall sliders) | ⚠️ não capturado | Workers de madeira/luxo direto na câmara |
+| Guard rails de `workerPlan` townHall | ⚠️ parcial | Endpoint confirmado; faltam limites de erro do servidor por combinação inválida |
 | `deploymentType=spy` | ⚠️ não capturado | Espionagem militar ativa |
 | Building IDs 18–35 | ⚠️ nomes ausentes | HTML das buildingDetail não lido |

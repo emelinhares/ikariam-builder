@@ -350,6 +350,7 @@ export class CFO {
         const destCity = this._state.getCity(destCityId);
         const inTransitDest = this._state.getInTransit(destCityId);
         const minStockFraction = this._config.get('minStockFraction') ?? 0.20;
+        const commitments = this._buildCommitmentLedger();
 
         const localDeficit = {};
         const globalCover = {};
@@ -377,18 +378,22 @@ export class CFO {
             for (const city of cities) {
                 if (!city || city.id === destCityId) continue;
                 const raw = Number(city.resources?.[res] ?? 0);
+                const committedOut = Number(commitments.get(city.id)?.[res] ?? 0);
+                const netRaw = Math.max(0, raw - committedOut);
                 const maxResRaw = city.maxResources;
                 const maxRes = typeof maxResRaw === 'number'
                     ? maxResRaw
                     : Number(maxResRaw?.[res] ?? 0);
                 const safetyStock = Math.floor(Math.max(0, maxRes) * minStockFraction);
-                const transferable = Math.max(0, raw - safetyStock);
+                const transferable = Math.max(0, netRaw - safetyStock);
 
                 deductions.push({
                     cityId: city.id,
                     cityName: city.name,
                     resource: res,
                     onHand: raw,
+                    committedOut,
+                    netAvailable: netRaw,
                     safetyStock,
                     transferable,
                 });
@@ -401,6 +406,7 @@ export class CFO {
 
             evidence.push(
                 `${res}: localDeficit=${deficit} globalCover=${transferableTotal} ` +
+                `netCommitted=${deductions.map(d => `${d.cityName}:${d.committedOut}`).join('|')} ` +
                 `safetyDeduction=${deductions.map(d => `${d.cityName}:${d.safetyStock}`).join('|')}`
             );
         }
@@ -412,6 +418,46 @@ export class CFO {
             safetyStockDeductions,
             evidence,
         };
+    }
+
+    _buildCommitmentLedger() {
+        const ledger = new Map();
+        const init = (cityId) => {
+            if (!ledger.has(cityId)) {
+                ledger.set(cityId, {
+                    wood: 0,
+                    wine: 0,
+                    marble: 0,
+                    glass: 0,
+                    sulfur: 0,
+                });
+            }
+            return ledger.get(cityId);
+        };
+
+        for (const task of this._queue?.getPending?.() ?? []) {
+            if (task.type !== TASK_TYPE.TRANSPORT) continue;
+            const fromCityId = task.payload?.fromCityId;
+            const cargo = task.payload?.cargo;
+            if (!fromCityId || !cargo) continue;
+            const entry = init(fromCityId);
+            for (const [res, qty] of Object.entries(cargo)) {
+                if (res in entry) entry[res] += Number(qty) || 0;
+            }
+        }
+
+        for (const mv of this._state.fleetMovements ?? []) {
+            if (!mv?.isOwn || mv?.isReturn) continue;
+            const fromCityId = mv.originCityId ?? mv.sourceCityId;
+            const cargo = mv.cargo;
+            if (!fromCityId || !cargo) continue;
+            const entry = init(fromCityId);
+            for (const [res, qty] of Object.entries(cargo)) {
+                if (res in entry) entry[res] += Number(qty) || 0;
+            }
+        }
+
+        return ledger;
     }
 
     // ── Verificação de custeio ────────────────────────────────────────────────

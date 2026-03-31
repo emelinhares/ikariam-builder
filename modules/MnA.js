@@ -2,6 +2,9 @@
 // Detecta novas cidades fundadas na conta e aciona o protocolo de bootstrap:
 // prioridade absoluta para palaceColony até corrupção = 0.
 
+import { getCost } from '../data/buildings.js';
+import { TASK_TYPE } from './taskTypes.js';
+
 export class MnA {
     constructor({ events, audit, config, state, queue, storage }) {
         this._events  = events;
@@ -45,9 +48,8 @@ export class MnA {
             { cityId }
         );
 
-        // A lógica de prioridade do palaceColony já está no CFO._buildingScore:
-        // corruption > 0 → palaceColony recebe score = 100
-        // Não precisamos enfileirar manualmente — o CFO vai cuidar no próximo replan.
+        // Bootstrap-first: não depender do próximo ciclo do CFO para primeira ação.
+        this._enqueueBootstrapPalaceColony(city);
 
         // Cancelar builds grandes desta cidade enquanto corrupção > 0
         // (proteção contra CFO enfileirar algo caro antes do palaceColony)
@@ -62,5 +64,61 @@ export class MnA {
                 }
             }
         }
+    }
+
+    _enqueueBootstrapPalaceColony(city) {
+        const corruption = Number(city?.economy?.corruption ?? 0);
+        if (corruption <= 0) return;
+
+        const pending = this._queue.getPending(city.id);
+        const alreadyQueued = pending.some((task) =>
+            task.type === TASK_TYPE.BUILD && task.payload?.building === 'palaceColony'
+        );
+        if (alreadyQueued) return;
+
+        const slot = (city.buildings ?? []).find((b) => b.building === 'palaceColony');
+        if (!slot) {
+            this._audit.warn('MnA',
+                `Bootstrap palaceColony não enfileirado em ${city.name ?? city.id}: slot da residência do governador não encontrado`,
+                { cityId: city.id }
+            );
+            return;
+        }
+
+        const toLevel = Number(slot.level ?? 0) + 1;
+        const cost = getCost('palaceColony', toLevel);
+        if (!cost) {
+            this._audit.warn('MnA',
+                `Bootstrap palaceColony sem tabela de custo para nível ${toLevel} em ${city.name ?? city.id}`,
+                { cityId: city.id }
+            );
+            return;
+        }
+
+        this._queue.add({
+            type: TASK_TYPE.BUILD,
+            priority: 0,
+            cityId: city.id,
+            payload: {
+                building: 'palaceColony',
+                position: slot.position,
+                buildingView: 'palaceColony',
+                templateView: 'palaceColony',
+                cost,
+                toLevel,
+                currentLevel: toLevel - 1,
+                bootstrap: true,
+            },
+            scheduledFor: Date.now(),
+            reason: 'MnA bootstrap-first: priorizar palaceColony em nova cidade com corrupção',
+            reasonCode: 'MNA_BOOTSTRAP_PALACECOLONY',
+            module: 'MnA',
+            confidence: this._state.getConfidence?.(city.id) ?? 'HIGH',
+        });
+
+        this._audit.info('MnA',
+            `Bootstrap-first: BUILD palaceColony enfileirado para ${city.name ?? city.id} (corrupção=${corruption.toFixed(3)})`,
+            { cityId: city.id }
+        );
     }
 }

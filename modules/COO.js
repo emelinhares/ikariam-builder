@@ -260,9 +260,7 @@ export class COO {
         const ledger = this._buildCommitmentLedger();
 
         for (const city of cities) {
-            const before = overflowCount;
-            this._checkCityOverflow(city, ledger);
-            if (overflowCount > before) overflowCount++;
+            overflowCount += this._checkCityOverflow(city, ledger);
         }
 
         // Resumo limpo independente de overflow
@@ -272,13 +270,16 @@ export class COO {
             return `${c.name}=${Math.round(pct)}%`;
         }).filter(Boolean);
 
-        this._audit.debug('COO', `Overflow check: ${summaries.join(' | ')} (cap=${cities[0]?.maxResources ?? '?'})`);
+        this._audit.debug('COO',
+            `Overflow check: ${summaries.join(' | ')} (cap=${cities[0]?.maxResources ?? '?'}) overflows=${overflowCount}`
+        );
     }
 
     _checkCityOverflow(city, ledger = null) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
         const maxRes = city.maxResources;
-        if (!maxRes || maxRes === 0) return;
+        if (!maxRes || maxRes === 0) return 0;
+        let scheduledCount = 0;
 
         for (const [res, qty] of Object.entries(city.resources)) {
             if (qty < maxRes * 0.95) continue; // < 95% — sem overflow
@@ -331,11 +332,13 @@ export class COO {
                 module:       'COO',
                 confidence:   this._state.getConfidence(city.id),
             });
+            scheduledCount++;
 
             // Atualizar ledger para evitar double-counting neste ciclo
             const entry = _ledger.get(city.id);
             if (entry && res in entry) entry[res] += toSend;
         }
+        return scheduledCount;
     }
 
     // ── Estoque mínimo proativo ───────────────────────────────────────────────
@@ -382,7 +385,7 @@ export class COO {
                 const deficit = minTarget - effective;
 
                 // Já há transporte pendente cobrindo este recurso? (dupla verificação)
-                const existing = this._queue.getPending(city.id)
+                const existing = this._queue.getPending()
                     .find(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.toCityId === city.id && t.payload?.cargo?.[res]);
                 if (existing) continue;
 

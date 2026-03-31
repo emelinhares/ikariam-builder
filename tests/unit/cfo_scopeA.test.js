@@ -222,5 +222,76 @@ describe('CFO Scope A (ROI + dedupe + rich reasons)', () => {
     expect(Array.isArray(approvedEvent[1].evidence)).toBe(true);
     expect(approvedEvent[1].evidence.join(' | ')).toMatch(/action=WAITING_RESOURCES_AND_REQUEST_JIT/i);
   });
+
+  test('caixa único desconta commitments logísticos pendentes antes de aprovar build', () => {
+    const sourceCity = {
+      id: 202,
+      name: 'Beta',
+      resources: {
+        wood: 1_500,
+        wine: 0,
+        marble: 0,
+        glass: 0,
+        sulfur: 0,
+      },
+      maxResources: 10_000,
+      economy: { goldPerHour: 500, corruption: 0 },
+      lockedPositions: new Set(),
+      buildings: [{ building: 'warehouse', level: 10, position: 4 }],
+    };
+
+    const { cfo, queue, events, state } = createCfoHarness({
+      city: {
+        resources: { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 },
+      },
+      config: {
+        minStockFraction: 0,
+      },
+      state: {
+        fleetMovements: [],
+      },
+      queue: {
+        hasPendingBuild: vi.fn(() => false),
+        getPending: vi.fn(() => [
+          {
+            type: 'TRANSPORT',
+            cityId: 202,
+            status: 'pending',
+            payload: {
+              fromCityId: 202,
+              toCityId: 999,
+              cargo: { wood: 800 },
+            },
+          },
+        ]),
+        add: vi.fn(),
+      },
+    });
+
+    const localCity = state.getCity();
+    state.getAllCities.mockReturnValue([localCity, sourceCity]);
+    vi.spyOn(cfo, '_getBuildCandidates').mockReturnValue([
+      {
+        building: 'townHall',
+        position: 3,
+        toLevel: 1,
+        cost: { wood: 1000 },
+        totalCost: 1000,
+        score: 80,
+        roi: 5,
+        reason: 'test-candidate',
+      },
+    ]);
+
+    cfo.evaluateCity(101);
+
+    expect(queue.add).not.toHaveBeenCalled();
+    const blockedEvent = events.emit.mock.calls.find(
+      ([evtName]) => evtName === events.E.CFO_BUILD_BLOCKED,
+    );
+    expect(blockedEvent).toBeTruthy();
+    expect(blockedEvent[1].reasonCode).toBe('INSUFFICIENT_RESOURCES_GLOBAL_TREASURY');
+    expect(blockedEvent[1].reasonDetails.safetyStockDeductions.wood[0].committedOut).toBe(800);
+  });
 });
 

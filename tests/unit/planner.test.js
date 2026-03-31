@@ -7,6 +7,8 @@ function createPlannerHarness(overrides = {}) {
       STATE_ALL_FRESH: 'state:allFresh',
       QUEUE_TASK_DONE: 'queue:taskDone',
       QUEUE_TASK_FAILED: 'queue:taskFailed',
+      HR_WINE_EMERGENCY: 'hr:wineEmergency',
+      HR_WINE_ADJUSTED: 'hr:wineAdjusted',
       PLANNER_CYCLE_START: 'planner:cycleStart',
       PLANNER_CYCLE_DONE: 'planner:cycleDone',
     },
@@ -173,6 +175,26 @@ describe('Planner', () => {
     expect(payload.summary.citiesWithBuildBlocked).toEqual(expect.arrayContaining([101, 303]));
     expect(payload.summary.buildsApproved).toBe(1);
     expect(payload.summary.modulesRan).toEqual(['HR', 'COO', 'CFO', 'CTO', 'CSO', 'MnA']);
+  });
+
+  test('wake-up reativo também é agendado para WINE_ADJUST e eventos HR críticos', () => {
+    const { planner, events } = createPlannerHarness();
+    planner.init();
+
+    const reactiveSpy = vi.spyOn(planner, '_scheduleReactiveCycle').mockImplementation(() => {});
+
+    const onDone = events._listeners.get(events.E.QUEUE_TASK_DONE);
+    onDone?.({ task: { type: 'WINE_ADJUST', cityId: 101 } });
+
+    const onWineEmergency = events._listeners.get(events.E.HR_WINE_EMERGENCY);
+    onWineEmergency?.({ cityId: 202 });
+
+    const onWineAdjusted = events._listeners.get(events.E.HR_WINE_ADJUSTED);
+    onWineAdjusted?.({ cityId: 303 });
+
+    expect(reactiveSpy).toHaveBeenCalledWith('WINE_ADJUST');
+    expect(reactiveSpy).toHaveBeenCalledWith('HR_WINE_EMERGENCY', 'CITY_202');
+    expect(reactiveSpy).toHaveBeenCalledWith('HR_WINE_ADJUSTED', 'CITY_303');
   });
 });
 

@@ -27,11 +27,11 @@ export class CSO {
     // ── Capital em risco ──────────────────────────────────────────────────────
 
     _checkCapitalRisk(city) {
-        // Calcular capacidade safe do armazém (nível mais alto presente)
+        // Calcular capacidade safe do armazém (nível efetivo mais alto presente)
         // CAMPO CORRETO: b.building (string), não b.buildingId (inexistente no StateManager)
         const warehouseLevel = (city.buildings || [])
             .filter(b => b.building === 'warehouse')
-            .reduce((sum, b) => sum + (b.level ?? 0), 0);
+            .reduce((max, b) => Math.max(max, b.level ?? 0), 0);
         const safeCapacity = getWarehouseSafe(warehouseLevel);
 
         // Total de recursos acima do safe (saqueáveis)

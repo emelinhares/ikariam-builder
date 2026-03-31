@@ -360,6 +360,18 @@ ikariam.model.woodCounter.timer = {
 
 > ⚠️ Nos forms do porto, madeira = campo `cargo_resource` (não `0` como nos selects de rota comercial).
 
+### Evidência REC 2113 — transporte real e monitoramento
+
+- Captura real confirmou envio com payload completo de `transportOperations` incluindo:
+  `destinationCityId`, `islandId`, `normalTransportersMax`, `cargo_tradegood4`, `capacity`, `max_capacity`, `transporters`.
+- Após envio, o estado global refletiu execução:
+  - queda de `freeTransporters` para `0`
+  - débito do recurso enviado
+  - rotação de `actionRequest`
+- Para rastrear missão ativa e cancelar com segurança, usar `militaryAdvisor` como fonte de verdade (`eventId`, origem, destino, carga, ETA).
+
+> Implicação de arquitetura híbrida: execução do envio via endpoint, observabilidade e reconciliação via dados de advisor.
+
 ---
 
 ## `ikariam.model.advisorData`
@@ -487,7 +499,19 @@ GET ?action=UpgradeExistingBuilding
     &level={targetLevel}
 ```
 
-> `level` = nível destino (nível atual + 1).
+> `level` = nível atual do edifício no momento da chamada.
+
+### Evidência REC 2113 — custos e tempo de upgrade
+
+No HTML de `VIEW` de edifícios, o scraping confirmou:
+
+- custo do próximo nível em `ul.resources li` (`wood`, `marble`, `crystal` etc.)
+- tempo em `li.time` (resumo e tooltip com segundos)
+- quando a melhoria inicia, timer absoluto no script da tela:
+  - `ikariam.getScreen().buildingCountdown.startdate`
+  - `ikariam.getScreen().buildingCountdown.duration`
+
+> Uso recomendado: custos/tempo por `VIEW` para planejamento; `startdate + duration` para ETA preciso de obra em progresso.
 
 **Cancelar construção:**
 ```
