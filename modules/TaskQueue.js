@@ -10,12 +10,15 @@
 //   PESQUISA (4)   → RESEARCH, WORKER_REALLOC
 //   RUIDO (5)      → NOISE, NAVIGATE
 // Ordenação: phase → priority → scheduledFor (menor = mais urgente em todos)
-// Deduplicação: type + cityId + phase (mesma fase = duplicata; fases distintas coexistem)
+// Deduplicação: padrão = type + cityId + phase.
+// Para TRANSPORT, usar assinatura logística (from/to/recurso/purpose) para evitar
+// remessas repetitivas para o mesmo gargalo enquanto já há cobertura comprometida.
 // Preempção: task de fase mais alta não é executada se há fase mais urgente pronta
 
 import { nanoid, humanDelay } from './utils.js';
 import { GameError }          from './GameClient.js';
 import { TASK_TYPE }          from './taskTypes.js';
+import { TransportIntentRegistry } from './TransportIntentRegistry.js';
 
 export const TASK_PHASE = Object.freeze({
     SUSTENTO:   1,
@@ -26,13 +29,14 @@ export const TASK_PHASE = Object.freeze({
 });
 
 export class TaskQueue {
-    constructor({ events, audit, config, state, client, storage }) {
+    constructor({ events, audit, config, state, client, storage, transportIntentRegistry = null }) {
         this._events  = events;
         this._audit   = audit;
         this._config  = config;
         this._state   = state;
         this._client  = client;
         this._storage = storage;
+        this._transportIntentRegistry = transportIntentRegistry;
 
         // Referência ao CFO injetada após construção (evitar dependência circular)
         this._cfo = null;
@@ -57,6 +61,7 @@ export class TaskQueue {
 
     /** Injetar referência ao CFO após construção (evitar circular). */
     setCFO(cfo) { this._cfo = cfo; }
+    setTransportIntentRegistry(registry) { this._transportIntentRegistry = registry; }
 
     /** Fase padrão por tipo de task. Pode ser sobrescrita passando `phase` no taskData. */
     _defaultPhase(type, payload) {
@@ -116,24 +121,63 @@ export class TaskQueue {
 
     // ── API pública ───────────────────────────────────────────────────────────
 
-    /** Adiciona uma task à fila. Rejeita duplicatas pendentes do mesmo tipo+cidade+phase. */
+    /** Adiciona uma task à fila. Rejeita duplicatas pendentes conforme política por tipo. */
     add(taskData) {
         const incomingPhase = taskData.phase ?? this._defaultPhase(taskData.type, taskData.payload);
+
+        if (taskData.type === TASK_TYPE.TRANSPORT && this._transportIntentRegistry) {
+            this._transportIntentRegistry.setState?.(this._state);
+            this._transportIntentRegistry.setQueue?.(this);
+
+            const transportPayload = taskData.payload ?? {};
+            const purpose = TransportIntentRegistry.resolvePurpose(transportPayload);
+            const mainCargo = TransportIntentRegistry.resolveMainCargo(transportPayload.cargo ?? {});
+            const reconcile = this._transportIntentRegistry.reconcileEquivalent({
+                purpose,
+                fromCityId: Number(transportPayload.fromCityId ?? taskData.cityId ?? NaN),
+                toCityId: Number(transportPayload.toCityId ?? NaN),
+                resource: mainCargo.resource,
+                amount: mainCargo.amount,
+            });
+
+            if (reconcile.shouldSkipEnqueue) {
+                this._audit.info('TaskQueue',
+                    `TRANSPORT reconciliado — enqueue evitado intent=${reconcile.intentId} status=${reconcile.status} evidence=${reconcile.evidence.join(';')}`
+                );
+                const equivalent = this._findActiveTransportByIntentId(reconcile.intentId);
+                return equivalent ?? {
+                    id: reconcile.intentId,
+                    type: TASK_TYPE.TRANSPORT,
+                    status: 'reconciled',
+                    cityId: taskData.cityId,
+                    payload: {
+                        ...(taskData.payload ?? {}),
+                        intentId: reconcile.intentId,
+                    },
+                    reconciliation: reconcile,
+                };
+            }
+
+            this._transportIntentRegistry.ensureFromTaskData(taskData);
+        }
 
         if (taskData.type === TASK_TYPE.BUILD) {
             taskData = this._applyBuildSchedulingPrecedence(taskData);
         }
 
-        // Deduplicação: type + cityId + phase (fases distintas coexistem — ex: TRANSPORT
-        // de sustento e TRANSPORT de logística são tasks legítimas em paralelo).
+        // Deduplicação: por padrão type + cityId + phase (fases distintas coexistem —
+        // ex: TRANSPORT de sustento e TRANSPORT de logística são legítimas em paralelo).
+        // Para TRANSPORT, dedupe por rota + recursos + finalidade logística.
         // Exceção: NOISE nunca deduplica (múltiplas são intencionais).
         if (taskData.type !== TASK_TYPE.NOISE) {
-            const duplicate = this._queue.find(t =>
-                t.type   === taskData.type &&
-                t.cityId === taskData.cityId &&
-                t.phase  === incomingPhase &&
-                (t.status === 'pending' || t.status === 'in-flight')
-            );
+            const duplicate = taskData.type === TASK_TYPE.TRANSPORT
+                ? this._findDuplicateTransport(taskData, incomingPhase)
+                : this._queue.find(t =>
+                    t.type   === taskData.type &&
+                    t.cityId === taskData.cityId &&
+                    t.phase  === incomingPhase &&
+                    (t.status === 'pending' || t.status === 'in-flight')
+                );
             if (duplicate) {
                 const schedIn = duplicate.scheduledFor > Date.now()
                     ? `em ${Math.round((duplicate.scheduledFor - Date.now()) / 1000)}s`
@@ -229,6 +273,40 @@ export class TaskQueue {
 
     /** Retorna snapshot das tasks ativas (pending, in-flight, blocked, waiting_resources, etc). */
     getActive() { return [...this._queue]; }
+
+    /**
+     * Reservas logísticas ativas por destino/recurso/finalidade.
+     * Inclui apenas tasks TRANSPORT ainda ativas (não concluídas/não removidas).
+     */
+    getTransportReservations() {
+        const activeStatuses = new Set(['pending', 'in-flight', 'blocked', 'waiting_resources']);
+        const reservations = [];
+
+        for (const t of this._queue) {
+            if (t.type !== TASK_TYPE.TRANSPORT) continue;
+            if (!activeStatuses.has(t.status)) continue;
+
+            const p = t.payload ?? {};
+            const toCityId = Number(p.toCityId ?? NaN);
+            if (!Number.isFinite(toCityId)) continue;
+            const purpose = this._resolveTransportPurpose(p);
+
+            for (const [resource, qty] of Object.entries(p.cargo ?? {})) {
+                const amount = Number(qty) || 0;
+                if (amount <= 0) continue;
+                reservations.push({
+                    taskId: t.id,
+                    toCityId,
+                    resource,
+                    purpose,
+                    amount,
+                    status: t.status,
+                });
+            }
+        }
+
+        return reservations;
+    }
 
     /** Muda OperationMode e emite evento. */
     async setMode(mode) {
@@ -326,6 +404,9 @@ export class TaskQueue {
         this._executing = true;
         this._executingStartedAt = Date.now();
         task.status     = 'in-flight';
+        if (task.type === TASK_TYPE.TRANSPORT) {
+            this._transportIntentRegistry?.markDispatched?.(task.payload?.intentId, task.id);
+        }
         this._persist();
         this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
 
@@ -434,6 +515,9 @@ export class TaskQueue {
             if (outcome.outcomeClass === 'success') {
                 task.status = 'done';
                 task.terminalReasonCode = outcome.reasonCode ?? null;
+                if (task.type === TASK_TYPE.TRANSPORT) {
+                    this._transportIntentRegistry?.markTransportSuccess?.(task.payload?.intentId, task.id);
+                }
                 this._persist();
                 this._events.emit(this._events.E.QUEUE_TASK_DONE, { task, result: dispatchResult, outcome });
                 const elapsed = Date.now() - this._executingStartedAt;
@@ -883,6 +967,68 @@ export class TaskQueue {
         return min + Math.floor(Math.random() * (max - min));
     }
 
+    _resolveTransportPurpose(payload = {}) {
+        if (payload?.wineBootstrapRecovery) return 'wineBootstrap';
+        if (payload?.wineEmergency) return 'wineEmergency';
+        if (payload?.jitBuild) return 'jitBuild';
+        if (payload?.minStock) return 'minStock';
+        if (payload?.overflowRelief) return 'overflowRelief';
+        return payload?.logisticPurpose ?? 'generic';
+    }
+
+    _transportCargoSignature(cargo = {}) {
+        return Object.entries(cargo)
+            .filter(([, qty]) => Number(qty) > 0)
+            .sort(([a], [b]) => String(a).localeCompare(String(b)))
+            .map(([res, qty]) => `${res}:${Number(qty) || 0}`)
+            .join('|');
+    }
+
+    _findDuplicateTransport(taskData, incomingPhase) {
+        const incomingPayload = taskData?.payload ?? {};
+        const incomingFrom = Number(incomingPayload?.fromCityId ?? taskData?.cityId ?? NaN);
+        const incomingTo = Number(incomingPayload?.toCityId ?? NaN);
+        const incomingCargoSig = this._transportCargoSignature(incomingPayload?.cargo ?? {});
+        const incomingPurpose = this._resolveTransportPurpose(incomingPayload);
+
+        const hasRichIdentity = Number.isFinite(incomingFrom)
+            && Number.isFinite(incomingTo)
+            && incomingCargoSig.length > 0;
+
+        return this._queue.find((t) => {
+            if (t.type !== TASK_TYPE.TRANSPORT) return false;
+            if (t.phase !== incomingPhase) return false;
+            if (t.status !== 'pending' && t.status !== 'in-flight') return false;
+
+            const p = t.payload ?? {};
+            if (!hasRichIdentity) {
+                // Fallback defensivo para payloads incompletos
+                return t.cityId === taskData.cityId;
+            }
+
+            const from = Number(p?.fromCityId ?? t.cityId ?? NaN);
+            const to = Number(p?.toCityId ?? NaN);
+            const cargoSig = this._transportCargoSignature(p?.cargo ?? {});
+            const purpose = this._resolveTransportPurpose(p);
+
+            return Number.isFinite(from)
+                && Number.isFinite(to)
+                && from === incomingFrom
+                && to === incomingTo
+                && purpose === incomingPurpose
+                && cargoSig === incomingCargoSig;
+        });
+    }
+
+    _findActiveTransportByIntentId(intentId) {
+        if (!intentId) return null;
+        return this._queue.find((t) =>
+            t.type === TASK_TYPE.TRANSPORT
+            && (t.status === 'pending' || t.status === 'in-flight' || t.status === 'blocked' || t.status === 'waiting_resources')
+            && t.payload?.intentId === intentId
+        ) ?? null;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     _reschedule(task, delayMs, reasonCode = null) {
@@ -945,6 +1091,9 @@ export class TaskQueue {
         task.status = 'failed';
         task.terminalReasonCode = terminalReasonCode;
         task.endedAt = Date.now();
+        if (task.type === TASK_TYPE.TRANSPORT) {
+            this._transportIntentRegistry?.markFailed?.(task.payload?.intentId, terminalReasonCode);
+        }
 
         this._captureHybridAttemptOutcome(task, {
             actionType: task.type,
@@ -1142,7 +1291,7 @@ export class TaskQueue {
         };
     }
 
-    async _postValidateTaskOutcome(task, { validationBaseline, executionStartedAt } = {}) {
+    async _postValidateTaskOutcome(task, { validationBaseline, executionStartedAt, dispatchResult = null } = {}) {
         if (!this._isCriticalOutcomeTask(task)) {
             return this._createTaskOutcome(task, {
                 executionStartedAt,
@@ -1159,9 +1308,9 @@ export class TaskQueue {
             case TASK_TYPE.TRANSPORT:
                 return await this._validateTransportOutcome(task, validationBaseline, executionStartedAt);
             case TASK_TYPE.WINE_ADJUST:
-                return await this._validateWineAdjustOutcome(task, validationBaseline, executionStartedAt);
+                return await this._validateWineAdjustOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
             case TASK_TYPE.WORKER_REALLOC:
-                return await this._validateWorkerReallocOutcome(task, validationBaseline, executionStartedAt);
+                return await this._validateWorkerReallocOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
             default:
                 return this._createTaskOutcome(task, {
                     executionStartedAt,
@@ -1251,8 +1400,10 @@ export class TaskQueue {
         });
     }
 
-    async _validateWineAdjustOutcome(task, baseline, executionStartedAt) {
+    async _validateWineAdjustOutcome(task, baseline, executionStartedAt, dispatchResult = null) {
         const evidence = [];
+        const tokenRotated = !!dispatchResult?.tokenRotated;
+        evidence.push(`actionRequestRotated=${tokenRotated}`);
         try {
             await this._client.probeCityData(task.cityId);
             evidence.push('probeCityData=ok');
@@ -1266,27 +1417,35 @@ export class TaskQueue {
         evidence.push(`wineLevelBefore=${Number.isFinite(before) ? before : 'N/A'}`);
         evidence.push(`wineLevelAfter=${Number.isFinite(after) ? after : 'N/A'}`);
 
-        if (Number.isFinite(before) && Number.isFinite(after) && before !== after) {
+        const stateChanged = Number.isFinite(before) && Number.isFinite(after) && before !== after;
+
+        if (stateChanged && tokenRotated) {
             return this._createTaskOutcome(task, {
                 executionStartedAt,
                 outcomeClass: 'success',
-                reasonCode: 'WINE_LEVEL_CHANGED',
+                reasonCode: 'WINE_LEVEL_CHANGED_WITH_TOKEN_ROTATION',
                 evidence,
                 nextStep: 'none',
             });
         }
 
+        const reasonCode = !stateChanged
+            ? 'WINE_LEVEL_UNCHANGED'
+            : 'WINE_ACTIONREQUEST_NOT_ROTATED';
+
         return this._createTaskOutcome(task, {
             executionStartedAt,
             outcomeClass: 'inconclusive',
-            reasonCode: 'WINE_LEVEL_UNCHANGED',
+            reasonCode,
             evidence,
             nextStep: 'retry',
         });
     }
 
-    async _validateWorkerReallocOutcome(task, baseline, executionStartedAt) {
+    async _validateWorkerReallocOutcome(task, baseline, executionStartedAt, dispatchResult = null) {
         const evidence = [];
+        const tokenRotated = !!dispatchResult?.tokenRotated;
+        evidence.push(`actionRequestRotated=${tokenRotated}`);
         try {
             await this._client.probeCityData(task.cityId);
             evidence.push('probeCityData=ok');
@@ -1300,20 +1459,26 @@ export class TaskQueue {
         evidence.push(`scientistsBefore=${Number.isFinite(before) ? before : 'N/A'}`);
         evidence.push(`scientistsAfter=${Number.isFinite(after) ? after : 'N/A'}`);
 
-        if (Number.isFinite(before) && Number.isFinite(after) && before !== after) {
+        const stateChanged = Number.isFinite(before) && Number.isFinite(after) && before !== after;
+
+        if (stateChanged && tokenRotated) {
             return this._createTaskOutcome(task, {
                 executionStartedAt,
                 outcomeClass: 'success',
-                reasonCode: 'WORKER_ALLOCATION_CHANGED',
+                reasonCode: 'WORKER_ALLOCATION_CHANGED_WITH_TOKEN_ROTATION',
                 evidence,
                 nextStep: 'none',
             });
         }
 
+        const reasonCode = !stateChanged
+            ? 'WORKER_ALLOCATION_UNCHANGED'
+            : 'WORKER_ACTIONREQUEST_NOT_ROTATED';
+
         return this._createTaskOutcome(task, {
             executionStartedAt,
             outcomeClass: 'inconclusive',
-            reasonCode: 'WORKER_ALLOCATION_UNCHANGED',
+            reasonCode,
             evidence,
             nextStep: 'retry',
         });

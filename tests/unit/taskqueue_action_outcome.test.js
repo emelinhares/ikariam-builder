@@ -57,7 +57,7 @@ function createHarness({ city, fleetMovements = [], client: clientOverrides = {}
 
   const queue = new TaskQueue({ events, audit, config, state, client, storage });
   queue._runGuards = vi.fn(async () => {});
-  queue._dispatch = vi.fn(async () => ({}));
+  queue._dispatch = vi.fn(async () => ({ tokenRotated: true }));
 
   return { queue, events, state, client };
 }
@@ -169,7 +169,7 @@ describe('TaskQueue action outcomes', () => {
     await queue._execute(task);
 
     expect(task.lastOutcome?.outcomeClass).toBe('success');
-    expect(task.lastOutcome?.reasonCode).toBe('WINE_LEVEL_CHANGED');
+    expect(task.lastOutcome?.reasonCode).toBe('WINE_LEVEL_CHANGED_WITH_TOKEN_ROTATION');
     expect(task.status).toBe('done');
   });
 
@@ -205,7 +205,7 @@ describe('TaskQueue action outcomes', () => {
     await queue._execute(task);
 
     expect(task.lastOutcome?.outcomeClass).toBe('success');
-    expect(task.lastOutcome?.reasonCode).toBe('WORKER_ALLOCATION_CHANGED');
+    expect(task.lastOutcome?.reasonCode).toBe('WORKER_ALLOCATION_CHANGED_WITH_TOKEN_ROTATION');
     expect(task.status).toBe('done');
   });
 

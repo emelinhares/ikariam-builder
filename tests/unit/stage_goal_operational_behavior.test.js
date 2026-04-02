@@ -138,5 +138,116 @@ describe('Stage/goal operational behavior', () => {
     expect(bootstrapWine).toBe(180);
     expect(preExpansionWine).toBe(300);
   });
+
+  test('HR emits bootstrap wine recovery even with wineSpendings=0 when tavern is off', () => {
+    const events = {
+      E: { HR_WINE_EMERGENCY: 'hr:wineEmergency' },
+      on: vi.fn(),
+      emit: vi.fn(),
+    };
+    const audit = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const queue = {
+      add: vi.fn(),
+      getPending: vi.fn(() => []),
+      hasPendingType: vi.fn(() => false),
+    };
+
+    const city = {
+      id: 77,
+      name: 'RecoveryCity',
+      tavern: { wineLevel: 0 },
+      buildings: [{ building: 'tavern', level: 6 }],
+      economy: { satisfaction: 1, population: 420, growthPerHour: 0 },
+      typed: {
+        happinessScore: 1,
+        populationGrowthPerHour: 0,
+        populationUtilization: 0.93,
+        wineSpendings: 0,
+      },
+      resources: { wine: 0 },
+      production: { wineSpendings: 0 },
+    };
+
+    const state = {
+      getAllCities: vi.fn(() => [city]),
+      getCity: vi.fn(() => city),
+      getConfidence: vi.fn(() => 'HIGH'),
+    };
+    const config = { get: vi.fn((k) => (k === 'wineEmergencyHours' ? 4 : 0)) };
+
+    const hr = new HR({ events, audit, config, state, queue });
+    hr.replan({
+      stage: 'BOOTSTRAP',
+      globalGoal: 'SURVIVE',
+      growthPolicy: { growthStage: 'STABILIZE_CITY' },
+      cities: new Map([[77, {}]]),
+    });
+
+    expect(events.emit).toHaveBeenCalledWith(
+      events.E.HR_WINE_EMERGENCY,
+      expect.objectContaining({
+        cityId: 77,
+        bootstrapRecovery: true,
+      }),
+    );
+  });
+
+  test('COO schedules wine bootstrap recovery shipment when emergency is bootstrap-mode', () => {
+    const events = { E: {}, on: vi.fn(), emit: vi.fn() };
+    const audit = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const dest = {
+      id: 1,
+      name: 'Destino',
+      islandId: 11,
+      maxResources: 10000,
+      resources: { wood: 0, wine: 0, marble: 0, glass: 0, sulfur: 0 },
+      production: { wineSpendings: 0 },
+      tavern: { wineLevel: 0 },
+      buildings: [{ building: 'tavern', level: 5 }],
+      tradegood: 1,
+    };
+    const src = {
+      id: 2,
+      name: 'Fonte',
+      islandId: 22,
+      maxResources: 10000,
+      resources: { wood: 0, wine: 10000, marble: 0, glass: 0, sulfur: 0 },
+      production: { wineSpendings: 0 },
+      buildings: [],
+      tradegood: 4,
+    };
+    const state = {
+      fleetMovements: [],
+      getCity: vi.fn((id) => (id === 1 ? dest : src)),
+      getAllCities: vi.fn(() => [dest, src]),
+      getInTransit: vi.fn(() => ({})),
+      getConfidence: vi.fn(() => 'HIGH'),
+    };
+    const queue = { getPending: vi.fn(() => []), add: vi.fn() };
+    const config = {
+      get: vi.fn((k) => {
+        if (k === 'minStockFraction') return 0.2;
+        if (k === 'producerSafetyStockMultiplier') return 1.35;
+        if (k === 'overflowThresholdPct') return 0.95;
+        if (k === 'overflowTimeToCapHours') return 2;
+        if (k === 'overflowTargetTimeToCapHours') return 6;
+        return 0;
+      }),
+    };
+
+    const coo = new COO({ events, audit, config, state, queue, client: {}, storage: {} });
+    coo._strategicCtx = { stage: 'BOOTSTRAP', globalGoal: 'SURVIVE', growthPolicy: { growthStage: 'STABILIZE_CITY' } };
+
+    coo._scheduleWineEmergency(1, {
+      bootstrapRecovery: true,
+      recoveryWineLevel: 1,
+      recoveryWinePerHour: 4,
+    });
+
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    const task = queue.add.mock.calls[0][0];
+    expect(task.payload.wineBootstrapRecovery).toBe(true);
+    expect(task.payload.cargo.wine).toBe(72);
+  });
 });
 

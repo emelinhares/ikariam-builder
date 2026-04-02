@@ -8,6 +8,13 @@ import { createEmptyResources } from './resourceContracts.js';
 
 const CITY_ISLAND_MAP_STORAGE_KEY = 'erp_state_city_island_map_v1';
 
+const FIELD_SOURCE_RANK = Object.freeze({
+    model: 1,
+    calculated: 2,
+    html_request: 3,
+    html: 4,
+});
+
 // Formata número em K/M para logs compactos
 function _fmtK(n) {
     if (n == null || isNaN(n)) return '?';
@@ -394,6 +401,25 @@ export class StateManager {
             city.resources.sulfur = Number(res['4']     ?? res.sulfur ?? city.resources.sulfur);
             if (res.citizens !== undefined) city.economy.citizens = Number(res.citizens);
             if (res.population !== undefined) city.economy.population = Number(res.population);
+
+            this._mergeTypedField(city, {
+                field: 'localWood',
+                value: res.resource,
+                source: 'model',
+                confidence: 'high',
+            });
+            this._mergeTypedField(city, {
+                field: 'population',
+                value: res.population,
+                source: 'model',
+                confidence: 'high',
+            });
+            this._mergeTypedField(city, {
+                field: 'citizens',
+                value: res.citizens,
+                source: 'model',
+                confidence: 'high',
+            });
         }
 
         // maxResources — mesmo formato de chaves
@@ -410,6 +436,25 @@ export class StateManager {
             city.maxTransporters  = Number(headerData.maxTransporters);
         if (headerData.wineSpendings !== undefined)
             city.production.wineSpendings = Number(headerData.wineSpendings);
+
+        this._mergeTypedField(city, {
+            field: 'freeTransporters',
+            value: headerData.freeTransporters,
+            source: 'model',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'maxTransporters',
+            value: headerData.maxTransporters,
+            source: 'model',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'wineSpendings',
+            value: headerData.wineSpendings,
+            source: 'model',
+            confidence: 'high',
+        });
 
         // producedTradegood chega como STRING — forçar Number()
         if (headerData.producedTradegood !== undefined)
@@ -437,8 +482,22 @@ export class StateManager {
         if (headerData.gold !== undefined)
             city.economy.goldPerHour = Number(headerData.gold);
 
+        this._mergeTypedField(city, {
+            field: 'netGoldPerHour',
+            value: headerData.income ?? headerData.gold,
+            source: 'model',
+            confidence: 'medium',
+        });
+
         if (headerData.maxActionPoints !== undefined)
             city.economy.actionPoints = Number(headerData.maxActionPoints);
+
+        this._mergeTypedField(city, {
+            field: 'actionPointsAvailable',
+            value: headerData.maxActionPoints,
+            source: 'model',
+            confidence: 'medium',
+        });
 
         city.fetchedAt = Date.now();
         this._events.emit(this._events.E.STATE_CITY_UPDATED, { cityId });
@@ -498,22 +557,52 @@ export class StateManager {
 
         if (screenData.citizens !== undefined) {
             city.economy.citizens = Number(screenData.citizens);
+            this._mergeTypedField(city, {
+                field: 'citizens',
+                value: screenData.citizens,
+                source: 'model',
+                confidence: 'high',
+            });
         }
 
         if (screenData.inhabitants !== undefined) {
             city.economy.population = Number(screenData.inhabitants);
+            this._mergeTypedField(city, {
+                field: 'population',
+                value: screenData.inhabitants,
+                source: 'model',
+                confidence: 'high',
+            });
         }
 
         if (screenData.maxInhabitants !== undefined) {
             city.economy.maxInhabitants = Number(screenData.maxInhabitants);
+            this._mergeTypedField(city, {
+                field: 'maxInhabitants',
+                value: screenData.maxInhabitants,
+                source: 'model',
+                confidence: 'medium',
+            });
         }
 
         if (screenData.satisfaction !== undefined) {
             city.economy.satisfaction = Number(screenData.satisfaction);
+            this._mergeTypedField(city, {
+                field: 'happinessScore',
+                value: screenData.satisfaction,
+                source: 'model',
+                confidence: 'medium',
+            });
         }
 
         if (screenData.corruption !== undefined) {
             city.economy.corruption = Number(screenData.corruption);
+            this._mergeTypedField(city, {
+                field: 'corruptionPct',
+                value: screenData.corruption,
+                source: 'model',
+                confidence: 'medium',
+            });
         }
 
         // Taberna — wineLevel é derivado de wineSpendings via WINE_USE (ver _onHeaderData).
@@ -536,18 +625,33 @@ export class StateManager {
     /**
      * Soma o cargo de todas as frotas próprias em trânsito com destino a cityId.
      * Inclui apenas movimentos de ida (isReturn=false) e da nossa conta (isOwn=true).
+     * Movimentos em loading/A carregar também contam como cobertura comprometida.
      * Retorna { wood, wine, marble, glass, sulfur } — zeros para recursos sem transporte.
      */
     getInTransit(cityId) {
         const result = createEmptyResources();
         for (const m of this.fleetMovements) {
-            if (!m.isOwn || m.isReturn) continue;
+            if (!this._isInboundCommittedMovement(m)) continue;
             if (m.targetCityId !== cityId) continue;
             for (const [res, qty] of Object.entries(m.cargo ?? {})) {
                 if (res in result) result[res] += Number(qty) || 0;
             }
         }
         return result;
+    }
+
+    _isInboundCommittedMovement(m) {
+        if (!m || !m.isOwn || m.isReturn) return false;
+
+        // Estados explícitos de loading (A carregar / 0%) são cobertura comprometida.
+        const stateRaw = String(m.state ?? m.status ?? m.phase ?? '').toLowerCase();
+        if (stateRaw.includes('loading') || stateRaw.includes('carregar')) return true;
+
+        const progressPct = Number(m.progressPct ?? m.progress ?? NaN);
+        if (Number.isFinite(progressPct) && progressPct === 0) return true;
+
+        // Fallback: movimento próprio de ida com destino definido conta como comprometido.
+        return true;
     }
 
     // DC_TOWNHALL_DATA — viewScriptParams do changeView:townHall
@@ -563,13 +667,234 @@ export class StateManager {
         }
         const city = this.cities.get(cityId);
 
-        if (params.priests           !== undefined) city.workers.priests    = Number(params.priests);
-        if (params.scientists        !== undefined) city.workers.scientists = Number(params.scientists);
-        if (params.happinessLargeValue !== undefined) city.economy.satisfaction = Number(params.happinessLargeValue);
-        if (params.populationGrowthValue !== undefined) city.economy.growthPerHour = Number(params.populationGrowthValue);
-        if (params.occupiedSpace     !== undefined) city.economy.population  = Number(params.occupiedSpace);
-        if (params.maxInhabitants    !== undefined) city.economy.maxInhabitants = Number(params.maxInhabitants);
-        if (params.culturalGoods     !== undefined) city.economy.culturalGoods = Number(params.culturalGoods);
+        city.typed.inspectedViews.townHall = true;
+        city.typed.inspectedViews.townHallLastAt = Date.now();
+
+        const readParam = (...keys) => {
+            for (const k of keys) {
+                if (params?.[k] !== undefined && params?.[k] !== null) return params[k];
+            }
+            return undefined;
+        };
+
+        const readNum = (...keys) => {
+            const raw = readParam(...keys);
+            if (raw === undefined) return undefined;
+            const normalized = String(raw).replace(/,/g, '');
+            const n = Number(normalized);
+            return Number.isFinite(n) ? n : undefined;
+        };
+
+        const readText = (...keys) => {
+            const raw = readParam(...keys);
+            if (raw === undefined) return undefined;
+            const str = String(raw).trim();
+            return str ? str : undefined;
+        };
+
+        this._mergeTypedField(city, {
+            field: 'populationUsed',
+            value: readNum('occupiedSpace', 'populationUsed', 'js_TownHallPopulationUsed'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'maxInhabitants',
+            value: readNum('maxInhabitants', 'js_TownHallMaxInhabitants'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'populationGrowthPerHour',
+            value: readNum('populationGrowthValue', 'populationGrowthPerHour', 'js_TownHallPopulationGrowth'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'netGoldPerHour',
+            value: readNum('incomeGold', 'js_TownHallIncomeGold', 'income'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'corruptionPct',
+            value: readNum('corruption', 'js_TownHallCorruption'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'actionPointsAvailable',
+            value: readNum('actionPointsAvailable', 'js_TownHallActionPointsAvailable'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'happinessScore',
+            value: readNum('happinessLargeValue', 'js_TownHallHappinessLargeValue', 'satisfaction'),
+            source: 'html',
+            confidence: 'high',
+        });
+        const happinessState = readText('happinessLargeText', 'js_TownHallHappinessLargeText');
+        this._mergeTypedField(city, {
+            field: 'happinessState',
+            value: happinessState ? happinessState.toUpperCase() : undefined,
+            source: 'html',
+            confidence: 'high',
+        });
+
+        this._mergeTypedField(city, {
+            field: 'happinessBaseBonus',
+            value: readNum('js_TownHallSatisfactionOverviewBaseBoniBaseBonusValue', 'happinessBaseBonus'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'happinessResearchBonus',
+            value: readNum('js_TownHallSatisfactionOverviewBaseBoniResearchBonusValue', 'happinessResearchBonus'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'happinessTavernBonus',
+            value: readNum('js_TownHallSatisfactionOverviewWineBoniTavernBonusValue', 'happinessTavernBonus'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'happinessServedWineBonus',
+            value: readNum('js_TownHallSatisfactionOverviewWineBoniServeBonusValue', 'happinessServedWineBonus'),
+            source: 'html',
+            confidence: 'medium',
+        });
+
+        this._mergeTypedField(city, {
+            field: 'woodPerHourCity',
+            value: readNum('js_TownHallPopulationGraphWoodProduction', 'woodPerHourCity'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'tradegoodPerHourCity',
+            value: readNum('js_TownHallPopulationGraphTradeGoodProduction', 'tradegoodPerHourCity'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'scientistsGoldCostPerHour',
+            value: readNum('js_TownHallPopulationGraphScientistsResearchCost', 'scientistsGoldCostPerHour'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'researchPointsPerHour',
+            value: readNum('js_TownHallPopulationGraphScientistsResearchProduction', 'researchPointsPerHour'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'priestsGoldPerHour',
+            value: readNum('js_TownHallPopulationGraphPriestsGoldProduction', 'priestsGoldPerHour'),
+            source: 'html',
+            confidence: 'medium',
+        });
+        this._mergeTypedField(city, {
+            field: 'citizensGoldPerHour',
+            value: readNum('js_TownHallPopulationGraphCitizensGoldProduction', 'citizensGoldPerHour'),
+            source: 'html',
+            confidence: 'medium',
+        });
+
+        this._mergeTypedField(city, {
+            field: 'woodWorkersCity',
+            value: readNum('js_TownHallPopulationGraphResourceWorkerCount', 'woodWorkersCity', 'woodWorkers'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'tradegoodWorkersCity',
+            value: readNum('js_TownHallPopulationGraphSpecialWorkerCount', 'tradegoodWorkersCity', 'luxuryWorkers'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'scientistsCity',
+            value: readNum('js_TownHallPopulationGraphScientistCount', 'scientistsCity', 'scientists'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'priestsCity',
+            value: readNum('js_TownHallPopulationGraphPriestCount', 'priestsCity', 'priests'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'citizensCity',
+            value: readNum('js_TownHallPopulationGraphCitizenCount', 'citizensCity'),
+            source: 'html',
+            confidence: 'high',
+        });
+        this._mergeTypedField(city, {
+            field: 'overpopulationMalusRaw',
+            value: readNum('js_TownHallSatisfactionOverviewOverpopulationMalusValue', 'overpopulationMalusRaw'),
+            source: 'html',
+            confidence: 'low',
+        });
+
+        const typed = city.typed;
+        const populationUsed = Number(typed.populationUsed ?? NaN);
+        const maxInhabitants = Number(typed.maxInhabitants ?? NaN);
+        if (Number.isFinite(populationUsed) && Number.isFinite(maxInhabitants) && maxInhabitants > 0) {
+            this._mergeTypedField(city, {
+                field: 'populationUtilization',
+                value: populationUsed / maxInhabitants,
+                source: 'calculated',
+                confidence: 'high',
+            });
+        }
+
+        const priests = Number(typed.priestsCity ?? readNum('priests'));
+        const scientists = Number(typed.scientistsCity ?? readNum('scientists'));
+        const woodWorkers = Number(typed.woodWorkersCity ?? 0);
+        const tradegoodWorkers = Number(typed.tradegoodWorkersCity ?? 0);
+        const citizens = Number(typed.citizensCity ?? typed.citizens ?? city.economy.citizens ?? 0);
+
+        if (Number.isFinite(priests)) city.workers.priests = priests;
+        if (Number.isFinite(scientists)) city.workers.scientists = scientists;
+        if (Number.isFinite(woodWorkers)) city.workers.wood = woodWorkers;
+        if (Number.isFinite(tradegoodWorkers)) city.workers.tradegood = tradegoodWorkers;
+
+        if (typed.happinessScore !== undefined && typed.happinessScore !== null) {
+            city.economy.satisfaction = Number(typed.happinessScore);
+        }
+        if (typed.populationGrowthPerHour !== undefined) {
+            city.economy.growthPerHour = Number(typed.populationGrowthPerHour);
+        }
+        if (typed.populationUsed !== undefined) {
+            city.economy.population = Number(typed.populationUsed);
+        }
+        if (typed.maxInhabitants !== undefined) {
+            city.economy.maxInhabitants = Number(typed.maxInhabitants);
+        }
+        if (typed.netGoldPerHour !== undefined) {
+            city.economy.goldPerHour = Number(typed.netGoldPerHour);
+        }
+        if (typed.corruptionPct !== undefined) {
+            city.economy.corruption = Number(typed.corruptionPct);
+        }
+        if (typed.actionPointsAvailable !== undefined) {
+            city.economy.actionPoints = Number(typed.actionPointsAvailable);
+        }
+
+        city.workersByResource = {
+            wood: Number.isFinite(woodWorkers) ? woodWorkers : 0,
+            tradegood: Number.isFinite(tradegoodWorkers) ? tradegoodWorkers : 0,
+            scientists: Number.isFinite(scientists) ? scientists : 0,
+            priests: Number.isFinite(priests) ? priests : 0,
+            citizens: Number.isFinite(citizens) ? citizens : 0,
+        };
+
+        if (params.culturalGoods !== undefined) city.economy.culturalGoods = Number(params.culturalGoods);
 
         this._audit.debug('StateManager',
             `townHall data: cidade ${cityId} priests=${params.priests} scientists=${params.scientists} growth=${params.populationGrowthValue}`
@@ -686,6 +1011,21 @@ export class StateManager {
                 scientists: 0,
                 priests:    0,
             },
+            workersByResource: {
+                wood: 0,
+                tradegood: 0,
+                scientists: 0,
+                priests: 0,
+                citizens: 0,
+            },
+            typed: {
+                _meta: {},
+                _mismatches: [],
+                inspectedViews: {
+                    townHall: false,
+                    townHallLastAt: 0,
+                },
+            },
             economy: {
                 population:     0,
                 maxInhabitants: 0,
@@ -703,5 +1043,48 @@ export class StateManager {
             },
             fetchedAt: 0,
         };
+    }
+
+    _mergeTypedField(city, { field, value, source = 'model', confidence = 'medium' } = {}) {
+        if (!city || !field || value === undefined || value === null) return false;
+
+        if (!city.typed || typeof city.typed !== 'object') {
+            city.typed = { _meta: {}, _mismatches: [], inspectedViews: { townHall: false, townHallLastAt: 0 } };
+        }
+        if (!city.typed._meta) city.typed._meta = {};
+        if (!Array.isArray(city.typed._mismatches)) city.typed._mismatches = [];
+
+        const isNumber = typeof value === 'number' || /^-?\d+(?:\.\d+)?$/.test(String(value));
+        const normalized = isNumber ? Number(value) : value;
+        if (typeof normalized === 'number' && !Number.isFinite(normalized)) return false;
+
+        const currentValue = city.typed[field];
+        const currentMeta = city.typed._meta[field] ?? null;
+        const currentRank = FIELD_SOURCE_RANK[currentMeta?.source] ?? 0;
+        const incomingRank = FIELD_SOURCE_RANK[source] ?? 0;
+
+        if (currentMeta && currentMeta.source !== source && currentValue !== normalized) {
+            city.typed._mismatches.push({
+                ts: Date.now(),
+                field,
+                current: { value: currentValue, source: currentMeta.source },
+                incoming: { value: normalized, source },
+            });
+            if (city.typed._mismatches.length > 100) {
+                city.typed._mismatches.shift();
+            }
+        }
+
+        if (currentMeta && incomingRank < currentRank && currentValue !== undefined && currentValue !== null) {
+            return false;
+        }
+
+        city.typed[field] = normalized;
+        city.typed._meta[field] = {
+            source,
+            confidence,
+            updatedAt: Date.now(),
+        };
+        return true;
     }
 }

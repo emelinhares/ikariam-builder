@@ -358,12 +358,24 @@ export class Planner {
             }
 
             const wineHours    = spendings > 0 ? wine / spendings : Infinity;
-            const satisfaction = city.economy?.satisfaction ?? null;
+            const satisfaction = city.typed?.happinessScore ?? city.economy?.satisfaction ?? null;
+            const populationUsed = Number(city.typed?.populationUsed ?? city.economy?.population ?? 0);
+            const maxInhabitants = Number(city.typed?.maxInhabitants ?? city.economy?.maxInhabitants ?? 0);
+            const populationUtilization = Number(city.typed?.populationUtilization ?? (maxInhabitants > 0 ? populationUsed / maxInhabitants : 0));
+            const growthPerHour = Number(city.typed?.populationGrowthPerHour ?? city.economy?.growthPerHour ?? 0);
 
             // satisfaction=null → jogo ainda não reportou (cidade não visitada) → não bloquear
             // satisfaction<=0 confirmado → felicidade real negativa → bloquear builds
             const satBlocked        = satisfaction !== null && satisfaction <= 0;
-            const hasCriticalSupply = wineHours < threshold || satBlocked;
+            const wineBootstrapNeeded = this._needsWineBootstrapRecovery({
+                city,
+                wine,
+                spendings,
+                satisfaction,
+                growthPerHour,
+                populationUtilization,
+            });
+            const hasCriticalSupply = wineHours < threshold || satBlocked || wineBootstrapNeeded;
 
             // Transportes já agendados com destino a esta cidade
             const pendingTransports = this._queue.getPending()
@@ -372,7 +384,12 @@ export class Planner {
             cities.set(city.id, {
                 wineHours,
                 satisfaction,
+                populationUsed,
+                maxInhabitants,
+                populationUtilization,
+                populationGrowthPerHour: growthPerHour,
                 hasCriticalSupply,
+                wineBootstrapNeeded,
                 pendingTransports,
                 buildBlocked:         false,  // preenchido por _markBuildBlocked
                 buildApprovedBy:      null,   // preenchido pelo CFO
@@ -522,6 +539,35 @@ export class Planner {
             fleetPolicy,
             workforcePolicy,
         };
+    }
+
+    _needsWineBootstrapRecovery({
+        city,
+        wine = 0,
+        spendings = 0,
+        satisfaction = null,
+        growthPerHour = 0,
+        populationUtilization = 0,
+    } = {}) {
+        // Cidades com consumo ativo já entram pela política normal de emergência.
+        if (spendings > 0) return false;
+
+        const tavernBuilding = (city?.buildings ?? []).find((b) => b?.building === 'tavern');
+        const tavernExists = Number(tavernBuilding?.level ?? 0) > 0;
+        if (!tavernExists) return false;
+
+        const tavernWineLevel = Number(city?.tavern?.wineLevel ?? 0);
+        if (tavernWineLevel > 0 && wine > 0) return false;
+
+        const lowWine = Number(wine ?? 0) <= 0;
+        if (!lowWine) return false;
+
+        const needsStability =
+            (satisfaction !== null && satisfaction <= 1)
+            || Number(growthPerHour ?? 0) <= 0
+            || Number(populationUtilization ?? 0) >= 0.9;
+
+        return needsStability;
     }
 
     _estimateCapitalAtRisk(cities = []) {

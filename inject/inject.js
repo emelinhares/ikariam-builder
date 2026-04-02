@@ -117,6 +117,7 @@ import { DataCollector } from '../modules/DataCollector.js';
 import { StateManager }  from '../modules/StateManager.js';
 import { GameClient }    from '../modules/GameClient.js';
 import { TaskQueue }     from '../modules/TaskQueue.js';
+import { TransportIntentRegistry } from '../modules/TransportIntentRegistry.js';
 import { CFO }           from '../modules/CFO.js';
 import { COO }           from '../modules/COO.js';
 import { HR }            from '../modules/HR.js';
@@ -225,12 +226,14 @@ async function boot() {
     // ── Camada 3: execução ────────────────────────────────────────────────────
     window.__ERP_BOOT_STAGE = 'queue.init';
     const client = new GameClient({ events: Events, audit, config, state, dc });
-    const queue  = new TaskQueue({ events: Events, audit, config, state, client, storage });
+    const transportIntentRegistry = new TransportIntentRegistry({ storage, audit, state });
+    await transportIntentRegistry.init();
+    const queue  = new TaskQueue({ events: Events, audit, config, state, client, storage, transportIntentRegistry });
     await queue.init();
 
     // ── Camada 4: módulos de negócio ──────────────────────────────────────────
     const cfo = new CFO({ events: Events, audit, config, state, queue });
-    const coo = new COO({ events: Events, audit, config, state, queue, client, storage });
+    const coo = new COO({ events: Events, audit, config, state, queue, client, storage, transportIntentRegistry });
     const hr  = new HR ({ events: Events, audit, config, state, queue });
     const cto = new CTO({ events: Events, audit, config, state, queue });
     const cso = new CSO({ events: Events, audit, config, state, queue });
@@ -238,6 +241,7 @@ async function boot() {
     const planner = new Planner({ events: Events, audit, config, state, queue, hr, cfo, coo, cto, cso, mna });
 
     queue.setCFO(cfo);
+    queue.setTransportIntentRegistry(transportIntentRegistry);
 
     // Módulos registram apenas seus listeners reativos (DC_HEADER_DATA, QUEUE_TASK_DONE, etc.)
     // STATE_ALL_FRESH é registrado exclusivamente pelo Planner
@@ -290,6 +294,7 @@ async function boot() {
     window.__ERP = {
         Events, storage, config, audit,
         dc, state, client, queue,
+        transportIntentRegistry,
         cfo, coo, hr, cto, cso, mna, planner, bridge,
         healthCheck,
         MVP,

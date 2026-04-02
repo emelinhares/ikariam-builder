@@ -116,6 +116,32 @@ export class UIBridge {
         const research = this._buildResearchSummary({ allTasks, strategicSummary });
         const nextAction = this._buildNextAction(allTasks);
 
+        const confirmedTypedFields = [
+            'localWood', 'population', 'citizens', 'populationUsed', 'maxInhabitants', 'populationUtilization',
+            'populationGrowthPerHour', 'netGoldPerHour', 'corruptionPct', 'actionPointsAvailable',
+            'happinessScore', 'happinessState', 'happinessBaseBonus', 'happinessResearchBonus',
+            'happinessTavernBonus', 'happinessServedWineBonus', 'woodPerHourCity', 'tradegoodPerHourCity',
+            'scientistsGoldCostPerHour', 'researchPointsPerHour', 'priestsGoldPerHour', 'citizensGoldPerHour',
+            'woodWorkersCity', 'tradegoodWorkersCity', 'scientistsCity', 'priestsCity', 'citizensCity',
+            'wineSpendings', 'freeTransporters', 'maxTransporters', 'buyTransporterCostGold',
+            'islandResourceWorkers', 'islandTradegoodWorkers', 'resourcePerHourIslandPreview', 'workCostIslandPreview',
+        ];
+
+        const buildTypedProjection = (city) => {
+            const typed = city?.typed ?? {};
+            const out = {};
+            for (const field of confirmedTypedFields) {
+                if (typed[field] !== undefined && typed[field] !== null) {
+                    out[field] = typed[field];
+                }
+            }
+            if (Object.keys(out).length === 0) return null;
+            return {
+                fields: out,
+                meta: typed._meta ?? {},
+            };
+        };
+
         return {
             bot: {
                 status:     this._calcBotStatus(),
@@ -163,6 +189,7 @@ export class UIBridge {
                 readinessReasons: readinessByCity[c.id]?.reasons ?? [],
                 wineCoverageHours: plannerCtx?.cities?.get?.(c.id)?.wineHours ?? this._estimateWineCoverageHours(c),
                 isHub: hub?.id === c.id,
+                typed: buildTypedProjection(c),
             })),
             cityDetail: null,
             fleetMovements: this._buildFleetMovements(),

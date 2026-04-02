@@ -77,12 +77,13 @@ export class HR {
         // Relatório de ciclo — snapshot consolidado de vinho em todas as cidades
         const lines = cities.map(c => {
             const wine = c.resources?.wine ?? 0;
-            let spendings = c.production?.wineSpendings ?? 0;
+            const signals = this._resolveCitySignals(c);
+            let spendings = signals.wineSpendings;
             if (spendings <= 0 && c.tavern?.wineLevel > 0) {
                 spendings = WINE_USE[c.tavern.wineLevel] ?? 0;
             }
             const hours = spendings > 0 ? (wine / spendings).toFixed(1) : '∞';
-            const sat   = c.economy?.satisfaction ?? null;
+            const sat   = signals.happinessScore;
             const flag  = (spendings > 0 && wine / spendings < this._config.get('wineEmergencyHours'))
                 ? ' ⚠' : (sat !== null && sat <= 0 ? ' ⚠sat' : '');
             return `${c.name}=${hours}h sat=${sat ?? '?'} nv${c.tavern?.wineLevel ?? 0}${flag}`;
@@ -244,15 +245,41 @@ export class HR {
 
     // ── Risco de esgotamento ──────────────────────────────────────────────────
 
+    _resolveCitySignals(city) {
+        const typed = city?.typed ?? {};
+        const workersByResource = city?.workersByResource ?? city?.workers ?? {};
+
+        return {
+            happinessScore: typed.happinessScore ?? city?.economy?.satisfaction ?? null,
+            happinessState: typed.happinessState ?? null,
+            populationGrowthPerHour: Number(typed.populationGrowthPerHour ?? city?.economy?.growthPerHour ?? 0),
+            populationUsed: Number(typed.populationUsed ?? city?.economy?.population ?? 0),
+            maxInhabitants: Number(typed.maxInhabitants ?? city?.economy?.maxInhabitants ?? 0),
+            populationUtilization: Number(typed.populationUtilization ?? 0),
+            wineSpendings: Number(typed.wineSpendings ?? city?.production?.wineSpendings ?? 0),
+            workersByResource: {
+                wood: Number(workersByResource.wood ?? city?.workers?.wood ?? 0),
+                tradegood: Number(workersByResource.tradegood ?? city?.workers?.tradegood ?? 0),
+                scientists: Number(workersByResource.scientists ?? city?.workers?.scientists ?? 0),
+                priests: Number(workersByResource.priests ?? city?.workers?.priests ?? 0),
+                citizens: Number(workersByResource.citizens ?? city?.economy?.citizens ?? 0),
+            },
+        };
+    }
+
     _checkWineRisk(city, ignoreCooldown = false, ctx = null) {
+        const signals = this._resolveCitySignals(city);
         const wine = city.resources.wine ?? 0;
         // Quando o estoque zera, o servidor para de reportar wineSpendings (retorna 0).
         // Usar WINE_USE[tavernWineLevel] como fallback — taberna continua configurada.
-        let spendings = city.production.wineSpendings ?? 0;
+        let spendings = signals.wineSpendings;
         if (spendings <= 0 && city.tavern.wineLevel > 0) {
             spendings = WINE_USE[city.tavern.wineLevel] ?? 0;
         }
-        if (spendings <= 0) return; // cidade não usa vinho
+        if (spendings <= 0) {
+            this._checkWineBootstrapRecovery(city, signals, ignoreCooldown, ctx);
+            return;
+        }
 
         const hoursLeft = wine / spendings;
         const policy = this._resolveWinePolicy(ctx);
@@ -314,6 +341,74 @@ export class HR {
         }
     }
 
+    _checkWineBootstrapRecovery(city, signals, ignoreCooldown = false, ctx = null) {
+        const tavernBuilding = (city.buildings ?? []).find((b) => b.building === 'tavern');
+        const tavernExists = Number(tavernBuilding?.level ?? 0) > 0;
+        if (!tavernExists) return;
+
+        const wine = Number(city.resources?.wine ?? 0);
+        if (wine > 0) return;
+
+        const policy = this._resolveWinePolicy(ctx);
+        const growthStage = ctx?.growthPolicy?.growthStage ?? null;
+        const strategicGoal = ctx?.globalGoal ?? null;
+
+        const isStrategicRecoveryStage =
+            growthStage === 'BOOTSTRAP_CITY'
+            || growthStage === 'STABILIZE_CITY'
+            || growthStage === 'CONSOLIDATE_NEW_CITY'
+            || strategicGoal === GLOBAL_GOAL.SURVIVE
+            || strategicGoal === GLOBAL_GOAL.CONSOLIDATE_NEW_CITY;
+
+        const satisfaction = signals.happinessScore;
+        const growthPerHour = Number(signals.populationGrowthPerHour ?? 0);
+        const popUtil = Number(signals.populationUtilization ?? 0);
+        const needsStability =
+            (satisfaction !== null && satisfaction <= 1)
+            || growthPerHour <= 0
+            || popUtil >= 0.9;
+
+        if (!isStrategicRecoveryStage && !needsStability) return;
+
+        const now = Date.now();
+        if (!ignoreCooldown) {
+            const lastEmit = this._wineEmergencyCooldown.get(city.id) ?? 0;
+            if (now - lastEmit < this._COOLDOWN_MS) {
+                this._audit.debug('HR',
+                    `Wine bootstrap ${city.name}: cooldown por mais ${Math.round((this._COOLDOWN_MS - (now - lastEmit)) / 60000)}min`
+                );
+                return;
+            }
+        }
+        this._wineEmergencyCooldown.set(city.id, now);
+
+        const recoveryWineLevel = Math.max(1, Number(policy.emergencyMinWineLevel ?? 0));
+        const recoveryWinePerHour = WINE_USE[recoveryWineLevel] ?? WINE_USE[1] ?? 4;
+
+        this._events.emit(this._events.E.HR_WINE_EMERGENCY, {
+            cityId: city.id,
+            hoursLeft: 0,
+            bootstrapRecovery: true,
+            recoveryWineLevel,
+            recoveryWinePerHour,
+            growthStage,
+            strategicGoal,
+        });
+
+        this._audit.warn('HR',
+            `BOOTSTRAP DE VINHO em ${city.name}: vinho zerado com consumo inativo (taberna=${city.tavern?.wineLevel ?? 0}, sat=${satisfaction ?? 'N/A'}, growth=${growthPerHour}/h)`,
+            { cityId: city.id }
+        );
+
+        if (ctx) {
+            const cityCtx = ctx.cities.get(city.id);
+            if (cityCtx) {
+                cityCtx.wineEmergencyHandled = true;
+                cityCtx.wineBootstrapNeeded = true;
+            }
+        }
+    }
+
     // ── Log inteligente de vinho ──────────────────────────────────────────────
 
     _logWineIfChanged(city, wine, spendings, hoursLeft, threshold) {
@@ -358,7 +453,8 @@ export class HR {
 
     _checkWineLevel(city, ctx = null) {
         const current      = city.tavern?.wineLevel ?? 0;
-        const satisfaction = city.economy?.satisfaction ?? null;
+        const signals = this._resolveCitySignals(city);
+        const satisfaction = signals.happinessScore;
         const policy       = this._resolveWinePolicy(ctx);
 
         // Sem taberna física — nada a fazer
@@ -379,7 +475,9 @@ export class HR {
 
         // Segurança: servidor debita 1h de vinho ao mudar nível
         const wine      = city.resources?.wine ?? 0;
-        const spendings = city.production?.wineSpendings ?? WINE_USE[current] ?? 0;
+        const spendings = signals.wineSpendings > 0
+            ? signals.wineSpendings
+            : (WINE_USE[current] ?? 0);
         const hoursLeft = spendings > 0 ? wine / spendings : Infinity;
         if (hoursLeft < 2) {
             this._audit.debug('HR',
@@ -391,11 +489,18 @@ export class HR {
         const floor = this._wineLevelFloor.get(city.id) ?? 0;
 
         let targetLevel = current;
+        const growthPerHour = Number(signals.populationGrowthPerHour ?? 0);
+        const popUtil = Number(signals.populationUtilization ?? 0);
 
-        if (satisfaction > policy.lowerOnlyIfSatisfactionAtLeast && current > 0 && current > floor) {
+        if ((popUtil < 0.75 && growthPerHour > 0 && satisfaction > policy.lowerOnlyIfSatisfactionAtLeast)
+            && current > 0 && current > floor) {
+            // Cidade com folga de habitação e crescimento sustentável → reduzir custo de vinho.
+            targetLevel = current - 1;
+        } else if (satisfaction > policy.lowerOnlyIfSatisfactionAtLeast && current > 0 && current > floor) {
             // Acima do necessário e acima do floor confirmado → tentar baixar 1 nível
             targetLevel = current - 1;
-        } else if (satisfaction < policy.raiseIfSatisfactionBelow && current < maxServable) {
+        } else if ((satisfaction < policy.raiseIfSatisfactionBelow || (popUtil >= 0.9 && growthPerHour <= 0))
+            && current < maxServable) {
             // Insuficiente → subir 1 nível e registrar que o nível atual é o floor mínimo
             targetLevel = current + 1;
             this._wineLevelFloor.set(city.id, targetLevel);
@@ -548,12 +653,13 @@ export class HR {
     }
 
     _buildTownHallAllocationSnapshot(city, allocationAfter = {}) {
-        const population = Number(city.economy?.population ?? 0);
+        const signals = this._resolveCitySignals(city);
+        const population = Number(signals.populationUsed ?? city.economy?.population ?? 0);
 
-        const beforeWoodWorkers = Number(city.workers?.wood ?? 0);
-        const beforeLuxuryWorkers = Number(city.workers?.tradegood ?? 0);
-        const beforePriests = Number(city.workers?.priests ?? 0);
-        const beforeScientists = Number(city.workers?.scientists ?? 0);
+        const beforeWoodWorkers = Number(signals.workersByResource.wood ?? city.workers?.wood ?? 0);
+        const beforeLuxuryWorkers = Number(signals.workersByResource.tradegood ?? city.workers?.tradegood ?? 0);
+        const beforePriests = Number(signals.workersByResource.priests ?? city.workers?.priests ?? 0);
+        const beforeScientists = Number(signals.workersByResource.scientists ?? city.workers?.scientists ?? 0);
         const beforeWorkersTotal = beforeWoodWorkers + beforeLuxuryWorkers + beforePriests;
 
         const inferredCitizens = Math.max(0, population - beforeWorkersTotal - beforeScientists);
