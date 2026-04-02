@@ -27,6 +27,7 @@ describe('GrowthPolicy', () => {
     expect(policy.recommendedResourceFocus).toBe('WINE_AND_GOLD_STABILITY');
     expect(policy.milestoneBlockingFactors).toEqual(expect.arrayContaining([
       'happiness_below_bootstrap_target',
+      'population_growth_below_bootstrap_target',
       'wine_coverage_below_bootstrap_target',
       'gold_per_hour_below_bootstrap_target',
     ]));

@@ -32,7 +32,7 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
     }, 0);
 
     const satisfactions = cities
-        .map((c) => c?.economy?.satisfaction)
+        .map((c) => c?.typed?.happinessScore ?? c?.economy?.satisfaction)
         .filter((s) => Number.isFinite(Number(s)))
         .map((s) => Number(s));
     const happinessAvg = satisfactions.length
@@ -50,6 +50,10 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
         ? wineHoursList.reduce((sum, h) => sum + h, 0) / wineHoursList.length
         : Infinity;
 
+    const wineBootstrapCities = cityContexts instanceof Map
+        ? [...cityContexts.values()].filter((ctx) => Boolean(ctx?.wineBootstrapNeeded)).length
+        : 0;
+
     const storagePressureAvg = stageMetrics.storagePressureAvg ?? 0;
     const storagePressureHighCities = stageMetrics.storagePressureHighCities ?? 0;
 
@@ -66,6 +70,26 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
     const logisticsRisk = readinessBlockingFactors.some((f) => /logistics|transport/i.test(String(f)))
         || (cityCount >= 2 && pendingTransportCoverage < 0.20);
 
+    const growthRates = cities
+        .map((c) => Number(c?.typed?.populationGrowthPerHour ?? c?.economy?.growthPerHour ?? 0))
+        .filter((v) => Number.isFinite(v));
+    const growthPerHourAvg = growthRates.length
+        ? growthRates.reduce((sum, v) => sum + v, 0) / growthRates.length
+        : 0;
+
+    const utilizationRates = cities
+        .map((c) => {
+            const typedUtil = Number(c?.typed?.populationUtilization);
+            if (Number.isFinite(typedUtil) && typedUtil > 0) return typedUtil;
+            const used = Number(c?.typed?.populationUsed ?? c?.economy?.population ?? 0);
+            const max = Number(c?.typed?.maxInhabitants ?? c?.economy?.maxInhabitants ?? 0);
+            return max > 0 ? used / max : null;
+        })
+        .filter((v) => Number.isFinite(v));
+    const populationUtilizationAvg = utilizationRates.length
+        ? utilizationRates.reduce((sum, v) => sum + v, 0) / utilizationRates.length
+        : 0;
+
     return {
         cityCount,
         totalPopulation,
@@ -73,8 +97,11 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
         totalProductionPerHour,
         happinessAvg: Number(happinessAvg.toFixed(2)),
         happinessCriticalCities,
+        growthPerHourAvg: Number(growthPerHourAvg.toFixed(2)),
+        populationUtilizationAvg: Number(populationUtilizationAvg.toFixed(3)),
         wineCoverageHoursMin: Number.isFinite(wineCoverageHoursMin) ? Number(wineCoverageHoursMin.toFixed(2)) : Infinity,
         wineCoverageHoursAvg: Number.isFinite(wineCoverageHoursAvg) ? Number(wineCoverageHoursAvg.toFixed(2)) : Infinity,
+        wineBootstrapCities,
         storagePressureAvg: Number(storagePressureAvg.toFixed(3)),
         storagePressureHighCities,
         pendingTransportCoverage: Number(pendingTransportCoverage.toFixed(3)),
@@ -119,6 +146,9 @@ export function evaluateGrowthPolicy({
         if (t.happinessCriticalCities > 0 || t.wineCoverageHoursMin < 6) {
             blocking.push('new_city_supply_stability_gap');
         }
+        if (t.wineBootstrapCities > 0) {
+            blocking.push('wine_bootstrap_recovery_required');
+        }
         return _finalize(
             GROWTH_STAGE.CONSOLIDATE_NEW_CITY,
             'NEW_CITY_BASELINE_STABILITY',
@@ -151,11 +181,14 @@ export function evaluateGrowthPolicy({
         || t.totalProductionPerHour < 850
         || t.totalGoldPerHour < 20
         || t.happinessAvg < 1.5
+        || t.growthPerHourAvg < 0.5
         || t.wineCoverageHoursMin < 4
+        || t.wineBootstrapCities > 0
     );
     if (severeBootstrap) {
         reasons.push('new_account_survival_baseline_not_reached');
         if (t.happinessAvg < 2) blocking.push('happiness_below_bootstrap_target');
+        if (t.growthPerHourAvg < 1) blocking.push('population_growth_below_bootstrap_target');
         if (t.wineCoverageHoursMin < 6) blocking.push('wine_coverage_below_bootstrap_target');
         if (t.totalGoldPerHour < 40) blocking.push('gold_per_hour_below_bootstrap_target');
         if (t.storagePressureAvg > 0.9) blocking.push('storage_pressure_blocks_bootstrap_flow');
@@ -172,6 +205,7 @@ export function evaluateGrowthPolicy({
 
     const stillStabilizing = t.cityCount <= 1 && (
         t.happinessAvg < 3
+        || t.populationUtilizationAvg > 0.92
         || t.wineCoverageHoursAvg < 10
         || t.totalGoldPerHour < 100
         || t.storagePressureAvg > 0.82
@@ -179,6 +213,7 @@ export function evaluateGrowthPolicy({
     if (stillStabilizing) {
         reasons.push('single_city_needs_stability_before_growth_acceleration');
         if (t.happinessAvg < 3) blocking.push('happiness_below_stability_band');
+        if (t.populationUtilizationAvg > 0.92) blocking.push('population_utilization_pressure_high');
         if (t.totalGoldPerHour < 100) blocking.push('cashflow_not_stable_for_growth_push');
         if (t.storagePressureAvg > 0.82) blocking.push('storage_pressure_limits_growth_cycle');
         return _finalize(

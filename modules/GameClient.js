@@ -321,6 +321,7 @@ export class GameClient {
      */
     setScientists(cityId, academyPosition, count) {
         return this._enqueue(async () => {
+            const tokenBefore = this._token();
             const result = await this._postWithContext(
                 `/index.php?view=academy&cityId=${cityId}&position=${academyPosition}` +
                 `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
@@ -338,7 +339,7 @@ export class GameClient {
             );
 
             const signals = this._extractSignals(result.data);
-            if (!signals.hasFeedbackOk) {
+            if (!signals.hasFeedbackOk && !result.tokenRotated) {
                 throw new GameError(
                     'GUARD',
                     `setScientists inconclusivo para cidade ${cityId}`,
@@ -350,10 +351,16 @@ export class GameClient {
                 ...result,
                 hybridOutcome: this._makeHybridOutcome({
                     actionType: 'WORKER_REALLOC',
-                    responseSignals: ['provideFeedback:type10'],
+                    responseSignals: [
+                        signals.hasFeedbackOk ? 'provideFeedback:type10' : 'provideFeedback:missing',
+                        result.tokenRotated ? 'actionRequest:rotated' : 'actionRequest:not_rotated',
+                    ],
                     outcomeClass: 'success',
                     nextStep: 'task_complete',
                 }),
+                tokenRotated: result.tokenRotated,
+                tokenBefore,
+                tokenAfter: this._token(),
             };
         });
     }
@@ -468,6 +475,7 @@ export class GameClient {
      */
     setTavernWine(cityId, tavernPosition, wineLevel) {
         return this._enqueue(async () => {
+            const tokenBefore = this._token();
             const result = await this._postWithContext(
                 `/index.php?view=tavern&cityId=${cityId}&position=${tavernPosition}` +
                 `&backgroundView=city&currentCityId=${cityId}&ajax=1`,
@@ -484,7 +492,7 @@ export class GameClient {
             );
 
             const signals = this._extractSignals(result.data);
-            if (!signals.hasFeedbackOk) {
+            if (!signals.hasFeedbackOk && !result.tokenRotated) {
                 throw new GameError(
                     'GUARD',
                     `setTavernWine inconclusivo para cidade ${cityId}`,
@@ -496,10 +504,16 @@ export class GameClient {
                 ...result,
                 hybridOutcome: this._makeHybridOutcome({
                     actionType: 'WINE_ADJUST',
-                    responseSignals: ['provideFeedback:type10'],
+                    responseSignals: [
+                        signals.hasFeedbackOk ? 'provideFeedback:type10' : 'provideFeedback:missing',
+                        result.tokenRotated ? 'actionRequest:rotated' : 'actionRequest:not_rotated',
+                    ],
                     outcomeClass: 'success',
                     nextStep: 'task_complete',
                 }),
+                tokenRotated: result.tokenRotated,
+                tokenBefore,
+                tokenAfter: this._token(),
             };
         });
     }
@@ -693,6 +707,7 @@ export class GameClient {
     }
 
     async _post(payload) {
+        const tokenBefore = this._dc.getToken?.() ?? null;
         // Remover campos undefined/null do payload
         const cleanPayload = Object.fromEntries(
             Object.entries(payload).filter(([, v]) => v !== undefined && v !== null)
@@ -753,7 +768,11 @@ export class GameClient {
 
             // Token CSRF atualizado
             const globalCmd = data.find(c => Array.isArray(c) && c[0] === 'updateGlobalData');
+            let tokenRotated = false;
             if (globalCmd?.[1]?.actionRequest) {
+                tokenRotated = tokenBefore
+                    ? globalCmd[1].actionRequest !== tokenBefore
+                    : true;
                 this._dc.setToken(globalCmd[1].actionRequest);
             }
 
@@ -814,10 +833,10 @@ export class GameClient {
             this._audit.debug('GameClient', `POST: resposta — comandos=[${cmdNames}]${fleetCmd ? ' ✓ FROTA' : ''}`);
 
             // Expor endUpgradeTime no retorno para que o caller possa agendar re-avaliação
-            return { text, endUpgradeTime, data, commands: commandList };
+            return { text, endUpgradeTime, data, commands: commandList, tokenRotated };
         }
 
-        return { text, endUpgradeTime: null, data: null, commands: [] };
+        return { text, endUpgradeTime: null, data: null, commands: [], tokenRotated: false };
     }
 
     /**

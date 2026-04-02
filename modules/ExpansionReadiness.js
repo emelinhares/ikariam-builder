@@ -32,7 +32,31 @@ function _cityProductionPerHour(city) {
 }
 
 function _cityPopulation(city) {
-    return _num(city?.economy?.population, _num(city?.economy?.citizens, 0));
+    return _num(
+        city?.typed?.populationUsed,
+        _num(city?.economy?.population, _num(city?.economy?.citizens, 0)),
+    );
+}
+
+function _cityHappiness(city) {
+    return _num(city?.typed?.happinessScore, _num(city?.economy?.satisfaction, 0));
+}
+
+function _cityCorruptionPct(city) {
+    return _num(city?.typed?.corruptionPct, _num(city?.economy?.corruption, 0));
+}
+
+function _cityActionPoints(city) {
+    return _num(city?.typed?.actionPointsAvailable, _num(city?.economy?.actionPoints, 0));
+}
+
+function _cityPopulationUtilization(city) {
+    const typed = _num(city?.typed?.populationUtilization, NaN);
+    if (Number.isFinite(typed) && typed >= 0) return typed;
+    const used = _num(city?.typed?.populationUsed, _num(city?.economy?.population, 0));
+    const max = _num(city?.typed?.maxInhabitants, _num(city?.economy?.maxInhabitants, 0));
+    if (max <= 0) return 0;
+    return Math.max(0, used / max);
 }
 
 function _cityResourcesTotal(city) {
@@ -56,7 +80,10 @@ function _cityLogisticsMinimum(city, cityCtx, cityCount) {
 
 function _evaluateCity(city, cityCtx, cityCount, stage, globalGoal) {
     const population = _cityPopulation(city);
-    const satisfaction = _num(city?.economy?.satisfaction, 0);
+    const happiness = _cityHappiness(city);
+    const corruptionPct = _cityCorruptionPct(city);
+    const actionPointsAvailable = _cityActionPoints(city);
+    const populationUtilization = _cityPopulationUtilization(city);
     const wineHours = _cityWineHours(city, cityCtx);
     const goldPerHour = _num(city?.economy?.goldPerHour, 0);
     const storagePressure = _cityStoragePressure(city);
@@ -73,9 +100,27 @@ function _evaluateCity(city, cityCtx, cityCount, stage, globalGoal) {
         },
         {
             key: 'happiness',
-            ok: satisfaction >= 1,
-            pass: `city_${city.id}_happiness_ok:${satisfaction}`,
-            block: `city_${city.id}_low_happiness:${satisfaction}<1`,
+            ok: happiness >= 1,
+            pass: `city_${city.id}_happiness_ok:${happiness}`,
+            block: `city_${city.id}_low_happiness:${happiness}<1`,
+        },
+        {
+            key: 'corruptionPct',
+            ok: corruptionPct <= 15,
+            pass: `city_${city.id}_corruption_ok:${corruptionPct}%`,
+            block: `city_${city.id}_corruption_high:${corruptionPct}%>15%`,
+        },
+        {
+            key: 'actionPointsAvailable',
+            ok: actionPointsAvailable >= 1,
+            pass: `city_${city.id}_action_points_ok:${actionPointsAvailable}`,
+            block: `city_${city.id}_action_points_low:${actionPointsAvailable}<1`,
+        },
+        {
+            key: 'populationUtilization',
+            ok: populationUtilization <= 0.97,
+            pass: `city_${city.id}_population_utilization_ok:${populationUtilization.toFixed(2)}`,
+            block: `city_${city.id}_population_utilization_high:${populationUtilization.toFixed(2)}>0.97`,
         },
         {
             key: 'wineCoverageHours',
@@ -128,7 +173,10 @@ function _evaluateCity(city, cityCtx, cityCount, stage, globalGoal) {
         blockingFactors,
         signals: {
             population,
-            happiness: satisfaction,
+            happiness,
+            corruptionPct,
+            actionPointsAvailable,
+            populationUtilization: Number(populationUtilization.toFixed(2)),
             wineCoverageHours: Number.isFinite(wineHours) ? Number(wineHours.toFixed(2)) : Infinity,
             goldPerHour,
             storagePressure: Number(storagePressure.toFixed(2)),

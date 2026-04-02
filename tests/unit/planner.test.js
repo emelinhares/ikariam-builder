@@ -134,6 +134,8 @@ describe('Planner', () => {
     expect(c303.wineHours).toBe(Infinity);
     expect(c303.hasCriticalSupply).toBe(true);
 
+    expect(c303.wineBootstrapNeeded).toBeFalsy();
+
     expect(ctx.stage).toBe('MULTI_CITY_EARLY');
     expect(ctx.globalGoal).toBe('SURVIVE');
     expect(ctx.goalReason).toBe('critical_supply_or_cashflow_pressure');
@@ -161,6 +163,35 @@ describe('Planner', () => {
     expect(ctx.cities.get(101).buildBlocked).toBe(true);
     expect(ctx.cities.get(202).buildBlocked).toBe(false);
     expect(ctx.cities.get(303).buildBlocked).toBe(true);
+  });
+
+  test('marca cidade como crítica por wine bootstrap mesmo sem wineSpendings ativos', () => {
+    const { planner } = createPlannerHarness({
+      state: {
+        getAllCities: vi.fn(() => ([
+          {
+            id: 909,
+            name: 'BootstrapTown',
+            resources: { wine: 0 },
+            production: { wineSpendings: 0 },
+            tavern: { wineLevel: 0 },
+            buildings: [{ building: 'tavern', level: 4 }],
+            typed: { populationGrowthPerHour: 0, populationUtilization: 0.95 },
+            economy: { satisfaction: 1, population: 330, maxInhabitants: 340 },
+            underConstruction: -1,
+          },
+        ])),
+      },
+      queue: {
+        getPending: vi.fn(() => []),
+      },
+    });
+
+    const ctx = planner._buildContext(Date.now());
+    const c909 = ctx.cities.get(909);
+    expect(c909.wineHours).toBe(Infinity);
+    expect(c909.wineBootstrapNeeded).toBe(true);
+    expect(c909.hasCriticalSupply).toBe(true);
   });
 
   test('executa fases na ordem e emite resumo do ciclo', async () => {

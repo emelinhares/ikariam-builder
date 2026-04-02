@@ -136,7 +136,13 @@ describe('Governance and business-rule gaps', () => {
       type: 'TRANSPORT',
       cityId: 202,
       status: 'pending',
-      payload: { fromCityId: 202, toCityId: 101, cargo: { wood: 250 } },
+      payload: {
+        fromCityId: 202,
+        toCityId: 101,
+        cargo: { wood: 250 },
+        minStock: true,
+        logisticPurpose: 'minStock',
+      },
     };
 
     const queue = {

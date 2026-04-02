@@ -56,7 +56,15 @@ function createQueueHarness(overrides = {}) {
     set: vi.fn(async () => {}),
   };
 
-  const queue = new TaskQueue({ events, audit, config, state, client, storage });
+  const queue = new TaskQueue({
+    events,
+    audit,
+    config,
+    state,
+    client,
+    storage,
+    transportIntentRegistry: overrides.transportIntentRegistry ?? null,
+  });
   return { queue, events, audit, config, state, client, storage };
 }
 
@@ -92,6 +100,187 @@ describe('TaskQueue orchestration', () => {
     expect(t1.phase).toBe(TASK_PHASE.LOGISTICA);
     expect(t2.phase).toBe(TASK_PHASE.SUSTENTO);
     expect(queue.getPending()).toHaveLength(2);
+  });
+
+  test('TRANSPORT dedup considera from/to/cargo/purpose e evita apenas equivalentes logísticos', () => {
+    const { queue } = createQueueHarness();
+
+    const base = {
+      type: 'TRANSPORT',
+      cityId: 101,
+      priority: 10,
+      scheduledFor: Date.now(),
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 77,
+        cargo: { wood: 500 },
+        boats: 1,
+        jitBuild: true,
+        logisticPurpose: 'jitBuild',
+      },
+    };
+
+    const t1 = queue.add(base);
+    const tDup = queue.add({ ...base, priority: 1 });
+    const tDifferentPurpose = queue.add({
+      ...base,
+      payload: {
+        ...base.payload,
+        jitBuild: false,
+        minStock: true,
+        logisticPurpose: 'minStock',
+      },
+    });
+    const tDifferentRoute = queue.add({
+      ...base,
+      payload: {
+        ...base.payload,
+        fromCityId: 303,
+        cargo: { wood: 500 },
+      },
+      cityId: 303,
+    });
+
+    expect(tDup.id).toBe(t1.id);
+    expect(tDifferentPurpose.id).not.toBe(t1.id);
+    expect(tDifferentRoute.id).not.toBe(t1.id);
+    expect(queue.getPending()).toHaveLength(3);
+  });
+
+  test('TRANSPORT usa registry para intentId estável', () => {
+    const registry = {
+      setState: vi.fn(),
+      setQueue: vi.fn(),
+      reconcileEquivalent: vi.fn(() => ({ shouldSkipEnqueue: false })),
+      ensureFromTaskData: vi.fn((taskData) => {
+        taskData.payload.intentId = 'tp:jitBuild|f:101|t:202|r:wood|b:500';
+      }),
+    };
+    const { queue } = createQueueHarness({ transportIntentRegistry: registry });
+
+    const task = queue.add({
+      type: 'TRANSPORT',
+      cityId: 101,
+      priority: 10,
+      scheduledFor: Date.now(),
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 77,
+        cargo: { wood: 500 },
+        boats: 1,
+        jitBuild: true,
+      },
+    });
+
+    expect(task.payload.intentId).toBe('tp:jitBuild|f:101|t:202|r:wood|b:500');
+    expect(registry.ensureFromTaskData).toHaveBeenCalledTimes(1);
+  });
+
+  test('TRANSPORT é reconciliado e não entra na fila quando já iniciado', () => {
+    const registry = {
+      setState: vi.fn(),
+      setQueue: vi.fn(),
+      reconcileEquivalent: vi.fn(() => ({
+        intentId: 'tp:jitBuild|f:101|t:202|r:wood|b:500',
+        status: 'CONFIRMED_LOADING',
+        evidence: ['fleetMovement=loading'],
+        shouldSkipEnqueue: true,
+      })),
+      ensureFromTaskData: vi.fn(),
+    };
+    const { queue } = createQueueHarness({ transportIntentRegistry: registry });
+
+    const task = queue.add({
+      type: 'TRANSPORT',
+      cityId: 101,
+      priority: 10,
+      scheduledFor: Date.now(),
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        toIslandId: 77,
+        cargo: { wood: 500 },
+        boats: 1,
+        jitBuild: true,
+      },
+    });
+
+    expect(task.status).toBe('reconciled');
+    expect(queue.getPending()).toHaveLength(0);
+    expect(registry.ensureFromTaskData).not.toHaveBeenCalled();
+  });
+
+  test('getTransportReservations expõe locks por destino/recurso/finalidade em tasks ativas', () => {
+    const { queue } = createQueueHarness();
+    const now = Date.now();
+
+    queue._queue = [
+      {
+        id: 'r1',
+        type: 'TRANSPORT',
+        cityId: 101,
+        phase: TASK_PHASE.LOGISTICA,
+        status: 'pending',
+        attempts: 0,
+        maxAttempts: 2,
+        priority: 1,
+        scheduledFor: now,
+        payload: {
+          fromCityId: 101,
+          toCityId: 202,
+          cargo: { wood: 500 },
+          jitBuild: true,
+          logisticPurpose: 'jitBuild',
+        },
+      },
+      {
+        id: 'r2',
+        type: 'TRANSPORT',
+        cityId: 303,
+        phase: TASK_PHASE.LOGISTICA,
+        status: 'blocked',
+        attempts: 1,
+        maxAttempts: 2,
+        priority: 1,
+        scheduledFor: now,
+        payload: {
+          fromCityId: 303,
+          toCityId: 202,
+          cargo: { wood: 250, marble: 100 },
+          minStock: true,
+          logisticPurpose: 'minStock',
+        },
+      },
+      {
+        id: 'ignore-done',
+        type: 'TRANSPORT',
+        cityId: 303,
+        phase: TASK_PHASE.LOGISTICA,
+        status: 'done',
+        attempts: 1,
+        maxAttempts: 2,
+        priority: 1,
+        scheduledFor: now,
+        payload: {
+          fromCityId: 303,
+          toCityId: 202,
+          cargo: { wood: 999 },
+          minStock: true,
+          logisticPurpose: 'minStock',
+        },
+      },
+    ];
+
+    const reservations = queue.getTransportReservations();
+
+    expect(reservations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ taskId: 'r1', toCityId: 202, resource: 'wood', purpose: 'jitBuild', amount: 500, status: 'pending' }),
+      expect.objectContaining({ taskId: 'r2', toCityId: 202, resource: 'wood', purpose: 'minStock', amount: 250, status: 'blocked' }),
+      expect.objectContaining({ taskId: 'r2', toCityId: 202, resource: 'marble', purpose: 'minStock', amount: 100, status: 'blocked' }),
+    ]));
+    expect(reservations.some((r) => r.taskId === 'ignore-done')).toBe(false);
   });
 
   test('tick seleciona task mais urgente por fase e prioridade', () => {
