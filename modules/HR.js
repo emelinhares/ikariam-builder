@@ -6,6 +6,7 @@ import { getMinWineLevel, getMaxServableWineLevel, WINE_USE } from '../data/wine
 import { EMPIRE_STAGE } from './EmpireStage.js';
 import { GLOBAL_GOAL } from './GoalEngine.js';
 import { TASK_TYPE } from './taskTypes.js';
+import { evaluateWineSustainPolicy, WINE_MODE } from './WineSustainPolicy.js';
 
 export class HR {
     constructor({ events, audit, config, state, queue }) {
@@ -24,13 +25,14 @@ export class HR {
         this._wineLevelFloor = new Map();
         // Última população conhecida — para resetar floor quando pop cresce
         this._lastPopulation = new Map();
+        this._unsubscribers = [];
     }
 
     init() {
         const E = this._events.E;
 
         // Verificação a cada headerData — não agir durante fetchAllCities
-        this._events.on(E.DC_HEADER_DATA, () => {
+        this._trackUnsub(this._events.on(E.DC_HEADER_DATA, () => {
             if (this._state.isProbing()) return;
             const cityId = this._state.getActiveCityId();
             if (!cityId || this._state.getConfidence(cityId) === 'UNKNOWN') return;
@@ -49,7 +51,7 @@ export class HR {
             this._lastPopulation.set(cityId, curPop);
 
             this._checkWineRisk(city);
-        });
+        }));
 
         // Log periódico de status de vinho (max 1x por ciclo de fetchAllCities)
         this._lastWineLog = new Map(); // cityId → { hours, ts }
@@ -59,7 +61,7 @@ export class HR {
         // Scope D — simulação imediata de impacto econômico para realocação em TownHall.
         // Permite que chamadores emitam HR_WORKER_REALLOC com "allocationAfter" para
         // obter/logar o impacto antes da confirmação final.
-        this._events.on(E.HR_WORKER_REALLOC, (payload = {}) => {
+        this._trackUnsub(this._events.on(E.HR_WORKER_REALLOC, (payload = {}) => {
             const cityId = Number(payload.cityId ?? 0);
             if (!cityId || !payload.allocationAfter) return;
             this.simulateTownHallImmediateImpact({
@@ -68,7 +70,17 @@ export class HR {
                 action: payload.action,
                 emitDecisionRecord: payload.emitDecisionRecord !== false,
             });
-        });
+        }));
+    }
+
+    shutdown() {
+        for (const unsub of this._unsubscribers.splice(0)) {
+            try { unsub(); } catch { /* best-effort */ }
+        }
+    }
+
+    _trackUnsub(unsub) {
+        if (typeof unsub === 'function') this._unsubscribers.push(unsub);
     }
 
     replan(ctx = null) {
@@ -269,74 +281,104 @@ export class HR {
 
     _checkWineRisk(city, ignoreCooldown = false, ctx = null) {
         const signals = this._resolveCitySignals(city);
-        const wine = city.resources.wine ?? 0;
-        // Quando o estoque zera, o servidor para de reportar wineSpendings (retorna 0).
-        // Usar WINE_USE[tavernWineLevel] como fallback — taberna continua configurada.
-        let spendings = signals.wineSpendings;
-        if (spendings <= 0 && city.tavern.wineLevel > 0) {
-            spendings = WINE_USE[city.tavern.wineLevel] ?? 0;
+        const wine = Number(city.resources?.wine ?? 0);
+        const policy = this._resolveWinePolicy(ctx);
+        const sustain = evaluateWineSustainPolicy({
+            city,
+            signals,
+            ctx,
+            emergencyHours: policy.emergencyHoursThreshold,
+        });
+        const threshold = sustain.emergencyHoursThreshold;
+        const hoursLeft = sustain.wineCoverageHours;
+        const spendings = sustain.effectiveWineSpendings;
+
+        if (ctx?.cities instanceof Map) {
+            const cityCtx = ctx.cities.get(city.id);
+            if (cityCtx) {
+                cityCtx.wineSustain = sustain;
+                cityCtx.wineHours = sustain.wineCoverageHours;
+                cityCtx.wineBootstrapNeeded = sustain.needsTavernBootstrap;
+                cityCtx.hasCriticalSupply = sustain.wineRiskLevel === 'CRITICAL' || sustain.needsWineImport;
+            }
         }
-        if (spendings <= 0) {
-            this._checkWineBootstrapRecovery(city, signals, ignoreCooldown, ctx);
+
+        if (sustain.wineMode === WINE_MODE.BOOTSTRAP_TAVERN
+            || sustain.wineMode === WINE_MODE.CRITICAL_NO_WINE
+            || sustain.wineMode === WINE_MODE.IMPORT_WINE) {
+            this._triggerWineEmergency(city, sustain, ignoreCooldown, ctx);
             return;
         }
 
-        const hoursLeft = wine / spendings;
-        const policy = this._resolveWinePolicy(ctx);
-        const threshold = policy.emergencyHoursThreshold;
-
         // Log apenas quando estado muda significativamente (evitar flood por DC_HEADER_DATA)
-        this._logWineIfChanged(city, wine, spendings, hoursLeft, threshold);
+        this._logWineIfChanged(city, wine, Math.max(1, spendings), Number.isFinite(hoursLeft) ? hoursLeft : Infinity, threshold);
+    }
 
-        if (hoursLeft < threshold) {
-            // Cooldown: não re-emitir WINE_EMERGENCY antes de 10 minutos (exceto replan)
-            const now = Date.now();
-            if (!ignoreCooldown) {
-                const lastEmit = this._wineEmergencyCooldown.get(city.id) ?? 0;
-                if (now - lastEmit < this._COOLDOWN_MS) {
-                    this._audit.debug('HR',
-                        `Vinho ${city.name}: emergência em cooldown por mais ${Math.round((this._COOLDOWN_MS - (now - lastEmit)) / 60000)}min`
-                    );
-                    return;
-                }
+    _triggerWineEmergency(city, sustain, ignoreCooldown = false, ctx = null) {
+        const now = Date.now();
+        if (!ignoreCooldown) {
+            const lastEmit = this._wineEmergencyCooldown.get(city.id) ?? 0;
+            if (now - lastEmit < this._COOLDOWN_MS) {
+                this._audit.debug('HR',
+                    `Vinho ${city.name}: emergência em cooldown por mais ${Math.round((this._COOLDOWN_MS - (now - lastEmit)) / 60000)}min`
+                );
+                return;
             }
-            this._wineEmergencyCooldown.set(city.id, now);
+        }
+        this._wineEmergencyCooldown.set(city.id, now);
 
-            this._events.emit(this._events.E.HR_WINE_EMERGENCY, {
-                cityId: city.id,
-                hoursLeft,
-            });
-            this._audit.warn('HR',
-                `EMERGÊNCIA DE VINHO em ${city.name}: ${hoursLeft.toFixed(1)}h restantes`,
-                { cityId: city.id }
-            );
+        const bootstrapRecovery = sustain.wineMode === WINE_MODE.BOOTSTRAP_TAVERN
+            || sustain.wineMode === WINE_MODE.CRITICAL_NO_WINE;
 
-            // Ajustar taberna para nível mínimo (evitar consumo desnecessário)
-            if (!this._queue.hasPendingType(TASK_TYPE.WINE_ADJUST, city.id)) {
-                const minLevel = getMinWineLevel(spendings);
-                const targetLevel = Math.max(minLevel, policy.emergencyMinWineLevel);
-                if (targetLevel >= 0 && targetLevel !== city.tavern.wineLevel) {
-                    this._queue.add({
-                        type:     TASK_TYPE.WINE_ADJUST,
-                        priority: 0,
-                        cityId:   city.id,
-                        payload: {
-                            wineLevel:     targetLevel,
-                            wineEmergency: true,
-                        },
-                        scheduledFor: Date.now(),
-                        reason:       `HR Emergência: ajustar taberna → nível ${targetLevel} (${hoursLeft.toFixed(1)}h restantes, stage=${ctx?.stage ?? 'N/A'}, goal=${ctx?.globalGoal ?? 'N/A'})`,
-                        module:       'HR',
-                        confidence:   'HIGH',
-                        maxAttempts:  5,
-                    });
-                }
+        this._events.emit(this._events.E.HR_WINE_EMERGENCY, {
+            cityId: city.id,
+            hoursLeft: sustain.wineCoverageHours,
+            bootstrapRecovery,
+            wineRecovery: sustain.wineMode === WINE_MODE.BOOTSTRAP_TAVERN,
+            recoveryWineLevel: sustain.targetWineLevel,
+            recoveryWinePerHour: sustain.effectiveWineSpendings,
+            targetWineAmount: sustain.targetWineAmount,
+            targetWineCoverageHours: sustain.targetWineCoverageHours,
+            wineMode: sustain.wineMode,
+            wineReasons: sustain.wineReasons,
+            wineBlockingFactors: sustain.wineBlockingFactors,
+        });
+
+        this._audit.warn('HR',
+            `SUSTENTO DE VINHO em ${city.name}: mode=${sustain.wineMode} risk=${sustain.wineRiskLevel} cov=${Number.isFinite(sustain.wineCoverageHours) ? sustain.wineCoverageHours.toFixed(1) : '∞'}h`,
+            { cityId: city.id }
+        );
+
+        if (sustain.needsTavernAdjustment && !this._queue.hasPendingType(TASK_TYPE.WINE_ADJUST, city.id)) {
+            const targetLevel = Math.max(0, sustain.targetWineLevel);
+            if (targetLevel !== (city.tavern?.wineLevel ?? 0)) {
+                this._queue.add({
+                    type: TASK_TYPE.WINE_ADJUST,
+                    priority: 0,
+                    cityId: city.id,
+                    payload: {
+                        wineLevel: targetLevel,
+                        wineEmergency: true,
+                        wineBootstrap: sustain.needsTavernBootstrap,
+                    },
+                    scheduledFor: Date.now(),
+                    reason: `HR Sustain: taberna ${city.tavern?.wineLevel ?? 0}→${targetLevel} (${sustain.wineMode})`,
+                    module: 'HR',
+                    confidence: 'HIGH',
+                    maxAttempts: 5,
+                });
             }
+        }
 
-            // Notificar contexto do Planner que emergência foi tratada
-            if (ctx) {
-                const cityCtx = ctx.cities.get(city.id);
-                if (cityCtx) cityCtx.wineEmergencyHandled = true;
+        if (ctx?.cities instanceof Map) {
+            const cityCtx = ctx.cities.get(city.id);
+            if (cityCtx) {
+                if (cityCtx.markWineHandled) {
+                    cityCtx.markWineHandled({ wineBootstrapNeeded: sustain.needsTavernBootstrap });
+                } else {
+                    cityCtx.wineEmergencyHandled = true;
+                    cityCtx.wineBootstrapNeeded = sustain.needsTavernBootstrap;
+                }
             }
         }
     }
@@ -403,8 +445,12 @@ export class HR {
         if (ctx) {
             const cityCtx = ctx.cities.get(city.id);
             if (cityCtx) {
-                cityCtx.wineEmergencyHandled = true;
-                cityCtx.wineBootstrapNeeded = true;
+                if (cityCtx.markWineHandled) {
+                    cityCtx.markWineHandled({ wineBootstrapNeeded: true });
+                } else {
+                    cityCtx.wineEmergencyHandled = true;
+                    cityCtx.wineBootstrapNeeded = true;
+                }
             }
         }
     }

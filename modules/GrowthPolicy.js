@@ -53,6 +53,13 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
     const wineBootstrapCities = cityContexts instanceof Map
         ? [...cityContexts.values()].filter((ctx) => Boolean(ctx?.wineBootstrapNeeded)).length
         : 0;
+    const wineSustainProblemCities = cityContexts instanceof Map
+        ? [...cityContexts.values()].filter((ctx) =>
+            Boolean(ctx?.wineSustain?.needsWineImport)
+            || Boolean(ctx?.wineSustain?.needsTavernBootstrap)
+            || Boolean(ctx?.wineSustain?.needsTavernAdjustment),
+        ).length
+        : 0;
 
     const storagePressureAvg = stageMetrics.storagePressureAvg ?? 0;
     const storagePressureHighCities = stageMetrics.storagePressureHighCities ?? 0;
@@ -102,6 +109,7 @@ function _computeTelemetry({ cities = [], cityContexts = null, stageMetrics = {}
         wineCoverageHoursMin: Number.isFinite(wineCoverageHoursMin) ? Number(wineCoverageHoursMin.toFixed(2)) : Infinity,
         wineCoverageHoursAvg: Number.isFinite(wineCoverageHoursAvg) ? Number(wineCoverageHoursAvg.toFixed(2)) : Infinity,
         wineBootstrapCities,
+        wineSustainProblemCities,
         storagePressureAvg: Number(storagePressureAvg.toFixed(3)),
         storagePressureHighCities,
         pendingTransportCoverage: Number(pendingTransportCoverage.toFixed(3)),
@@ -149,6 +157,9 @@ export function evaluateGrowthPolicy({
         if (t.wineBootstrapCities > 0) {
             blocking.push('wine_bootstrap_recovery_required');
         }
+        if (t.wineSustainProblemCities > 0) {
+            blocking.push('wine_sustain_policy_blocking_multi_city_flow');
+        }
         return _finalize(
             GROWTH_STAGE.CONSOLIDATE_NEW_CITY,
             'NEW_CITY_BASELINE_STABILITY',
@@ -184,6 +195,7 @@ export function evaluateGrowthPolicy({
         || t.growthPerHourAvg < 0.5
         || t.wineCoverageHoursMin < 4
         || t.wineBootstrapCities > 0
+        || t.wineSustainProblemCities > 0
     );
     if (severeBootstrap) {
         reasons.push('new_account_survival_baseline_not_reached');

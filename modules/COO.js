@@ -5,12 +5,15 @@
 
 import { PORT_LOADING_SPEED, TRAVEL } from '../data/const.js';
 import { WINE_USE } from '../data/wine.js';
-import { CITY_ROLE, classifyCities } from './CityClassifier.js';
+import { CITY_ROLE } from './CityClassifier.js';
 import { EMPIRE_STAGE } from './EmpireStage.js';
 import { GLOBAL_GOAL } from './GoalEngine.js';
 import { TransportIntentRegistry } from './TransportIntentRegistry.js';
 import { createEmptyResources } from './resourceContracts.js';
 import { TASK_TYPE } from './taskTypes.js';
+import { createSafeStorage } from './SafeStorage.js';
+import { identifyHub, buildCityClassification } from './HubSelector.js';
+import { checkCityOverflow } from './OverflowDetector.js';
 
 const RESOURCES = ['wood', 'wine', 'marble', 'glass', 'sulfur'];
 
@@ -23,11 +26,13 @@ export class COO {
         this._queue   = queue;
         this._client  = client;
         this._storage = storage;
+        this._safeStorage = createSafeStorage(storage, { module: 'COO', audit });
         this._transportIntentRegistry = transportIntentRegistry;
 
         this._hub = null; // cidade hub identificada
         this._cityClassifications = new Map();
         this._strategicCtx = { stage: null, globalGoal: null };
+        this._unsubscribers = [];
     }
 
     getHub() {
@@ -42,14 +47,14 @@ export class COO {
         const E = this._events.E;
 
         // JIT: novo BUILD na fila → agendar transporte de recursos
-        this._events.on(E.QUEUE_TASK_ADDED, ({ task }) => {
+        this._trackUnsub(this._events.on(E.QUEUE_TASK_ADDED, ({ task }) => {
             if (task.type === TASK_TYPE.BUILD) this._scheduleJITForBuild(task);
-        });
+        }));
 
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
 
         // Detecção de overflow — não agir durante fetchAllCities
-        this._events.on(E.DC_HEADER_DATA, () => {
+        this._trackUnsub(this._events.on(E.DC_HEADER_DATA, () => {
             if (this._state.isProbing()) return;
             if (!this._hub) return;
             const cityId = this._state.getActiveCityId();
@@ -57,12 +62,22 @@ export class COO {
             if (city && this._state.getConfidence(cityId) !== 'UNKNOWN') {
                 this._checkCityOverflow(city);
             }
-        });
+        }));
 
         // Emergência de vinho: agendar transporte de vinho do hub
-        this._events.on(E.HR_WINE_EMERGENCY, (payload = {}) => {
+        this._trackUnsub(this._events.on(E.HR_WINE_EMERGENCY, (payload = {}) => {
             this._scheduleWineEmergency(payload.cityId, payload);
-        });
+        }));
+    }
+
+    shutdown() {
+        for (const unsub of this._unsubscribers.splice(0)) {
+            try { unsub(); } catch { /* best-effort */ }
+        }
+    }
+
+    _trackUnsub(unsub) {
+        if (typeof unsub === 'function') this._unsubscribers.push(unsub);
     }
 
     replan(ctx = null) {
@@ -271,19 +286,24 @@ export class COO {
         const recoveryLevel = Math.max(1, Number(emergencyCtx?.recoveryWineLevel ?? city.tavern?.wineLevel ?? 0));
         const bootstrapRecovery = Boolean(emergencyCtx?.bootstrapRecovery);
         const bootstrapFallbackSpendings = WINE_USE[recoveryLevel] ?? WINE_USE[1] ?? 4;
+        const requestedAmount = Number(emergencyCtx?.targetWineAmount ?? 0);
         const wineSpendings = wineSpendingsRaw > 0
             ? wineSpendingsRaw
-            : (bootstrapRecovery ? Number(emergencyCtx?.recoveryWinePerHour ?? bootstrapFallbackSpendings) : 0);
-        if (!wineSpendings || wineSpendings <= 0) return;
+            : Number(emergencyCtx?.recoveryWinePerHour ?? bootstrapFallbackSpendings);
+        if ((!wineSpendings || wineSpendings <= 0) && requestedAmount <= 0) return;
 
         // Enviar buffer ajustado por maturidade estratégica
         const policy = this._resolveTransportPolicy(this._strategicCtx);
         const coverageHours = bootstrapRecovery
             ? policy.wineBootstrapCoverageHours
-            : policy.wineEmergencyCoverageHours;
-        const needed = wineSpendings * coverageHours;
+            : (emergencyCtx?.wineMode === 'IMPORT_WINE' ? policy.wineRecoveryCoverageHours : policy.wineEmergencyCoverageHours);
+        const needed = requestedAmount > 0
+            ? requestedAmount
+            : (wineSpendings * coverageHours);
 
-        const purpose = bootstrapRecovery ? 'wineBootstrap' : 'wineEmergency';
+        const purpose = bootstrapRecovery
+            ? 'wineBootstrap'
+            : (emergencyCtx?.wineMode === 'IMPORT_WINE' ? 'wineRecovery' : 'wineEmergency');
         const committed = this._getReservedCoverage(cityId, 'wine', purpose);
 
         if (committed >= needed) {
@@ -317,7 +337,7 @@ export class COO {
 
         this._enqueueTransportTask({
             type:     TASK_TYPE.TRANSPORT,
-            priority: bootstrapRecovery ? policy.wineBootstrapPriority : 0,  // urgente
+            priority: bootstrapRecovery ? policy.wineBootstrapPriority : policy.wineRecoveryPriority,
             cityId:   source.id,
             payload: {
                 fromCityId:   source.id,
@@ -328,13 +348,16 @@ export class COO {
                 totalCargo:   toSend,
                 wineEmergency: true,
                 wineBootstrapRecovery: bootstrapRecovery,
-                logisticPurpose: bootstrapRecovery ? 'wineBootstrap' : 'wineEmergency',
+                wineRecovery: !bootstrapRecovery && purpose === 'wineRecovery',
+                logisticPurpose: purpose,
                 recoveryWineLevel: bootstrapRecovery ? recoveryLevel : null,
             },
             scheduledFor: Date.now(),
             reason:       bootstrapRecovery
                 ? `COO: Recuperação de taberna em ${city.name} — enviar ${toSend}u de vinho`
-                : `COO: Emergência de vinho em ${city.name} — enviar ${toSend}u`,
+                : (purpose === 'wineRecovery'
+                    ? `COO: Recuperação de sustento em ${city.name} — enviar ${toSend}u de vinho`
+                    : `COO: Emergência de vinho em ${city.name} — enviar ${toSend}u`),
             module:       'COO',
             confidence:   'HIGH',
         });
@@ -373,92 +396,21 @@ export class COO {
     }
 
     _checkCityOverflow(city, ledger = null, classifications = null) {
-        const _ledger = ledger ?? this._buildCommitmentLedger();
-        const maxRes = city.maxResources;
-        if (!maxRes || maxRes === 0) return 0;
-        const cityClass = classifications?.get(city.id) ?? this._cityClassifications.get(city.id) ?? null;
-        let scheduledCount = 0;
-
-        for (const [res, qty] of Object.entries(city.resources)) {
-            const overflowByPct = qty >= maxRes * 0.95;
-            const overflowByTime = cityClass?.overflowFlags?.[res] ?? false;
-            if (!overflowByPct && !overflowByTime) continue;
-
-            const timeToCapHours = cityClass?.timeToCapHours?.[res] ?? Infinity;
-            const productionPerHour = cityClass?.productionPerHour?.[res] ?? 0;
-
-            this._audit.warn('COO',
-                `Overflow de ${res} em ${city.name}: ${qty}/${maxRes} ttc=${Number.isFinite(timeToCapHours) ? timeToCapHours.toFixed(2) : '∞'}h prod=${Math.round(productionPerHour)}/h`,
-                { cityId: city.id }
-            );
-
-            const desiredTtcHours = this._config.get('overflowTargetTimeToCapHours') ?? 6;
-            const desiredMaxByTtc = Number.isFinite(productionPerHour) && productionPerHour > 0
-                ? Math.max(0, maxRes - Math.ceil(productionPerHour * desiredTtcHours))
-                : qty;
-            const desiredMax = overflowByPct
-                ? Math.floor(maxRes * 0.80)
-                : Math.min(Math.floor(maxRes * 0.90), desiredMaxByTtc);
-            const excess = Math.max(0, qty - desiredMax);
-            if (excess <= 0) continue;
-
-            // Verificar se já há transporte pendente deste recurso desta cidade
-                const existente = this._queue.getPending(city.id)
-                    .find(t => t.type === TASK_TYPE.TRANSPORT && t.payload?.cargo?.[res]);
-            if (existente) {
-                this._audit.debug('COO',
-                    `Overflow ${res} em ${city.name}: TRANSPORT já pendente [${existente.id}] — ignorado`
-                );
-                continue;
-            }
-
-            // Destino inteligente: cidade que mais precisa do recurso
-            // (menor estoque relativo à capacidade), fallback para hub
-            const dest = this._findOverflowDest(res, city.id, classifications, excess) ?? this._hub;
-            if (!dest || dest.id === city.id) continue;
-
-            const alreadyReserved = this._getReservedCoverage(dest.id, res, 'overflowRelief');
-            if (alreadyReserved > 0) {
-                this._audit.debug('COO',
-                    `Overflow ${res} em ${city.name}: destino ${dest.name} já tem ${alreadyReserved}u reservadas para overflowRelief — ignorado`
-                );
-                continue;
-            }
-
-            // Verificar se dest tem espaço (não está também em overflow)
-            const destCity  = this._state.getCity(dest.id);
-            const destSpace = Math.max(0, (destCity?.maxResources ?? 0) - (destCity?.resources[res] ?? 0));
-            const toSend    = Math.min(excess, destSpace > 0 ? destSpace : excess);
-            if (toSend <= 0) continue;
-
-            const boats = Math.ceil(toSend / 500);
-
-            this._enqueueTransportTask({
-                type:     TASK_TYPE.TRANSPORT,
-                priority: 30,
-                cityId:   city.id,
-                payload: {
-                    fromCityId:  city.id,
-                    toCityId:    dest.id,
-                    toIslandId:  dest.islandId,
-                    cargo:       { [res]: toSend },
-                    boats,
-                    totalCargo:  toSend,
-                    overflowRelief: true,
-                    logisticPurpose: 'overflowRelief',
-                },
-                scheduledFor: Date.now(),
-                reason:       `COO Overflow: ${res}+${toSend} de ${city.name} → ${dest.name}`,
-                module:       'COO',
-                confidence:   this._state.getConfidence(city.id),
-            });
-            scheduledCount++;
-
-            // Atualizar ledger para evitar double-counting neste ciclo
-            const entry = _ledger.get(city.id);
-            if (entry && res in entry) entry[res] += toSend;
-        }
-        return scheduledCount;
+        return checkCityOverflow({
+            city,
+            classifications: classifications ?? this._cityClassifications,
+            ledger: ledger ?? this._buildCommitmentLedger(),
+            queue: this._queue,
+            config: {
+                overflowTargetTimeToCapHours: this._config.get('overflowTargetTimeToCapHours') ?? 6,
+            },
+            hub: this._hub,
+            state: this._state,
+            getReservedCoverage: (toCityId, resource, purpose) => this._getReservedCoverage(toCityId, resource, purpose),
+            findOverflowDest: (resource, excludeCityId, cls, amountHint) => this._findOverflowDest(resource, excludeCityId, cls, amountHint),
+            enqueueTransportTask: (task) => this._enqueueTransportTask(task),
+            audit: this._audit,
+        });
     }
 
     // ── Estoque mínimo proativo ───────────────────────────────────────────────
@@ -696,6 +648,7 @@ export class COO {
 
     _resolveTransportPurpose(payload = {}) {
         if (payload?.wineBootstrapRecovery) return 'wineBootstrap';
+        if (payload?.wineRecovery) return 'wineRecovery';
         if (payload?.wineEmergency) return 'wineEmergency';
         if (payload?.jitBuild) return 'jitBuild';
         if (payload?.minStock) return 'minStock';
@@ -883,6 +836,8 @@ export class COO {
             wineEmergencyCoverageHours: 24,
             wineBootstrapCoverageHours: 12,
             wineBootstrapPriority: 0,
+            wineRecoveryCoverageHours: 16,
+            wineRecoveryPriority: 2,
         };
 
         if (stage === EMPIRE_STAGE.BOOTSTRAP) {
@@ -962,32 +917,18 @@ export class COO {
     }
 
     _buildCityClassification({ buildFocusCityIds = null } = {}) {
-        const cities = this._state.getAllCities();
-        const inTransitByCity = new Map();
-        for (const city of cities) {
-            inTransitByCity.set(city.id, this._state.getInTransit?.(city.id) ?? createEmptyResources());
-        }
-
-        const buildFocus = buildFocusCityIds ?? new Set(
-            this._queue.getPending()
-                .filter(t => t.type === TASK_TYPE.BUILD)
-                .map(t => t.cityId)
-        );
-
-        const classifications = classifyCities(cities, {
+        return buildCityClassification({
+            cities: this._state.getAllCities(),
+            queuePending: this._queue.getPending(),
+            getInTransit: (cityId) => this._state.getInTransit?.(cityId) ?? createEmptyResources(),
+            config: {
+                minStockFraction: this._config.get('minStockFraction') ?? 0.20,
+                overflowThresholdPct: this._config.get('overflowThresholdPct') ?? 0.95,
+                overflowTimeToCapHours: this._config.get('overflowTimeToCapHours') ?? 2,
+            },
             hubCityId: this._hub?.id ?? null,
-            minStockFraction: this._config.get('minStockFraction') ?? 0.20,
-            overflowThresholdPct: this._config.get('overflowThresholdPct') ?? 0.95,
-            overflowTimeToCapHours: this._config.get('overflowTimeToCapHours') ?? 2,
-            buildFocusCityIds: buildFocus,
-            inTransitByCity,
+            buildFocusCityIds,
         });
-
-        const map = new Map();
-        for (const cls of classifications) {
-            map.set(cls.cityId, cls);
-        }
-        return map;
     }
 
     // ── ETA de transporte ─────────────────────────────────────────────────────
@@ -1013,13 +954,13 @@ export class COO {
                 const cacheKey = `jt_${originCity.id}_${destCity.id}`;
                 let cached = null;
                 if (this._storage) {
-                    cached = await this._storage.get(cacheKey).catch(() => null);
+                    cached = await this._safeStorage.get(cacheKey, null);
                 }
 
                 if (!cached) {
                     cached = await this._client.probeJourneyTime(originCity.id, destCity.id);
                     if (cached && this._storage) {
-                        this._storage.set(cacheKey, cached).catch(() => {});
+                        await this._safeStorage.set(cacheKey, cached);
                     }
                 }
 
@@ -1053,41 +994,11 @@ export class COO {
     // ── Hub ───────────────────────────────────────────────────────────────────
 
     _identifyHub() {
-        const cities = this._state.getAllCities();
-        if (!cities.length) return null;
-
-        // Hub: cidade com maior capacidade de armazém + melhor posição central
-        let best = null, bestScore = -Infinity;
-
-        for (const city of cities) {
-            const warehouseLevel = Math.max(
-                0,
-                ...(city.buildings || [])
-                    .filter(b => b.building === 'warehouse')
-                    .map(b => b.level ?? 0)
-            );
-            const capacityScore = warehouseLevel * 10;
-            const centralScore  = this._centralityScore(city, cities);
-            const total         = capacityScore + centralScore;
-
-            if (total > bestScore) {
-                bestScore = total;
-                best      = city;
-            }
-        }
-
+        const best = identifyHub(this._state.getAllCities());
         if (best && best !== this._hub) {
             this._audit.info('COO', `Hub identificado: ${best.name}`);
         }
         return best;
     }
 
-    _centralityScore(city, allCities) {
-        if (allCities.length < 2) return 0;
-        const others = allCities.filter(c => c.id !== city.id);
-        const avgDist = others.reduce((sum, c) =>
-            sum + Math.hypot(c.coords[0] - city.coords[0], c.coords[1] - city.coords[1]), 0
-        ) / others.length;
-        return Math.max(0, 50 - avgDist); // quanto mais central, maior score
-    }
 }

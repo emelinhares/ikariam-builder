@@ -125,6 +125,7 @@ import { CTO }           from '../modules/CTO.js';
 import { CSO }           from '../modules/CSO.js';
 import { MnA }           from '../modules/MnA.js';
 import { Planner }       from '../modules/Planner.js';
+import { Lifecycle }     from '../modules/Lifecycle.js';
 import { UIBridge }      from '../modules/UIBridge.js';
 import { HealthCheckRunner } from '../modules/HealthCheckRunner.js';
 import { initPanel }     from '../ui/panel.js';
@@ -191,13 +192,18 @@ async function boot() {
         audit.info('inject', '⏺ REC-ONLY boot — toda automação desativada');
 
         const dc = new DataCollector({ events: Events, audit });
+        const lifecycle = new Lifecycle({ audit });
         dc.init();
         dc.setRecMode(true);      // sempre ligado ao iniciar
         dc.initFullCapture();     // hooks de captura expandida
+        lifecycle.register('DataCollector', dc);
+
+        const onBeforeUnload = () => lifecycle.shutdown('beforeunload');
+        window.addEventListener('beforeunload', onBeforeUnload, { once: true });
 
         await initRecPanel({ events: Events, dc });
 
-        window.__ERP = { Events, storage, audit, dc, REC_ONLY: true };
+        window.__ERP = { Events, storage, audit, dc, lifecycle, REC_ONLY: true };
         window.__ERP_BOOT_STAGE = 'done';
         _log('[ERP] REC-ONLY ativo. window.__ERP.dc disponível.');
         return;
@@ -214,6 +220,7 @@ async function boot() {
     window.__ERP_BOOT_STAGE = 'dc+state.init';
     const dc    = new DataCollector({ events: Events, audit });
     const state = new StateManager({ events: Events, audit, config });
+    const lifecycle = new Lifecycle({ audit });
 
     dc.init();
     state.init();
@@ -239,6 +246,17 @@ async function boot() {
     const cso = new CSO({ events: Events, audit, config, state, queue });
     const mna = new MnA({ events: Events, audit, config, state, queue, storage });
     const planner = new Planner({ events: Events, audit, config, state, queue, hr, cfo, coo, cto, cso, mna });
+
+    lifecycle.register('Planner', planner);
+    lifecycle.register('CFO', cfo);
+    lifecycle.register('COO', coo);
+    lifecycle.register('HR', hr);
+    lifecycle.register('TaskQueue', queue);
+    lifecycle.register('StateManager', state);
+    lifecycle.register('DataCollector', dc);
+
+    const onBeforeUnload = () => lifecycle.shutdown('beforeunload');
+    window.addEventListener('beforeunload', onBeforeUnload, { once: true });
 
     queue.setCFO(cfo);
     queue.setTransportIntentRegistry(transportIntentRegistry);
@@ -297,6 +315,7 @@ async function boot() {
         transportIntentRegistry,
         cfo, coo, hr, cto, cso, mna, planner, bridge,
         healthCheck,
+        lifecycle,
         MVP,
     };
 

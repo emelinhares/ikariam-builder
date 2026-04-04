@@ -92,7 +92,10 @@ const Builder = {
                     if (this.__ib_url?.includes('/index.php')) {
                         _handleResponse(this.__ib_url, this.responseText);
                     }
-                } catch (_) { /* silencia */ }
+                } catch (err) {
+                    const _w = window.__erpWarn ?? console.warn;
+                    _w('[Builder] Falha no interceptor XHR:', err);
+                }
             });
             return _send.call(this, body);
         };
@@ -107,9 +110,15 @@ const Builder = {
                 if (url.includes('/index.php')) {
                     response.clone().text()
                         .then(text => _handleResponse(url, text))
-                        .catch(() => {});
+                        .catch((err) => {
+                            const _w = window.__erpWarn ?? console.warn;
+                            _w('[Builder] Falha ao ler clone da resposta fetch:', err);
+                        });
                 }
-            } catch (_) { /* silencia */ }
+            } catch (err) {
+                const _w = window.__erpWarn ?? console.warn;
+                _w('[Builder] Falha no interceptor fetch:', err);
+            }
             return response;
         };
 

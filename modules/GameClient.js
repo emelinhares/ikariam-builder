@@ -8,12 +8,13 @@ import { createCargoPayloadFromResources } from './resourceContracts.js';
 // ─── Taxonomia de erros ───────────────────────────────────────────────────────
 // Usado pelo TaskQueue para decidir retry vs fatal vs guard
 export class GameError extends Error {
-    constructor(type, message, meta = null) {
-        super(message);
+    constructor(type, message, meta = null, cause = null) {
+        super(message, cause ? { cause } : undefined);
         this.name = 'GameError';
         this.type = type;
         this.code = meta?.code ?? null;
         this.meta = meta ?? null;
+        this.cause = cause ?? meta?.cause ?? null;
         // RETRY : erro transiente (HTTP_ERROR, GAME_ERROR temporário) — tentar novamente
         // FATAL : erro permanente (PARSE_ERROR) — não tentar novamente
         // GUARD : pré-condição não atendida — não é erro de rede, reagendar
@@ -39,6 +40,11 @@ export class GameClient {
         this._sessionLock = Promise.resolve();
 
         this._attemptSeq = 0;
+
+        this._consecutiveFailures = 0;
+        this._circuitOpenUntil = 0;
+        this._circuitBreakerThreshold = 5;
+        this._circuitBreakerCooldownMs = 60_000;
     }
 
     /**
@@ -52,7 +58,12 @@ export class GameClient {
         const result = this._sessionLock.then(fn);
         // Encadeia um handler que nunca rejeita — garante que erros em fn
         // não travam o lock para os próximos chamadores.
-        this._sessionLock = result.then(() => {}, () => {});
+        this._sessionLock = result.then(
+            () => {},
+            (err) => {
+                this._audit?.debug?.('GameClient', `acquireSession: operação rejeitada, lock liberado (${err?.message ?? err})`);
+            }
+        );
         return result;
     }
 
@@ -83,11 +94,9 @@ export class GameClient {
         return this._enqueue(async () => {
             if (this._state.getActiveCityId() === cityId) return;
 
-            const MAX_ATTEMPTS = 3;
-
-            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            await this._retryWithBackoff(async (attempt, maxAttempts) => {
                 this._audit.debug('GameClient',
-                    `navigate (${attempt}/${MAX_ATTEMPTS}): → ${cityId}`);
+                    `navigate (${attempt}/${maxAttempts}): → ${cityId}`);
 
                 let serverCity = null;
                 try {
@@ -131,10 +140,11 @@ export class GameClient {
                         `navigate tentativa ${attempt}: sem confirmação do servidor (selectedCityId ausente)`);
                 }
 
-                if (attempt < MAX_ATTEMPTS) await sleep(2000 * attempt);
-            }
-
-            throw new GameError('GAME_ERROR', `navigate: falhou ${MAX_ATTEMPTS}× para cidade ${cityId}`);
+                throw new GameError('GAME_ERROR', `navigate tentativa ${attempt}: cidade ${cityId} não confirmada`);
+            }, {
+                label: `navigate cidade ${cityId}`,
+                maxAttempts: 3,
+            });
         });
     }
 
@@ -218,99 +228,88 @@ export class GameClient {
                 `sendTransport: from=${fromCityId} to=${toCityId} island=${toIslandId} boats=${boats} cargo=${JSON.stringify(cargo)}`
             );
 
-            const MAX_ATTEMPTS = 3;
-            let lastErr;
-            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            return this._retryWithBackoff(async () => {
+                await this._get(contextUrl);
+                await sleep(300);
+
+                const cargoPayload = createCargoPayloadFromResources(cargo);
+
+                const result = await this._post({
+                    action:                'transportOperations',
+                    function:              'loadTransportersWithFreight',
+                    destinationCityId:     toCityId,
+                    islandId:              toIslandId,
+                    oldView:               '',
+                    position:              '',
+                    avatar2Name:           '',
+                    city2Name:             '',
+                    type:                  '',
+                    activeTab:             '',
+                    transportDisplayPrice: 0,
+                    premiumTransporter:    0,
+                    normalTransportersMax: boats,
+                    transporters:          boats,
+                    capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
+                    max_capacity:          5,
+                    jetPropulsion:         0,
+                    ...cargoPayload,
+                    currentCityId:         String(fromCityId),
+                    currentTab:            'tabSendTransporter',
+                    actionRequest:         this._token(),
+                    ajax:                  1,
+                });
+
+                // Confirmar via fleetMoveList ou provideFeedback type:10
+                let confirmed = false;
                 try {
-                    await this._get(contextUrl);
-                    await sleep(300);
-
-                    const cargoPayload = createCargoPayloadFromResources(cargo);
-
-                    const result = await this._post({
-                        action:                'transportOperations',
-                        function:              'loadTransportersWithFreight',
-                        destinationCityId:     toCityId,
-                        islandId:              toIslandId,
-                        oldView:               '',
-                        position:              '',
-                        avatar2Name:           '',
-                        city2Name:             '',
-                        type:                  '',
-                        activeTab:             '',
-                        transportDisplayPrice: 0,
-                        premiumTransporter:    0,
-                        normalTransportersMax: boats,
-                        transporters:          boats,
-                        capacity:              boats * 5, // transporters × max_capacity — CONFIRMADO 2026-03-28
-                        max_capacity:          5,
-                        jetPropulsion:         0,
-                        ...cargoPayload,
-                        currentCityId:         String(fromCityId),
-                        currentTab:            'tabSendTransporter',
-                        actionRequest:         this._token(),
-                        ajax:                  1,
-                    });
-
-                    // Confirmar via fleetMoveList ou provideFeedback type:10
-                    let confirmed = false;
-                    try {
-                        const data = JSON.parse(result.text.trim());
-                        if (Array.isArray(data)) {
-                            const fleetCmd = data.find(c => Array.isArray(c) && c[0] === 'fleetMoveList');
-                            if (fleetCmd) {
-                                const entries = Array.isArray(fleetCmd[1])
-                                    ? fleetCmd[1] : Object.values(fleetCmd[1] ?? {});
-                                confirmed = true;
-                                for (const m of entries) {
-                                    const origin = m.originCityName ?? m.originCityId ?? fromCityId;
-                                    const target = m.targetCityName ?? m.targetCityId ?? toCityId;
-                                    const cargoStr = m.cargo
-                                        ? Object.entries(m.cargo).filter(([,v])=>Number(v)>0).map(([k,v])=>`${v} ${k}`).join(', ')
-                                        : JSON.stringify(cargo);
-                                    this._audit.info('GameClient',
-                                        `✓ FROTA: ${origin} → ${target} | ${cargoStr} | ETA: ${m.eventTime ? new Date(m.eventTime*1000).toLocaleTimeString('pt-BR') : '?'}`);
-                                }
-                            }
-                            if (!confirmed) {
-                                const fb = data.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
-                                if (Array.isArray(fb?.[1]) && fb[1].find(f => f?.type === 10)) {
-                                    confirmed = true;
-                                    this._audit.info('GameClient',
-                                        `✓ sendTransport aceito via provideFeedback — from=${fromCityId} to=${toCityId}`);
-                                }
+                    const data = JSON.parse(result.text.trim());
+                    if (Array.isArray(data)) {
+                        const fleetCmd = data.find(c => Array.isArray(c) && c[0] === 'fleetMoveList');
+                        if (fleetCmd) {
+                            const entries = Array.isArray(fleetCmd[1])
+                                ? fleetCmd[1] : Object.values(fleetCmd[1] ?? {});
+                            confirmed = true;
+                            for (const m of entries) {
+                                const origin = m.originCityName ?? m.originCityId ?? fromCityId;
+                                const target = m.targetCityName ?? m.targetCityId ?? toCityId;
+                                const cargoStr = m.cargo
+                                    ? Object.entries(m.cargo).filter(([,v])=>Number(v)>0).map(([k,v])=>`${v} ${k}`).join(', ')
+                                    : JSON.stringify(cargo);
+                                this._audit.info('GameClient',
+                                    `✓ FROTA: ${origin} → ${target} | ${cargoStr} | ETA: ${m.eventTime ? new Date(m.eventTime*1000).toLocaleTimeString('pt-BR') : '?'}`);
                             }
                         }
-                    } catch { /* parse não crítico */ }
-
-                    if (!confirmed) {
-                        throw new GameError(
-                            'GUARD',
-                            `fleetMoveList ausente — from=${fromCityId} to=${toCityId}`,
-                            { code: 'HYBRID_INCONCLUSIVE_TRANSPORT' }
-                        );
+                        if (!confirmed) {
+                            const fb = data.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
+                            if (Array.isArray(fb?.[1]) && fb[1].find(f => f?.type === 10)) {
+                                confirmed = true;
+                                this._audit.info('GameClient',
+                                    `✓ sendTransport aceito via provideFeedback — from=${fromCityId} to=${toCityId}`);
+                            }
+                        }
                     }
-                    return {
-                        ...result,
-                        hybridOutcome: this._makeHybridOutcome({
-                            actionType: 'TRANSPORT',
-                            responseSignals: ['fleetMoveList_or_feedback10'],
-                            outcomeClass: 'success',
-                            nextStep: 'task_complete',
-                        }),
-                    };
+                } catch { /* parse não crítico */ }
 
-                } catch (err) {
-                    lastErr = err;
-                    if (err.fatal) throw err;
-                    if (attempt < MAX_ATTEMPTS) {
-                        this._audit.warn('GameClient',
-                            `sendTransport tentativa ${attempt}/${MAX_ATTEMPTS} falhou: ${err.message} — aguardando ${2*attempt}s`);
-                        await sleep(2000 * attempt);
-                    }
+                if (!confirmed) {
+                    throw new GameError(
+                        'GUARD',
+                        `fleetMoveList ausente — from=${fromCityId} to=${toCityId}`,
+                        { code: 'HYBRID_INCONCLUSIVE_TRANSPORT' }
+                    );
                 }
-            }
-            throw lastErr;
+                return {
+                    ...result,
+                    hybridOutcome: this._makeHybridOutcome({
+                        actionType: 'TRANSPORT',
+                        responseSignals: ['fleetMoveList_or_feedback10'],
+                        outcomeClass: 'success',
+                        nextStep: 'task_complete',
+                    }),
+                };
+            }, {
+                label: `sendTransport ${fromCityId}->${toCityId}`,
+                maxAttempts: 3,
+            });
         });
     }
 
@@ -378,65 +377,56 @@ export class GameClient {
      */
     startResearch(cityId, researchId) {
         return this._enqueue(async () => {
-            const MAX_ATTEMPTS = 3;
-            let lastErr;
-            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-                try {
-                    // Passo 1: GET researchAdvisor para obter conservationLink com token fresco
-                    const advisorText = await this._get(
-                        `/index.php?view=researchAdvisor&researchId=${researchId}` +
-                        `&currentCityId=${cityId}&ajax=1`
-                    );
-                    const advisorData = JSON.parse(advisorText.trim());
-                    const tmpl = advisorData.find(c => Array.isArray(c) && c[0] === 'updateTemplateData')?.[1];
-                    const conservHref = tmpl?.js_researchAdvisorConservationLink?.href;
-                    if (!conservHref) {
-                        throw new GameError('GUARD', `startResearch: conservationLink ausente para researchId=${researchId}`);
-                    }
-
-                    // conservHref já contém token: "?action=Advisor&function=doResearch&actionRequest=X&type=Y"
-                    // Passo 2: GET imediato com esse href
-                    const doResearchText = await this._get(
-                        `/index.php${conservHref}&currentCityId=${cityId}&ajax=1`
-                    );
-                    const doData = JSON.parse(doResearchText.trim());
-                    const feedback = doData.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
-                    const entries = Array.isArray(feedback?.[1]) ? feedback[1] : [];
-                    const ok  = entries.find(f => f?.type === 10);
-                    const err = entries.find(f => f?.locakey?.includes('ERROR') || f?.text?.includes('insuficientes'));
-                    if (err) {
-                        throw new GameError('GUARD', `startResearch: ${err.text ?? err.locakey}`);
-                    }
-                    if (ok) {
-                        this._audit.info('GameClient', `✓ startResearch researchId=${researchId}: "${ok.text}"`);
-                    }
-                    if (!ok) {
-                        throw new GameError(
-                            'GUARD',
-                            `startResearch inconclusivo para researchId=${researchId}`,
-                            { code: 'HYBRID_INCONCLUSIVE_RESEARCH' }
-                        );
-                    }
-                    return {
-                        text: doResearchText,
-                        hybridOutcome: this._makeHybridOutcome({
-                            actionType: 'RESEARCH',
-                            responseSignals: ['provideFeedback:type10'],
-                            outcomeClass: 'success',
-                            nextStep: 'task_complete',
-                        }),
-                    };
-                } catch (err) {
-                    lastErr = err;
-                    if (err.fatal || err.guard) throw err;
-                    if (attempt < MAX_ATTEMPTS) {
-                        this._audit.warn('GameClient',
-                            `startResearch tentativa ${attempt}/${MAX_ATTEMPTS}: ${err.message} — aguardando ${2*attempt}s`);
-                        await sleep(2000 * attempt);
-                    }
+            return this._retryWithBackoff(async () => {
+                // Passo 1: GET researchAdvisor para obter conservationLink com token fresco
+                const advisorText = await this._get(
+                    `/index.php?view=researchAdvisor&researchId=${researchId}` +
+                    `&currentCityId=${cityId}&ajax=1`
+                );
+                const advisorData = JSON.parse(advisorText.trim());
+                const tmpl = advisorData.find(c => Array.isArray(c) && c[0] === 'updateTemplateData')?.[1];
+                const conservHref = tmpl?.js_researchAdvisorConservationLink?.href;
+                if (!conservHref) {
+                    throw new GameError('GUARD', `startResearch: conservationLink ausente para researchId=${researchId}`);
                 }
-            }
-            throw lastErr;
+
+                // conservHref já contém token: "?action=Advisor&function=doResearch&actionRequest=X&type=Y"
+                // Passo 2: GET imediato com esse href
+                const doResearchText = await this._get(
+                    `/index.php${conservHref}&currentCityId=${cityId}&ajax=1`
+                );
+                const doData = JSON.parse(doResearchText.trim());
+                const feedback = doData.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
+                const entries = Array.isArray(feedback?.[1]) ? feedback[1] : [];
+                const ok  = entries.find(f => f?.type === 10);
+                const err = entries.find(f => f?.locakey?.includes('ERROR') || f?.text?.includes('insuficientes'));
+                if (err) {
+                    throw new GameError('GUARD', `startResearch: ${err.text ?? err.locakey}`);
+                }
+                if (ok) {
+                    this._audit.info('GameClient', `✓ startResearch researchId=${researchId}: "${ok.text}"`);
+                }
+                if (!ok) {
+                    throw new GameError(
+                        'GUARD',
+                        `startResearch inconclusivo para researchId=${researchId}`,
+                        { code: 'HYBRID_INCONCLUSIVE_RESEARCH' }
+                    );
+                }
+                return {
+                    text: doResearchText,
+                    hybridOutcome: this._makeHybridOutcome({
+                        actionType: 'RESEARCH',
+                        responseSignals: ['provideFeedback:type10'],
+                        outcomeClass: 'success',
+                        nextStep: 'task_complete',
+                    }),
+                };
+            }, {
+                label: `startResearch city=${cityId} researchId=${researchId}`,
+                maxAttempts: 3,
+                isFatalCheck: err => !!(err?.fatal || err?.guard),
+            });
         });
     }
 
@@ -492,7 +482,7 @@ export class GameClient {
             );
 
             const signals = this._extractSignals(result.data);
-            if (!signals.hasFeedbackOk && !result.tokenRotated) {
+            if (!signals.hasFeedbackOk && !result.tokenRotated && !signals.hasDeterministicResourceRefusal) {
                 throw new GameError(
                     'GUARD',
                     `setTavernWine inconclusivo para cidade ${cityId}`,
@@ -514,6 +504,9 @@ export class GameClient {
                 tokenRotated: result.tokenRotated,
                 tokenBefore,
                 tokenAfter: this._token(),
+                deterministicRefusal: signals.hasDeterministicResourceRefusal,
+                refusalReasonCode: signals.refusalReasonCode,
+                refusalMessage: signals.refusalMessage,
             };
         });
     }
@@ -619,25 +612,66 @@ export class GameClient {
      * @param {string} label       — nome da operação para o log
      */
     async _postWithContext(contextUrl, postPayload, label = 'action') {
-        const MAX_ATTEMPTS = 3;
-        let lastErr;
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try {
+        return this._retryWithBackoff(async () => {
                 await this._get(contextUrl);
                 await sleep(300);
                 // Atualizar token no payload antes de cada tentativa
                 postPayload.actionRequest = this._token();
-                return await this._post(postPayload);
+                return this._post(postPayload);
+        }, {
+            label,
+            maxAttempts: 3,
+        });
+    }
+
+    async _retryWithBackoff(fn, {
+        label = 'action',
+        maxAttempts = 3,
+        isFatalCheck = (err) => !!err?.fatal,
+    } = {}) {
+        const now = Date.now();
+        if (this._circuitOpenUntil && now >= this._circuitOpenUntil) {
+            this._circuitOpenUntil = 0;
+            this._consecutiveFailures = 0;
+            this._audit.info('GameClient', 'Circuit breaker resetado — retomando requests');
+        }
+
+        if (this._circuitOpenUntil && now < this._circuitOpenUntil) {
+            const retryAfterMs = this._circuitOpenUntil - now;
+            throw new GameError(
+                'GUARD',
+                `Circuit breaker aberto — recusando ${label} por ${Math.ceil(retryAfterMs / 1000)}s`,
+                { code: 'GAMECLIENT_CIRCUIT_OPEN', retryAfterMs, label }
+            );
+        }
+
+        let lastErr;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const out = await fn(attempt, maxAttempts);
+                this._consecutiveFailures = 0;
+                return out;
             } catch (err) {
                 lastErr = err;
-                if (err.fatal) throw err; // PARSE_ERROR não adianta retry
-                if (attempt < MAX_ATTEMPTS) {
+                this._consecutiveFailures += 1;
+
+                if (this._consecutiveFailures >= this._circuitBreakerThreshold && !this._circuitOpenUntil) {
+                    this._circuitOpenUntil = Date.now() + this._circuitBreakerCooldownMs;
+                    const reason = `GameClient circuit breaker aberto por ${Math.round(this._circuitBreakerCooldownMs / 1000)}s após ${this._consecutiveFailures} falhas consecutivas`;
+                    this._audit.error('GameClient', reason);
+                    const ev = this._events?.E?.QUEUE_BLOCKED;
+                    if (ev) this._events.emit(ev, { reason });
+                }
+
+                if (isFatalCheck(err)) throw err;
+                if (attempt < maxAttempts) {
                     this._audit.warn('GameClient',
-                        `${label} tentativa ${attempt}/${MAX_ATTEMPTS} falhou: ${err.message} — aguardando ${2 * attempt}s`);
+                        `${label} tentativa ${attempt}/${maxAttempts} falhou: ${err.message} — aguardando ${2 * attempt}s`);
                     await sleep(2000 * attempt);
                 }
             }
         }
+
         throw lastErr;
     }
 
@@ -672,20 +706,53 @@ export class GameClient {
 
     _extractSignals(data) {
         if (!Array.isArray(data)) {
-            return { hasFeedbackOk: false, hasFeedbackError: false, hasFleetMoveList: false };
+            return {
+                hasFeedbackOk: false,
+                hasFeedbackError: false,
+                hasFleetMoveList: false,
+                hasDeterministicResourceRefusal: false,
+                refusalReasonCode: null,
+                refusalMessage: null,
+            };
         }
 
         const feedbackCmd = data.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
         const entries = Array.isArray(feedbackCmd?.[1]) ? feedbackCmd[1] : [];
         const hasFeedbackOk = !!entries.find(f => f?.type === 10);
+        const isInsufficientResourceText = (txt) => {
+            const normalized = String(txt ?? '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase();
+            return normalized.includes('recursos insuficientes')
+                || normalized.includes('nao tens material suficiente')
+                || normalized.includes('not enough resources');
+        };
+
+        const deterministicResourceRefusal = entries.find((f) =>
+            (Number(f?.location) === 5)
+            && isInsufficientResourceText(f?.text)
+        ) ?? null;
+
         const hasFeedbackError = !!entries.find(f =>
-            f?.locakey?.includes('ERROR') || f?.locakey?.includes('SOURCEPORT_EQUAL')
-        );
+            f?.locakey?.includes('ERROR')
+            || f?.locakey?.includes('SOURCEPORT_EQUAL')
+        ) || !!deterministicResourceRefusal;
+
+        const refusalReasonCode = deterministicResourceRefusal
+            ? 'SERVER_REFUSED_INSUFFICIENT_RESOURCES'
+            : null;
+        const refusalMessage = deterministicResourceRefusal
+            ? (deterministicResourceRefusal.text ?? 'Recursos insuficientes')
+            : null;
 
         return {
             hasFeedbackOk,
             hasFeedbackError,
             hasFleetMoveList: !!data.find(c => Array.isArray(c) && c[0] === 'fleetMoveList'),
+            hasDeterministicResourceRefusal: !!deterministicResourceRefusal,
+            refusalReasonCode,
+            refusalMessage,
         };
     }
 
@@ -696,7 +763,7 @@ export class GameClient {
         try {
             resp = await fetch(url, { credentials: 'include', signal: controller.signal });
         } catch (err) {
-            throw new GameError('HTTP_ERROR', `GET ${url}: ${err.message}`);
+            throw new GameError('HTTP_ERROR', `GET ${url}: ${err.message}`, null, err);
         } finally {
             clearTimeout(timer);
         }
@@ -725,7 +792,7 @@ export class GameClient {
                 signal:      controller.signal,
             });
         } catch (err) {
-            throw new GameError('HTTP_ERROR', `POST: ${err.message}`);
+            throw new GameError('HTTP_ERROR', `POST: ${err.message}`, null, err);
         } finally {
             clearTimeout(timer);
         }
@@ -743,8 +810,8 @@ export class GameClient {
             if (trimmed.startsWith('[')) {
                 data = JSON.parse(trimmed);
             }
-        } catch {
-            throw new GameError('PARSE_ERROR', `Resposta não-JSON: ${text.slice(0, 80)}`);
+        } catch (err) {
+            throw new GameError('PARSE_ERROR', `Resposta não-JSON: ${text.slice(0, 80)}`, null, err);
         }
 
         if (Array.isArray(data)) {

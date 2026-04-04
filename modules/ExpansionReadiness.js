@@ -65,6 +65,7 @@ function _cityResourcesTotal(city) {
 
 function _cityWineHours(city, cityCtx) {
     if (Number.isFinite(cityCtx?.wineHours)) return cityCtx.wineHours;
+    if (Number.isFinite(cityCtx?.wineSustain?.wineCoverageHours)) return cityCtx.wineSustain.wineCoverageHours;
     const spendings = _num(city?.production?.wineSpendings, 0);
     if (spendings <= 0) return Infinity;
     return _num(city?.resources?.wine, 0) / spendings;
@@ -90,6 +91,7 @@ function _evaluateCity(city, cityCtx, cityCount, stage, globalGoal) {
     const productionPerHour = _cityProductionPerHour(city);
     const logisticsMinimum = _cityLogisticsMinimum(city, cityCtx, cityCount);
     const resourcesAvailable = _cityResourcesTotal(city);
+    const wineSustain = cityCtx?.wineSustain ?? null;
 
     const scoreCards = [
         {
@@ -127,6 +129,12 @@ function _evaluateCity(city, cityCtx, cityCount, stage, globalGoal) {
             ok: wineHours >= 4 || wineHours === Infinity,
             pass: `city_${city.id}_wine_coverage_ok:${wineHours === Infinity ? 'infinite' : wineHours.toFixed(1)}h`,
             block: `city_${city.id}_wine_coverage_low:${Number.isFinite(wineHours) ? wineHours.toFixed(1) : 0}h<4h`,
+        },
+        {
+            key: 'wineSustainPolicy',
+            ok: !(wineSustain?.needsWineImport || wineSustain?.needsTavernBootstrap),
+            pass: `city_${city.id}_wine_sustain_ok:${wineSustain?.wineMode ?? 'N/A'}`,
+            block: `city_${city.id}_wine_sustain_blocked:${wineSustain?.wineMode ?? 'UNKNOWN'}`,
         },
         {
             key: 'goldPerHour',

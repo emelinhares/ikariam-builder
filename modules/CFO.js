@@ -28,18 +28,34 @@ export class CFO {
         this._config = config;
         this._state  = state;
         this._queue  = queue;
+        this._unsubscribers = [];
+        this._pendingTimers = new Map();
     }
 
     init() {
         const E = this._events.E;
         // STATE_ALL_FRESH removido — orquestrado pelo Planner
         // Reavaliar após BUILD concluído (pode ter desbloqueado próximo)
-        this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
+        this._trackUnsub(this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
             if (task.type === TASK_TYPE.BUILD) {
                 this._audit.info('CFO', `BUILD concluído em cidade ${task.cityId} — reavaliando slot`);
                 this.evaluateCity(task.cityId);
             }
-        });
+        }));
+    }
+
+    shutdown() {
+        for (const unsub of this._unsubscribers.splice(0)) {
+            try { unsub(); } catch { /* best-effort */ }
+        }
+        for (const handle of this._pendingTimers.values()) {
+            clearTimeout(handle);
+        }
+        this._pendingTimers.clear();
+    }
+
+    _trackUnsub(unsub) {
+        if (typeof unsub === 'function') this._unsubscribers.push(unsub);
     }
 
     /** Re-executa avaliação em todas as cidades. */
@@ -113,15 +129,14 @@ export class CFO {
                 this._audit.debug('CFO',
                     `${city.name}: construindo ${ucBuilding} — reavaliando em ${mins}min (completesAt=${new Date(completesAt).toLocaleTimeString()})`
                 );
-                // Evitar timers duplicados: flag por cidade
-                if (!this._pendingTimers) this._pendingTimers = new Set();
+                // Evitar timers duplicados por cidade
                 if (!this._pendingTimers.has(cityId)) {
-                    this._pendingTimers.add(cityId);
-                    setTimeout(() => {
+                    const timerHandle = setTimeout(() => {
                         this._pendingTimers.delete(cityId);
                         this._audit.debug('CFO', `${city.name}: timer disparado — avaliando após conclusão de ${ucBuilding}`);
                         this.evaluateCity(cityId);
                     }, delayMs);
+                    this._pendingTimers.set(cityId, timerHandle);
                 }
             } else {
                 this._audit.debug('CFO', `${city.name}: SKIP — construindo ${ucBuilding} (slot ${uc}, sem completesAt)`);
@@ -332,7 +347,8 @@ export class CFO {
         // Registrar no contexto do Planner que esta cidade recebeu build aprovado
         if (ctx) {
             const cityCtx = ctx.cities.get(cityId);
-            if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
+            if (cityCtx?.setBuildApprovedBy) cityCtx.setBuildApprovedBy('CFO');
+            else if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
         }
 
         this._queue.add({
