@@ -66,6 +66,7 @@ export class TransportIntentRegistry {
 
     static resolvePurpose(payload = {}) {
         if (payload?.wineBootstrapRecovery) return 'wineBootstrap';
+        if (payload?.wineRecovery) return 'wineRecovery';
         if (payload?.wineEmergency) return 'wineEmergency';
         if (payload?.jitBuild) return 'jitBuild';
         if (payload?.minStock) return 'minStock';

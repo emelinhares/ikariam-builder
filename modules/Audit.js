@@ -5,6 +5,7 @@ import { Events }  from './Events.js';
 import { nanoid }  from './utils.js';
 import StorageCompat from './Storage.js';
 import Game from './Game.js';
+import { createSafeStorage } from './SafeStorage.js';
 
 const MAX_ENTRIES   = 200;
 const MAX_ERROR_ENTRIES = 300;
@@ -13,6 +14,7 @@ const PERSIST_EVERY = 10;  // persistir a cada N novas entradas
 export class Audit {
     constructor({ storage, events }) {
         this._storage  = storage;
+        this._safeStorage = createSafeStorage(storage, { module: 'Audit' });
         this._events   = events;
         this._buffer   = [];   // array circular, max MAX_ENTRIES
         this._errorBuffer = []; // array circular de erros, max MAX_ERROR_ENTRIES
@@ -84,7 +86,7 @@ export class Audit {
         this._sinceLastPersist++;
         if (this._sinceLastPersist >= PERSIST_EVERY) {
             this._sinceLastPersist = 0;
-            this._storage.set('audit_log', this._buffer).catch(() => {});
+            this._safeStorage.set('audit_log', this._buffer);
         }
 
         this._events?.emit?.(this._events.E.AUDIT_ENTRY_ADDED, { entry });
@@ -100,7 +102,7 @@ export class Audit {
             if (this._errorBuffer.length > MAX_ERROR_ENTRIES) this._errorBuffer.shift();
 
             // Persistência imediata dos erros (telemetria pós-morte)
-            this._storage.set('audit_errors', this._errorBuffer).catch(() => {});
+            this._safeStorage.set('audit_errors', this._errorBuffer);
 
             this._events?.emit?.(this._events.E.AUDIT_ERROR_ADDED, { entry: errorEntry });
         }

@@ -4,6 +4,7 @@
 import { nanoid } from './utils.js';
 import { getCost } from '../data/buildings.js';
 import { TASK_TYPE } from './taskTypes.js';
+import { createSafeStorage } from './SafeStorage.js';
 
 const DEFAULT_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_SCENARIO_TIMEOUT_MS = 120_000;
@@ -16,6 +17,7 @@ export class HealthCheckRunner {
         this._audit   = audit;
         this._config  = config;
         this._storage = storage;
+        this._safeStorage = createSafeStorage(storage, { module: 'HealthCheckRunner', audit });
         this._client  = client;
 
         this._scenarioFactories = scenarioFactories;
@@ -504,8 +506,8 @@ export class HealthCheckRunner {
 
         this._status.reportsHistory = history;
 
-        await this._storage?.set?.('healthCheckReports', history).catch(() => {});
-        await this._storage?.set?.('healthCheckLast', report).catch(() => {});
+        await this._safeStorage.set('healthCheckReports', history);
+        await this._safeStorage.set('healthCheckLast', report);
     }
 
     _finalRunStatus() {

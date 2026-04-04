@@ -19,6 +19,10 @@ import { nanoid, humanDelay } from './utils.js';
 import { GameError }          from './GameClient.js';
 import { TASK_TYPE }          from './taskTypes.js';
 import { TransportIntentRegistry } from './TransportIntentRegistry.js';
+import { createSafeStorage } from './SafeStorage.js';
+import { TaskGuards } from './TaskGuards.js';
+import { TaskOutcomeTracker } from './TaskOutcomeTracker.js';
+import { NoiseScheduler } from './NoiseScheduler.js';
 
 export const TASK_PHASE = Object.freeze({
     SUSTENTO:   1,
@@ -29,27 +33,56 @@ export const TASK_PHASE = Object.freeze({
 });
 
 export class TaskQueue {
-    constructor({ events, audit, config, state, client, storage, transportIntentRegistry = null }) {
+    static REDISPATCH_PROBE_WINDOW_MS = 5 * 60_000;
+
+    constructor({ events, audit, config, state, client, storage, transportIntentRegistry = null, taskGuards = null }) {
         this._events  = events;
         this._audit   = audit;
         this._config  = config;
         this._state   = state;
         this._client  = client;
         this._storage = storage;
+        this._safeStorage = createSafeStorage(storage, { module: 'TaskQueue', audit });
         this._transportIntentRegistry = transportIntentRegistry;
 
         // Referência ao CFO injetada após construção (evitar dependência circular)
         this._cfo = null;
 
+        this._taskGuards = taskGuards ?? new TaskGuards({
+            state,
+            client,
+            audit,
+            config,
+            getCFO: () => this._cfo,
+            reschedule: (task, delayMs, reasonCode = null) => this._reschedule(task, delayMs, reasonCode),
+            cancelTask: (task) => {
+                this._moveToHistory(task);
+                this._persist();
+            },
+        });
+
         this._queue      = [];   // Task[]
         this._done       = [];   // últimas 50 tasks concluídas (histórico UI)
         this._executing  = false;
 
-        // NOISE counter
-        this._noiseCounter = 0;
-        this._nextNoiseAt  = this._newNoiseThreshold();
+        this._taskOutcomeTracker = new TaskOutcomeTracker({
+            events,
+            audit,
+            state,
+            client,
+            isCriticalOutcomeTask: (task) => this._isCriticalOutcomeTask(task),
+            countRelevantTransportMovements: (task) => this._countRelevantTransportMovements(task),
+        });
+
+        this._noiseScheduler = new NoiseScheduler({
+            queue: this,
+            state,
+            config,
+        });
 
         this._attemptSeq = 0;
+        this._stopped = false;
+        this._tickTimer = null;
     }
 
     static CRITICAL_OUTCOME_TYPES = Object.freeze(new Set([
@@ -78,6 +111,7 @@ export class TaskQueue {
     }
 
     async init() {
+        this._stopped = false;
         // Restaurar histórico de tasks concluídas (para mostrar na aba Fila após reload)
         const savedDone = await this._storage?.get?.('taskQueueDone');
         if (Array.isArray(savedDone)) {
@@ -105,8 +139,17 @@ export class TaskQueue {
             let zombies = 0;
             this._queue = restored.map(t => {
                 if (t.status === 'in-flight') {
+                    const zombieIndex = zombies;
                     zombies++;
-                    return { ...t, status: 'pending', scheduledFor: Date.now() + 5_000 };
+                    const attempts = Math.max(0, Number(t.attempts) || 0);
+                    const backoffMs = 5_000 * Math.pow(2, attempts);
+                    const staggerMs = zombieIndex * 15_000;
+                    return {
+                        ...t,
+                        status: 'pending',
+                        scheduledFor: Date.now() + backoffMs + staggerMs,
+                        recoveredFromZombie: true,
+                    };
                 }
                 return t;
             });
@@ -117,6 +160,16 @@ export class TaskQueue {
             }
         }
         this._tick();
+    }
+
+    shutdown() {
+        this._stopped = true;
+        if (this._tickTimer) {
+            clearTimeout(this._tickTimer);
+            this._tickTimer = null;
+        }
+        this._executing = false;
+        this._executingStartedAt = null;
     }
 
     // ── API pública ───────────────────────────────────────────────────────────
@@ -318,6 +371,8 @@ export class TaskQueue {
     // ── Loop principal ────────────────────────────────────────────────────────
 
     _tick() {
+        if (this._stopped) return;
+
         const now  = Date.now();
         const mode = this._config.get('operationMode');
 
@@ -351,21 +406,39 @@ export class TaskQueue {
                 );
 
             if (ready.length > 0) {
-                this._execute(ready[0]).catch(err => {
+                const nextTask = ready[0];
+                this._executing = true;
+                this._executingStartedAt = Date.now();
+                nextTask.status = 'in-flight';
+                this._persist();
+
+                this._execute(nextTask).catch(err => {
                     this._audit.error('TaskQueue', `_execute uncaught: ${err.message}`);
                 });
             }
         }
 
         // Loop com setTimeout recursivo (não setInterval — armadilha documentada)
-        const delay = document.visibilityState === 'hidden' ? 5_000 : 1_000;
-        setTimeout(() => this._tick(), delay);
+        const focusDelay = this._config.get('taskQueueTickFocusMs') ?? 1_000;
+        const bgDelay = this._config.get('taskQueueTickBackgroundMs') ?? 5_000;
+        const delay = document.visibilityState === 'hidden' ? bgDelay : focusDelay;
+        this._tickTimer = setTimeout(() => this._tick(), delay);
     }
 
     // ── Execução ──────────────────────────────────────────────────────────────
 
     async _execute(task) {
         const executionStartedAt = Date.now();
+
+        // Fallback para chamadas diretas de teste/integração fora do _tick.
+        if (!this._executing || task.status !== 'in-flight') {
+            this._executing = true;
+            this._executingStartedAt = Date.now();
+            task.status = 'in-flight';
+            this._persist();
+        }
+
+        this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
 
         if (this._hasTaskTimedOut(task)) {
             const timeoutReason = `SLA de task excedido (${this._formatMs(this._getTaskAgeMs(task))} > ${this._formatMs(this._getTaskTimeoutMs(task))})`;
@@ -398,17 +471,16 @@ export class TaskQueue {
             this._audit.debug('TaskQueue',
                 `Preempção: cedendo ${task.type}[fase${task.phase}] para ${moreUrgent.type}[fase${moreUrgent.phase}] mais urgente`
             );
+            task.status = 'pending';
+            this._executing = false;
+            this._executingStartedAt = null;
+            this._persist();
             return; // _executing permanece false — próximo _tick pega moreUrgent
         }
 
-        this._executing = true;
-        this._executingStartedAt = Date.now();
-        task.status     = 'in-flight';
         if (task.type === TASK_TYPE.TRANSPORT) {
             this._transportIntentRegistry?.markDispatched?.(task.payload?.intentId, task.id);
         }
-        this._persist();
-        this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
 
         this._audit.info('TaskQueue',
             `▶ [${task.id}] ${task.type} cidade ${task.cityId} tentativa ${task.attempts + 1}/${task.maxAttempts} — ${task.reason ?? ''}`);
@@ -456,6 +528,21 @@ export class TaskQueue {
 
             const validationBaseline = this._captureValidationBaseline(task);
 
+            const redispatchProbe = await this._probeBeforeRedispatch(task, {
+                validationBaseline,
+                executionStartedAt,
+            });
+            if (redispatchProbe?.outcomeClass === 'success') {
+                task.status = 'done';
+                task.terminalReasonCode = redispatchProbe.reasonCode ?? null;
+                this._persist();
+                this._recordTaskOutcome(task, redispatchProbe);
+                this._events.emit(this._events.E.QUEUE_TASK_DONE, { task, result: { idempotent: true }, outcome: redispatchProbe });
+                this._audit.info('TaskQueue', `✓ [${task.id}] ${task.type} concluído por idempotência antes do re-dispatch`);
+                this._moveToHistory(task);
+                return;
+            }
+
             // 2. Verificar probing (fetchAllCities em andamento)
             if (this._state.isProbing()) {
                 const canBypassProbing = this._canRunDuringProbing(task);
@@ -492,6 +579,7 @@ export class TaskQueue {
                 await this._runGuards(task);
 
                 // 3b. Executar via GameClient
+                task.lastDispatchedAt = Date.now();
                 return await this._dispatch(task);
             });
 
@@ -542,11 +630,7 @@ export class TaskQueue {
                 }
             }
 
-            // Incrementar contador de noise
-            this._noiseCounter++;
-            if (this._noiseCounter >= this._nextNoiseAt) {
-                this._scheduleNoise();
-            }
+            this._noiseScheduler.noteRealActionAndScheduleIfNeeded();
 
         } catch (err) {
             const consumeGuardAttempt = this._config.get('guardConsumesAttempt') !== false;
@@ -692,172 +776,19 @@ export class TaskQueue {
     // ── Guards ────────────────────────────────────────────────────────────────
 
     async _runGuards(task) {
-        switch (task.type) {
-            case TASK_TYPE.BUILD:
-                await this._guardBuild(task);
-                break;
-            case TASK_TYPE.TRANSPORT:
-                await this._guardTransport(task);
-                break;
-            case TASK_TYPE.WINE_ADJUST:
-            case TASK_TYPE.RESEARCH:
-            case TASK_TYPE.NOISE:
-                // Todas as ações POST exigem estar na cidade correta
-                await this._guardNavigate(task.cityId);
-                break;
-        }
+        await this._taskGuards.runGuards(task);
     }
 
-    /** Navega para a cidade se não for a ativa. Usado por guards que não têm lógica própria. */
     async _guardNavigate(cityId) {
-        if (cityId && this._state.getActiveCityId() !== cityId) {
-            await this._client.navigate(cityId);
-        }
+        return this._taskGuards.guardNavigate(cityId);
     }
 
     async _guardBuild(task) {
-        const city = this._state.getCity(task.cityId);
-        if (!city) {
-            throw new GameError('GUARD', `Cidade ${task.cityId} não encontrada no estado`);
-        }
-
-        // Verificar slot já em construção — usar APENAS estado real da probe (city.underConstruction).
-        // NÃO usar getUnderConstruction() pois este inclui _inferredBuilding, que é setado pelo
-        // próprio QUEUE_TASK_STARTED antes do guard rodar, causando auto-bloqueio da task.
-        // TaskQueue é sequencial: quando essa task roda, não há outra em paralelo para esta cidade.
-        const uc = city.underConstruction ?? -1;
-        if (uc !== -1 && uc !== false && uc !== null && Number(uc) !== -1) {
-            const currentBuild = city.buildings?.[uc];
-            const buildName    = currentBuild?.building ?? '?';
-            const completedAt  = currentBuild?.completed;
-            const etaMin       = completedAt ? Math.round((completedAt - Date.now() / 1000) / 60) : '?';
-            task.status = 'cancelled';
-            this._moveToHistory(task);
-            this._persist();
-            throw new GameError('GUARD_CANCEL',
-                `GUARD BUILD: ${city.name} já construindo ${buildName} (slot ${uc}, ETA ${etaMin}min) — task cancelada`
-            );
-        }
-
-        // Verificar slot bloqueado por pesquisa
-        if (city.lockedPositions.has(task.payload.position)) {
-            this._reschedule(task, 3_600_000, 'GUARD_BUILD_SLOT_LOCKED');
-            throw new GameError('GUARD', `GUARD BUILD: slot ${task.payload.position} bloqueado por pesquisa em ${city.name} — reagendando em 1h`);
-        }
-
-        // Navegar para a cidade se necessário (currentCityId no payload deve ser cidade ativa)
-        const activeBefore = this._state.getActiveCityId();
-        if (activeBefore !== task.cityId) {
-            this._audit.debug('TaskQueue', `GUARD BUILD: navigate ${activeBefore} → ${task.cityId} (${city.name})`);
-            await this._client.navigate(task.cityId);
-        }
-
-        // Verificar ouro suficiente (se CFO disponível)
-        if (this._cfo && task.payload.cost) {
-            if (!this._cfo.canAfford(task.cityId, task.payload.cost)) {
-                this._reschedule(task, 3_600_000, 'GUARD_BUILD_INSUFFICIENT_RESOURCES');
-                throw new GameError('GUARD', `GUARD BUILD: recursos insuficientes para ${task.payload.building} em ${city.name} — aguardando transporte (1h)`);
-            }
-        }
-
-        this._audit.debug('TaskQueue', `GUARD BUILD: ok — ${city.name} pos=${task.payload.position} building=${task.payload.buildingView}`);
+        return this._taskGuards.guardBuild(task);
     }
 
     async _guardTransport(task) {
-        const origin = this._state.getCity(task.payload.fromCityId);
-        if (!origin) {
-            throw new GameError('GUARD', `GUARD TRANSPORT: cidade origem ${task.payload.fromCityId} não encontrada no estado`);
-        }
-
-        if (!task.payload?.toCityId || !task.payload?.toIslandId) {
-            throw new GameError('GUARD', 'GUARD TRANSPORT: destino inválido (toCityId/toIslandId ausente)');
-        }
-
-        if (Number(task.payload.fromCityId) === Number(task.payload.toCityId)) {
-            throw new GameError('GUARD',
-                `GUARD TRANSPORT: origem e destino iguais (${task.payload.fromCityId}) — transporte inválido`
-            );
-        }
-
-        const cargoEntries = Object.entries(task.payload.cargo ?? {});
-        const cargoPositive = cargoEntries.filter(([, v]) => (Number(v) || 0) > 0);
-        if (cargoPositive.length === 0) {
-            throw new GameError('GUARD',
-                `GUARD TRANSPORT: carga vazia para ${origin.name} → ${task.payload.toCityId}`
-            );
-        }
-
-        const boatsRequired = Math.max(...cargoPositive.map(([, v]) => Math.ceil((Number(v) || 0) / 500)));
-        if (!Number.isFinite(boatsRequired) || boatsRequired <= 0) {
-            throw new GameError('GUARD',
-                `GUARD TRANSPORT: cálculo de barcos inválido (boatsRequired=${boatsRequired})`
-            );
-        }
-
-        if ((Number(task.payload.boats) || 0) < boatsRequired) {
-            throw new GameError('GUARD',
-                `GUARD TRANSPORT: navios insuficientes (${task.payload.boats}) para a maior coluna de carga (precisa ${boatsRequired})`
-            );
-        }
-
-        // Navegar para cidade origem — servidor exige currentCityId ativo (armadilha documentada)
-        const activeBefore = this._state.getActiveCityId();
-        if (activeBefore !== task.payload.fromCityId) {
-            this._audit.debug('TaskQueue',
-                `GUARD TRANSPORT: navigate ${activeBefore} → ${task.payload.fromCityId} (${origin.name})`
-            );
-            await this._client.navigate(task.payload.fromCityId);
-        }
-
-        // Ler freeTransporters APÓS navigate (estado atualizado pelo DC_HEADER_DATA da resposta)
-        const freeT = this._state.getCity(task.payload.fromCityId)?.freeTransporters ?? 0;
-        const maxT  = this._state.getCity(task.payload.fromCityId)?.maxTransporters  ?? 0;
-        const essential = this._isEssentialTransport(task);
-        this._audit.debug('TaskQueue',
-            `GUARD TRANSPORT: ${origin.name} transportadores ${freeT}/${maxT} livres, precisa ${task.payload.boats}, carga=${JSON.stringify(task.payload.cargo)}, wineEmergency=${!!task.payload.wineEmergency}, essential=${essential}`
-        );
-
-        if (!task.payload.wineEmergency && freeT < task.payload.boats) {
-            const waitMs = (task.payload.estimatedReturnS ?? 3600) * 1000;
-            this._reschedule(task, waitMs, 'GUARD_TRANSPORT_NO_FREE_BOATS');
-            throw new GameError('GUARD',
-                `GUARD TRANSPORT: sem barcos livres em ${origin.name}: ${freeT} livre(s) < ${task.payload.boats} necessário(s) — aguardando ${Math.round(waitMs / 60000)}min`
-            );
-        }
-
-        // Verificar fator de carga mínimo (exceto emergência de vinho)
-        // Capacidade real: cada navio carrega 500 unidades de UM recurso.
-        // Para transporte de N recursos, o gargalo é o recurso que precisa mais navios.
-        if (!task.payload.wineEmergency) {
-            const boatsActual   = task.payload.boats;
-            // Capacidade por recurso: boatsActual × 500 (1 navio = 1 coluna = 500 unidades)
-            const perResCapacity = boatsActual * 500;
-            const largestCargo   = Math.max(
-                ...Object.values(task.payload.cargo).map(v => Number(v) || 0)
-            );
-            const loadFactor = perResCapacity > 0 ? largestCargo / perResCapacity : 0;
-            const minFactor  = this._config.get('transportMinLoadFactor');
-            const isEssential = this._isEssentialTransport(task);
-
-            if (loadFactor < minFactor && !isEssential) {
-                const waitMs = (task.payload.estimatedReturnS ?? 3600) * 1000;
-                this._reschedule(task, waitMs, 'GUARD_TRANSPORT_LOAD_FACTOR_LOW');
-                throw new GameError('GUARD',
-                    `GUARD TRANSPORT: carga ${(loadFactor * 100).toFixed(0)}% < mínimo ${(minFactor * 100).toFixed(0)}% em ${origin.name} (maior recurso=${largestCargo}, navios=${boatsActual}, cap/recurso=${perResCapacity}) — aguardando`
-                );
-            }
-
-            if (loadFactor < minFactor && isEssential) {
-                this._audit.info('TaskQueue',
-                    `GUARD TRANSPORT: exceção controlada de loadFactor para transporte essencial (${task.reasonCode ?? 'N/A'}) — ` +
-                    `carga ${(loadFactor * 100).toFixed(0)}% < mínimo ${(minFactor * 100).toFixed(0)}%`
-                );
-            }
-        }
-
-        this._audit.debug('TaskQueue',
-            `GUARD TRANSPORT: ok — ${origin.name} → cidade ${task.payload.toCityId}, ${task.payload.boats} navios, carga=${JSON.stringify(task.payload.cargo)}`
-        );
+        return this._taskGuards.guardTransport(task);
     }
 
     // ── Dispatch ──────────────────────────────────────────────────────────────
@@ -865,6 +796,16 @@ export class TaskQueue {
     async _dispatch(task) {
         switch (task.type) {
             case TASK_TYPE.BUILD: {
+                if (this._isBuildAlreadyUnderConstruction(task)) {
+                    this._audit.info('TaskQueue',
+                        `DISPATCH BUILD idempotente: cidade ${task.cityId} já está construindo no slot ${task.payload.position} — tratado como sucesso`
+                    );
+                    return {
+                        ok: true,
+                        idempotent: true,
+                        reasonCode: 'BUILD_ALREADY_UNDER_CONSTRUCTION_IDEMPOTENT',
+                    };
+                }
                 const result = await this._client.upgradeBuilding(
                     task.cityId,
                     task.payload.position,
@@ -938,37 +879,16 @@ export class TaskQueue {
     // ── NOISE scheduling (mimetismo) ──────────────────────────────────────────
 
     _scheduleNoise() {
-        this._noiseCounter = 0;
-        this._nextNoiseAt  = this._newNoiseThreshold();
-
-        const views  = ['embassy', 'barracks', 'museum', 'academy', 'temple'];
-        const view   = views[Math.floor(Math.random() * views.length)];
-        const cities = this._state.getAllCities();
-        if (!cities.length) return;
-
-        const city = cities[Math.floor(Math.random() * cities.length)];
-
-        this.add({
-            type:         TASK_TYPE.NOISE,
-            priority:     50,
-            cityId:       city.id,
-            payload:      { view },
-            scheduledFor: Date.now() + 5_000 + Math.random() * 25_000, // 5–30s
-            reason:       `Mimetismo: visita aleatória a ${view}`,
-            module:       'CSO',
-            confidence:   'HIGH',
-            maxAttempts:  1,
-        });
+        return this._noiseScheduler._scheduleNoise();
     }
 
     _newNoiseThreshold() {
-        const min = this._config.get('noiseFrequencyMin') ?? 8;
-        const max = this._config.get('noiseFrequencyMax') ?? 15;
-        return min + Math.floor(Math.random() * (max - min));
+        return this._noiseScheduler._newNoiseThreshold();
     }
 
     _resolveTransportPurpose(payload = {}) {
         if (payload?.wineBootstrapRecovery) return 'wineBootstrap';
+        if (payload?.wineRecovery) return 'wineRecovery';
         if (payload?.wineEmergency) return 'wineEmergency';
         if (payload?.jitBuild) return 'jitBuild';
         if (payload?.minStock) return 'minStock';
@@ -1053,6 +973,49 @@ export class TaskQueue {
         if (task.type === TASK_TYPE.WINE_ADJUST && task.payload?.wineEmergency) return true;
         if (task.type === TASK_TYPE.TRANSPORT && task.payload?.wineEmergency) return true;
         return false;
+    }
+
+    _isBuildAlreadyUnderConstruction(task) {
+        if (task?.type !== TASK_TYPE.BUILD) return false;
+        const city = this._state.getCity?.(task.cityId);
+        if (!city) return false;
+        const uc = city.underConstruction;
+        if (uc === -1 || uc === false || uc === null || Number(uc) === -1) return false;
+        return Number(uc) === Number(task.payload?.position);
+    }
+
+    async _probeBeforeRedispatch(task, { validationBaseline = null, executionStartedAt } = {}) {
+        const lastDispatchedAt = Number(task?.lastDispatchedAt ?? 0);
+        if (!Number.isFinite(lastDispatchedAt) || lastDispatchedAt <= 0) return null;
+
+        const elapsed = Date.now() - lastDispatchedAt;
+        if (elapsed >= TaskQueue.REDISPATCH_PROBE_WINDOW_MS) return null;
+
+        if (task.type === TASK_TYPE.BUILD) {
+            try {
+                await this._client.probeCityData(task.cityId);
+            } catch (err) {
+                this._audit.warn('TaskQueue', `BUILD probe pré re-dispatch falhou: ${err.message}`);
+            }
+
+            if (this._isBuildAlreadyUnderConstruction(task)) {
+                return this._createTaskOutcome(task, {
+                    executionStartedAt,
+                    outcomeClass: 'success',
+                    reasonCode: 'BUILD_ALREADY_UNDER_CONSTRUCTION_IDEMPOTENT',
+                    evidence: [
+                        `lastDispatchedAt=${new Date(lastDispatchedAt).toISOString()}`,
+                        `redispatchWindowMs=${TaskQueue.REDISPATCH_PROBE_WINDOW_MS}`,
+                        `elapsedMs=${elapsed}`,
+                        `underConstructionConfirmed=true`,
+                        `underConstructionBefore=${validationBaseline?.build?.underConstruction ?? 'N/A'}`,
+                    ],
+                    nextStep: 'none',
+                });
+            }
+        }
+
+        return null;
     }
 
     _getTaskTimeoutMs(task) {
@@ -1210,26 +1173,11 @@ export class TaskQueue {
     }
 
     _captureHybridPathDecision(task, decision) {
-        const payload = {
-            taskId: task.id,
-            cityId: task.cityId,
-            actionType: task.type,
-            decision: {
-                ts: Date.now(),
-                preferredPath: decision.preferredPath ?? 'endpoint',
-                pathDecision: decision.pathDecision ?? 'endpoint',
-                decisionReason: decision.decisionReason ?? 'UNSPECIFIED',
-                dataProvenance: Array.isArray(decision.dataProvenance) ? decision.dataProvenance : ['endpoint'],
-                contextLock: decision.contextLock ?? { locked: true },
-                tokenSnapshot: decision.tokenSnapshot ?? null,
-                routeConfidence: decision.routeConfidence ?? this._normalizeRouteConfidence(task.confidence),
-            },
-        };
-
-        task.pathDecision = payload.decision;
-        const ev = this._events?.E?.HYBRID_PATH_DECIDED;
-        if (ev) this._events.emit(ev, payload);
-        return payload.decision;
+        return this._taskOutcomeTracker._captureHybridPathDecision(
+            task,
+            decision,
+            (raw) => this._normalizeRouteConfidence(raw)
+        );
     }
 
     _captureHybridAttemptOutcome(task, outcome = {}) {
@@ -1292,34 +1240,11 @@ export class TaskQueue {
     }
 
     async _postValidateTaskOutcome(task, { validationBaseline, executionStartedAt, dispatchResult = null } = {}) {
-        if (!this._isCriticalOutcomeTask(task)) {
-            return this._createTaskOutcome(task, {
-                executionStartedAt,
-                outcomeClass: 'success',
-                reasonCode: 'TASK_NON_CRITICAL_DISPATCH_OK',
-                evidence: ['nonCriticalTask=true'],
-                nextStep: 'none',
-            });
-        }
-
-        switch (task.type) {
-            case TASK_TYPE.BUILD:
-                return await this._validateBuildOutcome(task, validationBaseline, executionStartedAt);
-            case TASK_TYPE.TRANSPORT:
-                return await this._validateTransportOutcome(task, validationBaseline, executionStartedAt);
-            case TASK_TYPE.WINE_ADJUST:
-                return await this._validateWineAdjustOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
-            case TASK_TYPE.WORKER_REALLOC:
-                return await this._validateWorkerReallocOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
-            default:
-                return this._createTaskOutcome(task, {
-                    executionStartedAt,
-                    outcomeClass: 'inconclusive',
-                    reasonCode: 'POST_VALIDATION_TYPE_UNSUPPORTED',
-                    evidence: [`type=${task.type}`],
-                    nextStep: 'retry',
-                });
-        }
+        return this._taskOutcomeTracker._postValidateTaskOutcome(task, {
+            validationBaseline,
+            executionStartedAt,
+            dispatchResult,
+        });
     }
 
     async _validateBuildOutcome(task, baseline, executionStartedAt) {
@@ -1403,7 +1328,24 @@ export class TaskQueue {
     async _validateWineAdjustOutcome(task, baseline, executionStartedAt, dispatchResult = null) {
         const evidence = [];
         const tokenRotated = !!dispatchResult?.tokenRotated;
+        const deterministicRefusal = !!dispatchResult?.deterministicRefusal;
+        const refusalReasonCode = dispatchResult?.refusalReasonCode ?? null;
+        const refusalMessage = dispatchResult?.refusalMessage ?? null;
         evidence.push(`actionRequestRotated=${tokenRotated}`);
+        evidence.push(`deterministicRefusal=${deterministicRefusal}`);
+        if (refusalReasonCode) evidence.push(`refusalReasonCode=${refusalReasonCode}`);
+        if (refusalMessage) evidence.push(`refusalMessage=${refusalMessage}`);
+
+        if (deterministicRefusal) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'failed',
+                reasonCode: refusalReasonCode ?? 'SERVER_REFUSED_INSUFFICIENT_RESOURCES',
+                evidence,
+                nextStep: 'cancel',
+            });
+        }
+
         try {
             await this._client.probeCityData(task.cityId);
             evidence.push('probeCityData=ok');
@@ -1514,37 +1456,17 @@ export class TaskQueue {
         evidence,
         nextStep,
     } = {}) {
-        return {
-            taskId: task.id,
-            taskType: task.type,
-            type: task.type,
-            cityId: task.cityId,
-            timestamp: Date.now(),
-            latencyMs: Math.max(0, Date.now() - Number(executionStartedAt ?? Date.now())),
+        return this._taskOutcomeTracker._createTaskOutcome(task, {
+            executionStartedAt,
             outcomeClass,
-            reasonCode: reasonCode ?? null,
-            evidence: Array.isArray(evidence) ? evidence : [],
-            nextStep: nextStep ?? 'none',
-        };
+            reasonCode,
+            evidence,
+            nextStep,
+        });
     }
 
     _recordTaskOutcome(task, outcome) {
-        if (!task || !outcome) return outcome;
-        task.lastOutcome = outcome;
-        task.outcomeHistory = [
-            ...(Array.isArray(task.outcomeHistory) ? task.outcomeHistory : []),
-            outcome,
-        ].slice(-10);
-
-        const ev = this._events?.E?.QUEUE_TASK_OUTCOME;
-        if (ev) this._events.emit(ev, { task, outcome });
-
-        const line = `${task.type} outcome=${outcome.outcomeClass} reason=${outcome.reasonCode ?? 'N/A'}`;
-        if (outcome.outcomeClass === 'failed') this._audit.error('TaskOutcome', line, outcome, task.cityId);
-        else if (outcome.outcomeClass === 'inconclusive' || outcome.outcomeClass === 'guard_reschedule') this._audit.warn('TaskOutcome', line, outcome, task.cityId);
-        else this._audit.info('TaskOutcome', line, outcome, task.cityId);
-
-        return outcome;
+        return this._taskOutcomeTracker._recordTaskOutcome(task, outcome);
     }
 
     _moveToHistory(task) {
@@ -1561,11 +1483,11 @@ export class TaskQueue {
     _persist() {
         // Salvar tasks não-concluídas (done está em _done separado)
         const toSave = this._queue.filter(t => t.status !== 'done');
-        this._storage?.set?.('taskQueue', toSave).catch(() => {});
+        this._safeStorage.set('taskQueue', toSave);
     }
 
     _persistHistory() {
         // Persistir as últimas 50 tasks concluídas — sobrevive reloads
-        this._storage?.set?.('taskQueueDone', this._done.slice(-50)).catch(() => {});
+        this._safeStorage.set('taskQueueDone', this._done.slice(-50));
     }
 }

@@ -239,6 +239,43 @@ describe('TaskQueue action outcomes', () => {
     expect(task.attempts).toBe(1);
   });
 
+  test('post-validation deterministic refusal fails WINE_ADJUST immediately (no retry loop)', async () => {
+    const city = {
+      id: 101,
+      underConstruction: -1,
+      buildings: [],
+      tavern: { wineLevel: 1 },
+      workers: { scientists: 5 },
+    };
+    const { queue, client } = createHarness({ city });
+    queue._dispatch = vi.fn(async () => ({
+      tokenRotated: false,
+      deterministicRefusal: true,
+      refusalReasonCode: 'SERVER_REFUSED_INSUFFICIENT_RESOURCES',
+      refusalMessage: 'Recursos insuficientes',
+    }));
+
+    const task = {
+      id: 'inc2',
+      type: 'WINE_ADJUST',
+      cityId: 101,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 5,
+      scheduledFor: Date.now(),
+      payload: { wineLevel: 2 },
+    };
+    queue._queue = [task];
+
+    await queue._execute(task);
+
+    expect(task.lastOutcome?.outcomeClass).toBe('failed');
+    expect(task.lastOutcome?.reasonCode).toBe('SERVER_REFUSED_INSUFFICIENT_RESOURCES');
+    expect(task.status).toBe('failed');
+    expect(task.attempts).toBe(1);
+    expect(client.probeCityData).not.toHaveBeenCalled();
+  });
+
   test('guard_reschedule outcome is emitted and normalized', async () => {
     const city = { id: 101, underConstruction: -1, buildings: [], tavern: { wineLevel: 0 }, workers: { scientists: 0 } };
     const { queue } = createHarness({ city });

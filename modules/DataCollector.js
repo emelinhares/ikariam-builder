@@ -7,6 +7,7 @@
 //   Não existe updateBackgroundData separado — tudo vem em updateGlobalData.
 
 import { WINE_USE } from '../data/wine.js';
+import { ResponseParser } from './ResponseParser.js';
 
 // Ações a ignorar no REC (muito frequentes, sem valor de aprendizado)
 const REC_SKIP_ACTIONS = new Set(['CityScreen', 'Premium', null, undefined]);
@@ -23,6 +24,8 @@ const LS_MAX_BYTES = 4_000_000;
 
 // Tamanho máximo de HTML/DOM por entrada no storage (evita explodir o limite)
 const LS_MAX_HTML = 8_000;
+const REC_LOG_MAX = 2_000;
+const REC_LOG_TRIM = 500;
 
 export class DataCollector {
     constructor({ events, audit }) {
@@ -154,6 +157,7 @@ export class DataCollector {
         entry.seq = this._recCounter;
         entry.ts  = entry.ts ?? Date.now();
         this._recLog.push(entry);
+        this._trimRecLog();
 
         // Persistir no localStorage com debounce de 800ms
         // (evita escrita a cada captura individual — DOM/CLICK são muito frequentes)
@@ -161,6 +165,13 @@ export class DataCollector {
 
         if (this._events?.E?.DC_REC_CAPTURE) {
             this._events.emit(this._events.E.DC_REC_CAPTURE, { seq: this._recCounter, cat: entry.cat });
+        }
+    }
+
+    shutdown() {
+        if (this._persistTimer) {
+            clearTimeout(this._persistTimer);
+            this._persistTimer = null;
         }
     }
 
@@ -216,10 +227,17 @@ export class DataCollector {
             if (!Array.isArray(log) || log.length === 0) return false;
 
             this._recLog     = log;
+            this._trimRecLog();
             this._recCounter = seq;
             return mode; // retorna se o REC estava ativo antes do reload
         } catch {
             return false; // storage corrompido — iniciar limpo
+        }
+    }
+
+    _trimRecLog() {
+        while (this._recLog.length > REC_LOG_MAX) {
+            this._recLog.splice(0, REC_LOG_TRIM);
         }
     }
 
@@ -579,16 +597,13 @@ export class DataCollector {
     // ── Processamento de resposta XHR/fetch ──────────────────────────────────
 
     _onResponse(url, text) {
-        let data;
-        try {
-            const trimmed = text.trim();
-            if (!trimmed.startsWith('[')) return;
-            data = JSON.parse(trimmed);
-            if (!Array.isArray(data)) return;
-        } catch {
-            return;
+        const parsed = ResponseParser.parse(url, text);
+        if (!parsed.length) return;
+        for (const ev of parsed) {
+            if (ev.type === 'globalData') this._onGlobalData(ev.payload, ev.url);
+            if (ev.type === 'fleetMoveList') this._onFleetMoveList(ev.payload);
+            if (ev.type === 'changeView') this._onChangeView(ev.payload);
         }
-        this._processCommands(data, url);
     }
 
     _processCommands(commands, url) {

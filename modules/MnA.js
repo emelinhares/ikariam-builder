@@ -4,6 +4,7 @@
 
 import { getCost } from '../data/buildings.js';
 import { TASK_TYPE } from './taskTypes.js';
+import { createSafeStorage } from './SafeStorage.js';
 
 export class MnA {
     constructor({ events, audit, config, state, queue, storage }) {
@@ -13,6 +14,7 @@ export class MnA {
         this._state   = state;
         this._queue   = queue;
         this._storage = storage;
+        this._safeStorage = createSafeStorage(storage, { module: 'MnA', audit });
     }
 
     init() {
@@ -25,7 +27,7 @@ export class MnA {
 
     async _detectNewCities() {
         const currentIds = new Set(this._state.getAllCityIds());
-        const stored     = await this._storage.get('knownCityIds').catch(() => null);
+        const stored     = await this._safeStorage.get('knownCityIds', null);
         const knownIds   = new Set(Array.isArray(stored) ? stored : []);
 
         for (const id of currentIds) {
@@ -36,7 +38,7 @@ export class MnA {
         }
 
         // Persistir lista atualizada
-        await this._storage.set('knownCityIds', [...currentIds]).catch(() => {});
+        await this._safeStorage.set('knownCityIds', [...currentIds]);
     }
 
     _handleNewCity(cityId) {

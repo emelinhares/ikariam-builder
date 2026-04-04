@@ -49,13 +49,51 @@ import { chooseGlobalGoal } from './GoalEngine.js';
 import { evaluateGrowthPolicy } from './GrowthPolicy.js';
 import { evaluateFleetPolicy } from './FleetPolicy.js';
 import { evaluateWorkforcePolicy } from './WorkforcePolicy.js';
+import { evaluateWineSustainPolicy } from './WineSustainPolicy.js';
 
-// Antecedência mínima para acordar antes de um evento (ms)
-const WAKE_LEAD_MS       = 5 * 60 * 1000;   // 5min antes do evento
-// Intervalo mínimo entre wake-ups adaptativos (evitar loops)
-const WAKE_MIN_INTERVAL  = 2 * 60 * 1000;   // no mínimo 2min entre ciclos
 // Delay de debounce para wake-ups reativos (evitar avalanche de eventos)
 const REACTIVE_DEBOUNCE  = 10 * 1000;       // 10s após QUEUE_TASK_DONE
+
+export class PlannerCityContext {
+    constructor(data = {}) {
+        this.wineHours = data.wineHours ?? Infinity;
+        this.satisfaction = data.satisfaction ?? null;
+        this.populationUsed = Number(data.populationUsed ?? 0);
+        this.maxInhabitants = Number(data.maxInhabitants ?? 0);
+        this.populationUtilization = Number(data.populationUtilization ?? 0);
+        this.populationGrowthPerHour = Number(data.populationGrowthPerHour ?? 0);
+        this.hasCriticalSupply = Boolean(data.hasCriticalSupply);
+        this.wineBootstrapNeeded = Boolean(data.wineBootstrapNeeded);
+        this.wineSustain = data.wineSustain ?? null;
+        this.pendingTransports = Array.isArray(data.pendingTransports) ? data.pendingTransports : [];
+        this.buildBlocked = Boolean(data.buildBlocked);
+        this.buildApprovedBy = data.buildApprovedBy ?? null;
+        this.wineEmergencyHandled = Boolean(data.wineEmergencyHandled);
+        this.idlePopulation = data.idlePopulation;
+        this.workforceUtilization = data.workforceUtilization;
+        this.productionFloorMet = data.productionFloorMet;
+        this.recommendedWorkersWood = data.recommendedWorkersWood;
+        this.recommendedWorkersTradegood = data.recommendedWorkersTradegood;
+        this.recommendedScientists = data.recommendedScientists;
+        this.workforceBlockingFactors = data.workforceBlockingFactors;
+        this.workforceReasons = data.workforceReasons;
+    }
+
+    markBuildBlocked() {
+        this.buildBlocked = true;
+    }
+
+    markWineHandled({ wineBootstrapNeeded } = {}) {
+        this.wineEmergencyHandled = true;
+        if (wineBootstrapNeeded !== undefined) {
+            this.wineBootstrapNeeded = Boolean(wineBootstrapNeeded);
+        }
+    }
+
+    setBuildApprovedBy(moduleName) {
+        this.buildApprovedBy = moduleName ?? null;
+    }
+}
 
 export class Planner {
     constructor({ events, audit, config, state, queue, hr, cfo, coo, cto, cso, mna }) {
@@ -77,6 +115,26 @@ export class Planner {
         this._lastCycleTs    = 0;       // timestamp do último ciclo concluído
         this._lastSummary    = null;
         this._lastContext    = null;
+        this._unsubscribers  = [];
+    }
+
+    shutdown() {
+        for (const unsub of this._unsubscribers.splice(0)) {
+            try { unsub(); } catch { /* best-effort */ }
+        }
+        if (this._adaptiveTimer) {
+            clearTimeout(this._adaptiveTimer);
+            this._adaptiveTimer = null;
+        }
+        if (this._reactiveTimer) {
+            clearTimeout(this._reactiveTimer);
+            this._reactiveTimer = null;
+        }
+        this._audit.info('Planner', 'Planner shutdown — timers limpos');
+    }
+
+    _trackUnsub(unsub) {
+        if (typeof unsub === 'function') this._unsubscribers.push(unsub);
     }
 
     getLastSummary() {
@@ -97,31 +155,31 @@ export class Planner {
         const E = this._events.E;
 
         // Único listener de STATE_ALL_FRESH no sistema
-        this._events.on(E.STATE_ALL_FRESH, ({ ts }) => {
+        this._trackUnsub(this._events.on(E.STATE_ALL_FRESH, ({ ts }) => {
             this._onStateFresh(ts);
-        });
+        }));
 
         // Wake-ups reativos: BUILD ou TRANSPORT concluído → mini-ciclo em 10s
-        this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
+        this._trackUnsub(this._events.on(E.QUEUE_TASK_DONE, ({ task }) => {
             if (task.type === 'BUILD' || task.type === 'TRANSPORT' || task.type === 'WINE_ADJUST') {
                 this._scheduleReactiveCycle(task.type);
             }
-        });
+        }));
 
         // Falha de task → replaneja logística imediatamente
-        this._events.on(E.QUEUE_TASK_FAILED, ({ task }) => {
+        this._trackUnsub(this._events.on(E.QUEUE_TASK_FAILED, ({ task }) => {
             if (task.type === 'TRANSPORT' || task.type === 'BUILD' || task.type === 'WINE_ADJUST') {
                 this._scheduleReactiveCycle(task.type, 'FAILED');
             }
-        });
+        }));
 
         // Eventos de sustento críticos devem disparar replanejamento reativo.
-        this._events.on(E.HR_WINE_EMERGENCY, ({ cityId }) => {
+        this._trackUnsub(this._events.on(E.HR_WINE_EMERGENCY, ({ cityId }) => {
             this._scheduleReactiveCycle('HR_WINE_EMERGENCY', `CITY_${cityId}`);
-        });
-        this._events.on(E.HR_WINE_ADJUSTED, ({ cityId }) => {
+        }));
+        this._trackUnsub(this._events.on(E.HR_WINE_ADJUSTED, ({ cityId }) => {
             this._scheduleReactiveCycle('HR_WINE_ADJUSTED', `CITY_${cityId}`);
-        });
+        }));
 
         this._audit.info('Planner', 'Planner iniciado — timers adaptativos + wake-ups reativos ativos');
     }
@@ -161,6 +219,8 @@ export class Planner {
         }
 
         const now       = Date.now();
+        const WAKE_LEAD_MS = this._config.get('plannerWakeLeadMs') ?? 5 * 60_000;
+        const WAKE_MIN_INTERVAL = this._config.get('plannerWakeMinIntervalMs') ?? 2 * 60_000;
         const threshold = (this._config.get('wineEmergencyHours') ?? 4) * 3600 * 1000;
         let   nextWake  = Infinity;
         let   nextReason = '';
@@ -240,12 +300,21 @@ export class Planner {
         this._adaptiveTimer = setTimeout(() => {
             this._adaptiveTimer = null;
             this._audit.info('Planner', `Wake-up adaptativo disparado — ${nextReason}`);
-            if (!this._running) {
-                this._running = true;
-                this.runCycle(Date.now())
-                    .catch(err => this._audit.error('Planner', `Erro no wake-up adaptativo: ${err.message}`))
-                    .finally(() => { this._running = false; });
+            if (this._running) {
+                this._audit.debug('Planner',
+                    `Wake-up adaptativo colidiu com ciclo em andamento — reagendando em ${Math.round(WAKE_MIN_INTERVAL / 1000)}s`
+                );
+                this._adaptiveTimer = setTimeout(() => {
+                    this._adaptiveTimer = null;
+                    this._onStateFresh(Date.now());
+                }, WAKE_MIN_INTERVAL);
+                return;
             }
+
+            this._running = true;
+            this.runCycle(Date.now())
+                .catch(err => this._audit.error('Planner', `Erro no wake-up adaptativo: ${err.message}`))
+                .finally(() => { this._running = false; });
         }, delayMs);
     }
 
@@ -258,6 +327,7 @@ export class Planner {
         if (this._reactiveTimer) return; // já agendado — debounce
 
         const now = Date.now();
+        const WAKE_MIN_INTERVAL = this._config.get('plannerWakeMinIntervalMs') ?? 2 * 60_000;
         if (now - this._lastCycleTs < WAKE_MIN_INTERVAL) {
             this._audit.debug('Planner',
                 `Wake-up reativo (${taskType} ${reason}) ignorado — ciclo recente há ${Math.round((now - this._lastCycleTs) / 1000)}s`
@@ -271,7 +341,16 @@ export class Planner {
 
         this._reactiveTimer = setTimeout(() => {
             this._reactiveTimer = null;
-            if (this._running) return;
+            if (this._running) {
+                this._audit.debug('Planner',
+                    `Wake-up reativo colidiu com ciclo em andamento — reagendando em ${Math.round(WAKE_MIN_INTERVAL / 1000)}s`
+                );
+                this._reactiveTimer = setTimeout(() => {
+                    this._reactiveTimer = null;
+                    this._onStateFresh(Date.now());
+                }, WAKE_MIN_INTERVAL);
+                return;
+            }
             this._audit.info('Planner', `Wake-up reativo disparado (${taskType} ${reason})`);
             this._running = true;
             this.runCycle(Date.now())
@@ -349,39 +428,50 @@ export class Planner {
         const queueHistory = this._queue.getHistory?.() ?? [];
 
         for (const city of allCities) {
-            const wine = city.resources?.wine ?? 0;
-
-            // wineSpendings pode zerar quando estoque acaba — usar WINE_USE como fallback
-            let spendings = city.production?.wineSpendings ?? 0;
-            if (spendings <= 0 && (city.tavern?.wineLevel ?? 0) > 0) {
-                spendings = WINE_USE[city.tavern.wineLevel] ?? 0;
-            }
-
-            const wineHours    = spendings > 0 ? wine / spendings : Infinity;
             const satisfaction = city.typed?.happinessScore ?? city.economy?.satisfaction ?? null;
             const populationUsed = Number(city.typed?.populationUsed ?? city.economy?.population ?? 0);
             const maxInhabitants = Number(city.typed?.maxInhabitants ?? city.economy?.maxInhabitants ?? 0);
             const populationUtilization = Number(city.typed?.populationUtilization ?? (maxInhabitants > 0 ? populationUsed / maxInhabitants : 0));
             const growthPerHour = Number(city.typed?.populationGrowthPerHour ?? city.economy?.growthPerHour ?? 0);
 
+            const wineSustain = evaluateWineSustainPolicy({
+                city,
+                signals: {
+                    happinessScore: satisfaction,
+                    populationGrowthPerHour: growthPerHour,
+                    populationUsed,
+                    maxInhabitants,
+                    populationUtilization,
+                    wineSpendings: Number(city?.typed?.wineSpendings ?? city?.production?.wineSpendings ?? 0),
+                },
+                ctx: null,
+                emergencyHours: threshold,
+            });
+            const wineHours = wineSustain.wineCoverageHours;
+
             // satisfaction=null → jogo ainda não reportou (cidade não visitada) → não bloquear
             // satisfaction<=0 confirmado → felicidade real negativa → bloquear builds
             const satBlocked        = satisfaction !== null && satisfaction <= 0;
             const wineBootstrapNeeded = this._needsWineBootstrapRecovery({
                 city,
-                wine,
-                spendings,
+                wine: Number(city?.resources?.wine ?? 0),
+                spendings: Number(wineSustain?.effectiveWineSpendings ?? 0),
                 satisfaction,
                 growthPerHour,
                 populationUtilization,
             });
-            const hasCriticalSupply = wineHours < threshold || satBlocked || wineBootstrapNeeded;
+            const hasCriticalSupply =
+                wineHours < threshold
+                || satBlocked
+                || wineBootstrapNeeded
+                || wineSustain.needsWineImport
+                || wineSustain.needsTavernBootstrap;
 
             // Transportes já agendados com destino a esta cidade
             const pendingTransports = this._queue.getPending()
                 .filter(t => t.type === 'TRANSPORT' && t.payload?.toCityId === city.id);
 
-            cities.set(city.id, {
+            cities.set(city.id, new PlannerCityContext({
                 wineHours,
                 satisfaction,
                 populationUsed,
@@ -390,11 +480,12 @@ export class Planner {
                 populationGrowthPerHour: growthPerHour,
                 hasCriticalSupply,
                 wineBootstrapNeeded,
+                wineSustain,
                 pendingTransports,
                 buildBlocked:         false,  // preenchido por _markBuildBlocked
                 buildApprovedBy:      null,   // preenchido pelo CFO
                 wineEmergencyHandled: false,  // preenchido pelo HR
-            });
+            }));
         }
 
         const stageInfoBase = detectEmpireStage({
@@ -585,10 +676,11 @@ export class Planner {
     _markBuildBlocked(ctx) {
         for (const [cityId, cityCtx] of ctx.cities) {
             if (cityCtx.hasCriticalSupply) {
-                cityCtx.buildBlocked = true;
+                cityCtx.markBuildBlocked();
                 this._audit.debug('Planner',
                     `Cidade ${cityId}: buildBlocked ` +
                     `(vinho=${cityCtx.wineHours === Infinity ? '∞' : cityCtx.wineHours.toFixed(1)}h ` +
+                    `mode=${cityCtx.wineSustain?.wineMode ?? 'N/A'} ` +
                     `sat=${cityCtx.satisfaction ?? 'N/A'})`
                 );
             }

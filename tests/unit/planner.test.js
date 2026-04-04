@@ -86,7 +86,8 @@ function createPlannerHarness(overrides = {}) {
   const cfo = {
     replan: vi.fn((ctx) => {
       const cityCtx = ctx.cities.get(202);
-      if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
+      if (cityCtx?.setBuildApprovedBy) cityCtx.setBuildApprovedBy('CFO');
+      else if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
     }),
   };
   const coo = { replan: vi.fn() };
@@ -203,7 +204,8 @@ describe('Planner', () => {
     cfo.replan.mockImplementation((ctx) => {
       order.push('CFO');
       const cityCtx = ctx.cities.get(202);
-      if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
+      if (cityCtx?.setBuildApprovedBy) cityCtx.setBuildApprovedBy('CFO');
+      else if (cityCtx) cityCtx.buildApprovedBy = 'CFO';
     });
     cto.replan.mockImplementation(() => order.push('CTO'));
     cso.replan.mockImplementation(() => order.push('CSO'));
