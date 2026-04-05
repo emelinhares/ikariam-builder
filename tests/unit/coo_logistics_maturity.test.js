@@ -137,5 +137,100 @@ describe('COO logistics maturity', () => {
     expect(task.payload.overflowRelief).toBe(true);
     expect(task.payload.cargo.wood).toBeGreaterThan(0);
   });
+
+  test('splits wine emergency across multiple sources when no single source covers all', () => {
+    const dest = {
+      id: 1,
+      name: 'Destino',
+      islandId: 11,
+      tradegood: 2,
+      maxResources: 10_000,
+      resources: { wood: 100, wine: 0, marble: 0, glass: 0, sulfur: 0 },
+      production: { wood: 50, tradegood: 50, wineSpendings: 0 },
+      tavern: { wineLevel: 0 },
+      buildings: [{ building: 'tavern', level: 6 }],
+    };
+    const srcA = {
+      id: 2,
+      name: 'Fonte A',
+      islandId: 22,
+      tradegood: 1,
+      maxResources: 10_000,
+      resources: { wood: 0, wine: 2400, marble: 0, glass: 0, sulfur: 0 },
+      production: { wood: 200, tradegood: 700, wineSpendings: 0 },
+      buildings: [],
+    };
+    const srcB = {
+      id: 3,
+      name: 'Fonte B',
+      islandId: 33,
+      tradegood: 1,
+      maxResources: 10_000,
+      resources: { wood: 0, wine: 2400, marble: 0, glass: 0, sulfur: 0 },
+      production: { wood: 200, tradegood: 700, wineSpendings: 0 },
+      buildings: [],
+    };
+
+    const { coo, queue } = createCooHarness({ cities: [dest, srcA, srcB] });
+
+    coo._scheduleWineEmergency(dest.id, {
+      cityId: dest.id,
+      targetWineAmount: 2000,
+      wineMode: 'IMPORT_WINE',
+      recoveryWinePerHour: 50,
+      recoveryWineLevel: 1,
+      bootstrapRecovery: false,
+    });
+
+    const transports = queue.add.mock.calls.map((c) => c[0]).filter((t) => t.type === 'TRANSPORT');
+    expect(transports.length).toBe(2);
+    const sent = transports.reduce((sum, t) => sum + Number(t.payload?.cargo?.wine ?? 0), 0);
+    expect(sent).toBe(2000);
+    expect(Math.max(...transports.map((t) => Number(t.payload?.cargo?.wine ?? 0)))).toBeLessThan(2000);
+  });
+
+  test('does not count generic in-transit as wine emergency reserved coverage', () => {
+    const dest = {
+      id: 1,
+      name: 'Destino',
+      islandId: 11,
+      tradegood: 2,
+      maxResources: 10_000,
+      resources: { wood: 100, wine: 200, marble: 0, glass: 0, sulfur: 0 },
+      production: { wood: 50, tradegood: 50, wineSpendings: 0 },
+      buildings: [],
+    };
+    const src = {
+      id: 2,
+      name: 'Fonte',
+      islandId: 22,
+      tradegood: 1,
+      maxResources: 10_000,
+      resources: { wood: 0, wine: 5000, marble: 0, glass: 0, sulfur: 0 },
+      production: { wood: 200, tradegood: 700, wineSpendings: 0 },
+      buildings: [],
+    };
+
+    const { coo, state, queue } = createCooHarness({ cities: [dest, src] });
+    state.getInTransit.mockReturnValue({ wood: 0, wine: 1500, marble: 0, glass: 0, sulfur: 0 });
+    queue.getPending.mockReturnValue([
+      {
+        type: 'TRANSPORT',
+        payload: {
+          fromCityId: src.id,
+          toCityId: dest.id,
+          cargo: { wine: 300 },
+          minStock: true,
+          logisticPurpose: 'minStock',
+        },
+      },
+    ]);
+
+    const emergencyCoverage = coo._getReservedCoverage(dest.id, 'wine', 'wineEmergency');
+    const minStockCoverage = coo._getReservedCoverage(dest.id, 'wine', 'minStock');
+
+    expect(emergencyCoverage).toBe(0);
+    expect(minStockCoverage).toBe(1800);
+  });
 });
 

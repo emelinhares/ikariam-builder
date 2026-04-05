@@ -57,6 +57,7 @@ export function evaluateWineSustainPolicy({ city, signals = {}, ctx = null, emer
 
     const rawWineSpendings = _num(signals.wineSpendings, _num(city?.production?.wineSpendings, 0));
     const fallbackWineSpendings = tavernLevel > 0 ? _num(WINE_USE[tavernLevel], 0) : 0;
+    const baselineFallbackSpendings = _num(WINE_USE[1], 4);
     const effectiveWineSpendings = rawWineSpendings > 0 ? rawWineSpendings : fallbackWineSpendings;
     const hasStockWithoutConsumption = wineStock > 0 && effectiveWineSpendings <= 0;
 
@@ -147,6 +148,16 @@ export function evaluateWineSustainPolicy({ city, signals = {}, ctx = null, emer
         populationUtilization < 0.9 ? threshold + 8 : threshold + 2,
     );
 
+    const spendingsForTargetAmount = effectiveWineSpendings > 0 ? effectiveWineSpendings : baselineFallbackSpendings;
+
+    let targetWineAmount = Math.max(0, Math.ceil(Math.max(0, spendingsForTargetAmount) * targetCoverageHours));
+    if (
+        (wineMode === WINE_MODE.CRITICAL_NO_WINE || wineMode === WINE_MODE.BOOTSTRAP_TAVERN)
+        && targetWineAmount <= 0
+    ) {
+        targetWineAmount = Math.max(1, Math.ceil(Math.max(1, baselineFallbackSpendings) * targetCoverageHours));
+    }
+
     return {
         wineMode,
         wineCoverageHours: Number.isFinite(coverageHours) ? Number(coverageHours.toFixed(2)) : Infinity,
@@ -157,7 +168,7 @@ export function evaluateWineSustainPolicy({ city, signals = {}, ctx = null, emer
         targetWineLevel,
         targetPopulationGrowthPerHour: Number(targetPopulationGrowthPerHour.toFixed(2)),
         targetWineCoverageHours: Number(targetCoverageHours.toFixed(2)),
-        targetWineAmount: Math.max(0, Math.ceil(Math.max(0, effectiveWineSpendings) * targetCoverageHours)),
+        targetWineAmount,
         effectiveWineSpendings: Number(effectiveWineSpendings.toFixed(2)),
         rawWineSpendings: Number(rawWineSpendings.toFixed(2)),
         happinessScore: happinessScore === null ? null : Number(happinessScore),

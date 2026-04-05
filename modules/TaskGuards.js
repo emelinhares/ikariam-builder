@@ -2,7 +2,7 @@ import { GameError } from './GameClient.js';
 import { TASK_TYPE } from './taskTypes.js';
 
 export class TaskGuards {
-    constructor({ state, client, audit, config, getCFO, reschedule, cancelTask }) {
+    constructor({ state, client, audit, config, getCFO, reschedule, cancelTask, getPendingTasks }) {
         this._state = state;
         this._client = client;
         this._audit = audit;
@@ -10,6 +10,7 @@ export class TaskGuards {
         this._getCFO = getCFO;
         this._reschedule = reschedule;
         this._cancelTask = cancelTask;
+        this._getPendingTasks = getPendingTasks;
     }
 
     async runGuards(task) {
@@ -21,6 +22,9 @@ export class TaskGuards {
                 await this.guardTransport(task);
                 break;
             case TASK_TYPE.WINE_ADJUST:
+                await this.guardWineAdjust(task);
+                await this.guardNavigate(task.cityId);
+                break;
             case TASK_TYPE.RESEARCH:
             case TASK_TYPE.NOISE:
                 await this.guardNavigate(task.cityId);
@@ -169,6 +173,43 @@ export class TaskGuards {
 
         this._audit.debug('TaskQueue',
             `GUARD TRANSPORT: ok — ${origin.name} → cidade ${task.payload.toCityId}, ${task.payload.boats} navios, carga=${JSON.stringify(task.payload.cargo)}`
+        );
+    }
+
+    async guardWineAdjust(task) {
+        const city = this._state.getCity(task.cityId);
+        if (!city) {
+            throw new GameError('GUARD', `GUARD WINE_ADJUST: cidade ${task.cityId} não encontrada no estado`);
+        }
+
+        const wineStock = Number(city.resources?.wine ?? 0);
+        const targetWineLevel = Number(task.payload?.wineLevel ?? city.tavern?.wineLevel ?? 0);
+        const requiresWine = targetWineLevel > 0;
+
+        if (wineStock > 0 || !requiresWine) return;
+
+        const pendingTasks = typeof this._getPendingTasks === 'function'
+            ? this._getPendingTasks()
+            : [];
+        const hasPendingEmergencyWineTransport = pendingTasks.some((t) =>
+            t.type === TASK_TYPE.TRANSPORT
+            && t.status === 'pending'
+            && Number(t.payload?.toCityId) === Number(task.cityId)
+            && t.payload?.wineEmergency === true
+            && Number(t.payload?.cargo?.wine ?? 0) > 0
+        );
+
+        const delayMs = hasPendingEmergencyWineTransport ? 90_000 : 60_000;
+        const reasonCode = hasPendingEmergencyWineTransport
+            ? 'GUARD_WINE_AWAITING_EMERGENCY_TRANSPORT'
+            : 'GUARD_WINE_STOCK_EMPTY';
+
+        this._reschedule(task, delayMs, reasonCode);
+        throw new GameError('GUARD',
+            hasPendingEmergencyWineTransport
+                ? `GUARD WINE_ADJUST: ${city.name} sem vinho disponível (0u) — aguardando transporte de emergência`
+                : `GUARD WINE_ADJUST: ${city.name} sem vinho disponível (0u) — aguardando reposição`,
+            { code: reasonCode }
         );
     }
 

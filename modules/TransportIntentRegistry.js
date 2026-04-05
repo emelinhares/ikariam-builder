@@ -48,6 +48,7 @@ export class TransportIntentRegistry {
         this._records = new Map();
         this._maxRecords = 600;
         this._ttlMs = 8 * 60 * 60 * 1000;
+        this._plannedDispatchTtlMs = 15 * 60 * 1000;
     }
 
     setState(state) { this._state = state; }
@@ -328,6 +329,18 @@ export class TransportIntentRegistry {
 
     _expireOld(now = Date.now()) {
         for (const [intentId, record] of this._records.entries()) {
+            if (record?.status === TRANSPORT_INTENT_STATUS.PLANNED) {
+                const plannedAt = Number(record?.createdAt ?? record?.updatedAt ?? 0);
+                if (plannedAt > 0 && (plannedAt + this._plannedDispatchTtlMs) <= now) {
+                    record.status = TRANSPORT_INTENT_STATUS.EXPIRED;
+                    record.updatedAt = now;
+                    record.evidence = [
+                        ...(Array.isArray(record.evidence) ? record.evidence : []),
+                        'expiredByPlannedTimeout=true',
+                    ].slice(-30);
+                    continue;
+                }
+            }
             if ((record?.expiresAt ?? 0) > now) continue;
             if (ACTIVE_STATUSES.has(record?.status)) {
                 record.status = TRANSPORT_INTENT_STATUS.EXPIRED;

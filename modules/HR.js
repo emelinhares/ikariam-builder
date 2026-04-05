@@ -19,6 +19,7 @@ export class HR {
         // Cooldown: evitar flood de WINE_EMERGENCY — Map<cityId, lastEmittedTs>
         this._wineEmergencyCooldown = new Map();
         this._COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos entre emissões por cidade
+        this._RETRY_COOLDOWN_MS = 3 * 60 * 1000; // retry mais agressivo quando COO falha sem fonte
 
         // Anti-oscilação: nível mínimo confirmado que mantém satisfaction >= 1
         // Map<cityId, number> — atualizado quando satisfaction < 1 após tentativa de baixar
@@ -71,6 +72,34 @@ export class HR {
                 emitDecisionRecord: payload.emitDecisionRecord !== false,
             });
         }));
+
+        if (E.COO_WINE_EMERGENCY_FAILED) {
+            this._trackUnsub(this._events.on(E.COO_WINE_EMERGENCY_FAILED, (payload = {}) => {
+                const cityId = Number(payload.cityId ?? 0);
+                if (!cityId) return;
+                const lastEmit = this._wineEmergencyCooldown.get(cityId) ?? 0;
+                const retryCooldown = Math.max(60_000, Number(payload.retryInMs ?? this._RETRY_COOLDOWN_MS) || this._RETRY_COOLDOWN_MS);
+                const adjustedLastEmit = Date.now() - Math.max(0, this._COOLDOWN_MS - retryCooldown);
+                if (lastEmit <= 0) this._wineEmergencyCooldown.set(cityId, adjustedLastEmit);
+                else this._wineEmergencyCooldown.set(cityId, Math.min(lastEmit, adjustedLastEmit));
+                this._audit.warn('HR',
+                    `Retry de emergência de vinho antecipado para city=${cityId} (cooldown efetivo ${Math.round(retryCooldown / 60000)}min)`
+                );
+            }));
+        }
+
+        if (E.QUEUE_TASK_FAILED) {
+            this._trackUnsub(this._events.on(E.QUEUE_TASK_FAILED, ({ task } = {}) => {
+                if (task?.type !== TASK_TYPE.WINE_ADJUST) return;
+                if (!task?.payload?.wineEmergency) return;
+                const cityId = Number(task.cityId ?? 0);
+                if (!cityId) return;
+                this._wineEmergencyCooldown.delete(cityId);
+                this._audit.warn('HR',
+                    `Cooldown de emergência resetado para city=${cityId} após falha em WINE_ADJUST emergencial`
+                );
+            }));
+        }
     }
 
     shutdown() {

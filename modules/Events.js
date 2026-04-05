@@ -79,6 +79,7 @@ export const Events = {
         COO_TRANSPORT_SCHED:  'coo:transportScheduled', // { task }
         COO_MULTI_SOURCE:     'coo:multiSource',        // { res, deficit, sources[], dest }
         COO_MIN_STOCK_SCHED:  'coo:minStockScheduled',  // { cityId, res, amount, source }
+        COO_WINE_EMERGENCY_FAILED: 'coo:wineEmergencyFailed', // { cityId, purpose, needed, committed, missing, retryInMs, emergencyCtx }
         HR_WINE_EMERGENCY:    'hr:wineEmergency',    // { cityId, hoursRemaining }
         HR_WINE_ADJUSTED:     'hr:wineAdjusted',     // { cityId, oldLevel, newLevel }
         HR_WORKER_REALLOC:    'hr:workerReallocated',// { cityId }
