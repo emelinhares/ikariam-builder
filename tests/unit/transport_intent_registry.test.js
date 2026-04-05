@@ -79,5 +79,54 @@ describe('TransportIntentRegistry', () => {
       amountBucket: 1500,
     }));
   });
+
+  test('expira intent PLANNED sem despacho após timeout e libera novo enqueue', () => {
+    const storage = { get: vi.fn(async () => null), set: vi.fn(async () => {}) };
+    const queue = {
+      getActive: vi.fn(() => []),
+      getHistory: vi.fn(() => []),
+      getTransportReservations: vi.fn(() => []),
+    };
+    const registry = new TransportIntentRegistry({ storage, queue, audit: { warn: vi.fn() } });
+
+    const taskData = {
+      type: 'TRANSPORT',
+      cityId: 101,
+      module: 'COO',
+      payload: {
+        fromCityId: 101,
+        toCityId: 202,
+        cargo: { wine: 500 },
+        wineEmergency: true,
+      },
+    };
+
+    const record = registry.ensureFromTaskData(taskData);
+
+    const before = registry.reconcileEquivalent({
+      purpose: 'wineEmergency',
+      fromCityId: 101,
+      toCityId: 202,
+      resource: 'wine',
+      amount: 500,
+    });
+    expect(before.shouldSkipEnqueue).toBe(true);
+    expect(before.status).toBe(TRANSPORT_INTENT_STATUS.PLANNED);
+
+    const stale = registry._records.get(record.intentId);
+    stale.createdAt = Date.now() - (registry._plannedDispatchTtlMs + 1_000);
+    stale.updatedAt = stale.createdAt;
+    registry._expireOld(Date.now());
+
+    const after = registry.reconcileEquivalent({
+      purpose: 'wineEmergency',
+      fromCityId: 101,
+      toCityId: 202,
+      resource: 'wine',
+      amount: 500,
+    });
+    expect(after.shouldSkipEnqueue).toBe(false);
+    expect(after.status).toBe(TRANSPORT_INTENT_STATUS.EXPIRED);
+  });
 });
 

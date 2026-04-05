@@ -287,24 +287,41 @@ export class COO {
         const bootstrapRecovery = Boolean(emergencyCtx?.bootstrapRecovery);
         const bootstrapFallbackSpendings = WINE_USE[recoveryLevel] ?? WINE_USE[1] ?? 4;
         const requestedAmount = Number(emergencyCtx?.targetWineAmount ?? 0);
+        const recoveryWinePerHour = Number(emergencyCtx?.recoveryWinePerHour ?? 0);
         const wineSpendings = wineSpendingsRaw > 0
             ? wineSpendingsRaw
-            : Number(emergencyCtx?.recoveryWinePerHour ?? bootstrapFallbackSpendings);
-        if ((!wineSpendings || wineSpendings <= 0) && requestedAmount <= 0) return;
+            : (recoveryWinePerHour > 0 ? recoveryWinePerHour : bootstrapFallbackSpendings);
+        const wineMode = String(emergencyCtx?.wineMode ?? '');
+        if ((!wineSpendings || wineSpendings <= 0) && requestedAmount <= 0) {
+            this._audit.debug('COO',
+                `Emergência vinho ${city.name}: skip por demanda nula (wineSpendings=${wineSpendings}, requested=${requestedAmount}, mode=${wineMode || 'N/A'})`
+            );
+            return;
+        }
 
         // Enviar buffer ajustado por maturidade estratégica
         const policy = this._resolveTransportPolicy(this._strategicCtx);
         const coverageHours = bootstrapRecovery
             ? policy.wineBootstrapCoverageHours
             : (emergencyCtx?.wineMode === 'IMPORT_WINE' ? policy.wineRecoveryCoverageHours : policy.wineEmergencyCoverageHours);
-        const needed = requestedAmount > 0
+        let needed = requestedAmount > 0
             ? requestedAmount
             : (wineSpendings * coverageHours);
+        if ((wineMode === 'CRITICAL_NO_WINE' || wineMode === 'BOOTSTRAP_TAVERN') && needed <= 0) {
+            needed = Math.max(1, bootstrapFallbackSpendings * coverageHours);
+        }
 
         const purpose = bootstrapRecovery
             ? 'wineBootstrap'
             : (emergencyCtx?.wineMode === 'IMPORT_WINE' ? 'wineRecovery' : 'wineEmergency');
         const committed = this._getReservedCoverage(cityId, 'wine', purpose);
+
+        if (needed <= 0) {
+            this._audit.debug('COO',
+                `Emergência vinho ${city.name}: demanda final <= 0 (needed=${needed}, mode=${wineMode || 'N/A'}) — ignorado`
+            );
+            return;
+        }
 
         if (committed >= needed) {
             this._audit.debug('COO',
@@ -317,50 +334,68 @@ export class COO {
         const allCities = this._state.getAllCities().filter(c => c.id !== cityId);
         const ledger = this._buildCommitmentLedger();
         const classifications = this._buildCityClassification();
-        const source = this._findSource('wine', toSend, cityId, ledger, classifications);
-        if (!source) {
+        const sources = this._findMultiSource('wine', toSend, cityId, ledger, classifications, {
+            safetyStockMultiplier: 0.5,
+        });
+        if (!sources) {
             this._audit.warn('COO',
                 `Sem fonte de vinho para emergência em ${city.name}: precisa=${toSend} (total=${needed} committed=${committed}), estoques=${allCities.map(c => `${c.name}=${c.resources.wine??0}`).join(', ')}`,
                 { cityId }
             );
+            if (this._events?.E?.COO_WINE_EMERGENCY_FAILED) {
+                this._events.emit(this._events.E.COO_WINE_EMERGENCY_FAILED, {
+                    cityId,
+                    purpose,
+                    needed,
+                    committed,
+                    missing: toSend,
+                    retryInMs: 150_000,
+                    emergencyCtx,
+                });
+            }
             return;
         }
 
         this._audit.info('COO',
             `Emergência vinho: ${city.name} precisa ${toSend}u de vinho` +
             (committed > 0 ? ` (já há ${committed}u comprometidos)` : '') +
-            ` — fonte: ${source.name} (tem ${source.resources.wine}u)`
+            ` — fontes: ${sources.map(s => `${s.city.name}→${s.amount}`).join(' + ')}`
         );
 
-        // Cada navio carrega max 500 unidades de UM recurso por coluna.
-        const boats = Math.ceil(toSend / 500);
+        for (const { city: source, amount: partial } of sources) {
+            // Cada navio carrega max 500 unidades de UM recurso por coluna.
+            const boats = Math.ceil(partial / 500);
 
-        this._enqueueTransportTask({
-            type:     TASK_TYPE.TRANSPORT,
-            priority: bootstrapRecovery ? policy.wineBootstrapPriority : policy.wineRecoveryPriority,
-            cityId:   source.id,
-            payload: {
-                fromCityId:   source.id,
-                toCityId:     cityId,
-                toIslandId:   city.islandId,
-                cargo:        { wine: toSend },
-                boats,
-                totalCargo:   toSend,
-                wineEmergency: true,
-                wineBootstrapRecovery: bootstrapRecovery,
-                wineRecovery: !bootstrapRecovery && purpose === 'wineRecovery',
-                logisticPurpose: purpose,
-                recoveryWineLevel: bootstrapRecovery ? recoveryLevel : null,
-            },
-            scheduledFor: Date.now(),
-            reason:       bootstrapRecovery
-                ? `COO: Recuperação de taberna em ${city.name} — enviar ${toSend}u de vinho`
-                : (purpose === 'wineRecovery'
-                    ? `COO: Recuperação de sustento em ${city.name} — enviar ${toSend}u de vinho`
-                    : `COO: Emergência de vinho em ${city.name} — enviar ${toSend}u`),
-            module:       'COO',
-            confidence:   'HIGH',
-        });
+            this._enqueueTransportTask({
+                type:     TASK_TYPE.TRANSPORT,
+                priority: bootstrapRecovery ? policy.wineBootstrapPriority : policy.wineRecoveryPriority,
+                cityId:   source.id,
+                payload: {
+                    fromCityId:   source.id,
+                    toCityId:     cityId,
+                    toIslandId:   city.islandId,
+                    cargo:        { wine: partial },
+                    boats,
+                    totalCargo:   partial,
+                    wineEmergency: true,
+                    wineBootstrapRecovery: bootstrapRecovery,
+                    wineRecovery: !bootstrapRecovery && purpose === 'wineRecovery',
+                    logisticPurpose: purpose,
+                    recoveryWineLevel: bootstrapRecovery ? recoveryLevel : null,
+                },
+                scheduledFor: Date.now(),
+                reason:       bootstrapRecovery
+                    ? `COO: Recuperação de taberna em ${city.name} — enviar ${partial}u de vinho`
+                    : (purpose === 'wineRecovery'
+                        ? `COO: Recuperação de sustento em ${city.name} — enviar ${partial}u de vinho`
+                        : `COO: Emergência de vinho em ${city.name} — enviar ${partial}u`),
+                module:       'COO',
+                confidence:   'HIGH',
+            });
+
+            const entry = ledger.get(source.id);
+            if (entry && 'wine' in entry) entry.wine += partial;
+        }
     }
 
     // ── Overflow ──────────────────────────────────────────────────────────────
@@ -694,8 +729,11 @@ export class COO {
     _getReservedCoverage(toCityId, resource, purpose) {
         const byPurpose = this._buildPurposeReservations();
         const purposeQty = byPurpose.get(this._reservationKey(toCityId, resource, purpose)) ?? 0;
+        const isWineEmergencyPurpose = purpose === 'wineEmergency'
+            || purpose === 'wineRecovery'
+            || purpose === 'wineBootstrap';
         const inTransitAny = Number(this._state.getInTransit?.(toCityId)?.[resource] ?? 0);
-        return Math.max(0, purposeQty + inTransitAny);
+        return Math.max(0, purposeQty + (isWineEmergencyPurpose ? 0 : inTransitAny));
     }
 
     /**
@@ -711,15 +749,19 @@ export class COO {
 
     // ── Busca de fonte (ledger-aware) ─────────────────────────────────────────
 
-    _findSource(resource, amount, excludeCityId, ledger = null, classifications = null) {
+    _findSource(resource, amount, excludeCityId, ledger = null, classifications = null, options = {}) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
         const _classifications = classifications ?? this._cityClassifications;
+        const safetyStockMultiplier = Number(options?.safetyStockMultiplier ?? 1);
+        const safeMultiplier = Number.isFinite(safetyStockMultiplier) && safetyStockMultiplier >= 0
+            ? safetyStockMultiplier
+            : 1;
 
         const cities = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
             .map(c => {
                 const cityClass = _classifications.get(c.id) ?? null;
-                const safetyStock = this._getCitySafetyStock(c, resource, cityClass);
+                const safetyStock = this._getCitySafetyStock(c, resource, cityClass) * safeMultiplier;
                 const available = Math.max(0, this._availableAfterCommitments(c.id, resource, _ledger) - safetyStock);
                 return {
                     city: c,
@@ -741,9 +783,13 @@ export class COO {
     }
 
     /** Múltiplas fontes para cobrir `amount`. Retorna [{city, amount}] ou null. */
-    _findMultiSource(resource, amount, excludeCityId, ledger = null, classifications = null) {
+    _findMultiSource(resource, amount, excludeCityId, ledger = null, classifications = null, options = {}) {
         const _ledger = ledger ?? this._buildCommitmentLedger();
         const _classifications = classifications ?? this._cityClassifications;
+        const safetyStockMultiplier = Number(options?.safetyStockMultiplier ?? 1);
+        const safeMultiplier = Number.isFinite(safetyStockMultiplier) && safetyStockMultiplier >= 0
+            ? safetyStockMultiplier
+            : 1;
 
         const candidates = this._state.getAllCities()
             .filter(c => c.id !== excludeCityId)
@@ -752,7 +798,7 @@ export class COO {
                 avail:    Math.max(0,
                     Math.floor(
                         this._availableAfterCommitments(c.id, resource, _ledger) -
-                        this._getCitySafetyStock(c, resource, _classifications.get(c.id) ?? null)
+                        (this._getCitySafetyStock(c, resource, _classifications.get(c.id) ?? null) * safeMultiplier)
                     )
                 ),
                 producer: this._isProducerForResource(_classifications.get(c.id) ?? null, resource),

@@ -55,6 +55,7 @@ export class TaskQueue {
             config,
             getCFO: () => this._cfo,
             reschedule: (task, delayMs, reasonCode = null) => this._reschedule(task, delayMs, reasonCode),
+            getPendingTasks: () => this.getPending(),
             cancelTask: (task) => {
                 this._moveToHistory(task);
                 this._persist();

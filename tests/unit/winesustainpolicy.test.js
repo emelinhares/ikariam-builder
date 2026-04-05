@@ -38,5 +38,39 @@ describe('WineSustainPolicy', () => {
     expect(p.wineRiskLevel).toBe('CRITICAL');
     expect(p.targetWineLevel).toBeGreaterThanOrEqual(1);
   });
+
+  test('uses WINE_USE[1] fallback spendings when tavern consumption is zero', () => {
+    const city = {
+      id: 12,
+      resources: { wine: 0 },
+      production: { wineSpendings: 0 },
+      tavern: { wineLevel: 0 },
+      buildings: [{ building: 'tavern', level: 5 }],
+      economy: { satisfaction: 0, growthPerHour: 0 },
+      typed: { populationUsed: 300, maxInhabitants: 500 },
+    };
+
+    const p = evaluateWineSustainPolicy({ city, emergencyHours: 4 });
+
+    expect(p.effectiveWineSpendings).toBe(0);
+    expect(p.targetWineAmount).toBe(48);
+  });
+
+  test('BOOTSTRAP_TAVERN also enforces non-zero fallback targetWineAmount', () => {
+    const city = {
+      id: 13,
+      resources: { wine: 300 },
+      production: { wineSpendings: 0 },
+      tavern: { wineLevel: 0 },
+      buildings: [{ building: 'tavern', level: 5 }],
+      economy: { satisfaction: 0, growthPerHour: 0 },
+      typed: { populationUsed: 300, maxInhabitants: 500 },
+    };
+
+    const p = evaluateWineSustainPolicy({ city, emergencyHours: 4 });
+
+    expect(p.wineMode).toBe(WINE_MODE.BOOTSTRAP_TAVERN);
+    expect(p.targetWineAmount).toBe(48);
+  });
 });
 

@@ -47,6 +47,7 @@ function createHarness(overrides = {}) {
   const reschedule = vi.fn();
   const cancelTask = vi.fn();
   const getCFO = overrides.getCFO ?? vi.fn(() => null);
+  const getPendingTasks = overrides.getPendingTasks ?? (() => []);
 
   const guards = new TaskGuards({
     state,
@@ -56,6 +57,7 @@ function createHarness(overrides = {}) {
     getCFO,
     reschedule,
     cancelTask,
+    getPendingTasks,
   });
 
   return {
@@ -177,6 +179,69 @@ describe('TaskGuards', () => {
 
     await expect(guards.guardTransport(task)).rejects.toThrow(/sem barcos livres/i);
     expect(reschedule).toHaveBeenCalledWith(task, 1_200_000, 'GUARD_TRANSPORT_NO_FREE_BOATS');
+  });
+
+  test('guardWineAdjust reschedules when city has zero wine and target level > 0', async () => {
+    const { guards, reschedule, cityMap } = createHarness();
+    cityMap.set(101, {
+      id: 101,
+      name: 'Alpha',
+      underConstruction: -1,
+      lockedPositions: new Set(),
+      freeTransporters: 20,
+      maxTransporters: 20,
+      buildings: {},
+      tavern: { wineLevel: 0 },
+      resources: { wine: 0 },
+    });
+
+    const task = {
+      type: TASK_TYPE.WINE_ADJUST,
+      cityId: 101,
+      payload: { wineLevel: 1, wineEmergency: true },
+      status: 'pending',
+    };
+
+    await expect(guards.guardWineAdjust(task)).rejects.toThrow(/sem vinho disponível/i);
+    expect(reschedule).toHaveBeenCalledWith(task, 60_000, 'GUARD_WINE_STOCK_EMPTY');
+  });
+
+  test('guardWineAdjust waits a bit longer when emergency wine transport is already pending', async () => {
+    const { guards, reschedule, cityMap } = createHarness({
+      getPendingTasks: () => ([
+        {
+          type: TASK_TYPE.TRANSPORT,
+          status: 'pending',
+          payload: {
+            toCityId: 101,
+            wineEmergency: true,
+            cargo: { wine: 200 },
+          },
+        },
+      ]),
+    });
+
+    cityMap.set(101, {
+      id: 101,
+      name: 'Alpha',
+      underConstruction: -1,
+      lockedPositions: new Set(),
+      freeTransporters: 20,
+      maxTransporters: 20,
+      buildings: {},
+      tavern: { wineLevel: 0 },
+      resources: { wine: 0 },
+    });
+
+    const task = {
+      type: TASK_TYPE.WINE_ADJUST,
+      cityId: 101,
+      payload: { wineLevel: 1, wineEmergency: true },
+      status: 'pending',
+    };
+
+    await expect(guards.guardWineAdjust(task)).rejects.toThrow(/aguardando transporte de emergência/i);
+    expect(reschedule).toHaveBeenCalledWith(task, 90_000, 'GUARD_WINE_AWAITING_EMERGENCY_TRANSPORT');
   });
 });
 
