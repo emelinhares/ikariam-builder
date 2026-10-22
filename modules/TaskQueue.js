@@ -35,6 +35,16 @@ export const TASK_PHASE = Object.freeze({
 export class TaskQueue {
     static REDISPATCH_PROBE_WINDOW_MS = 5 * 60_000;
 
+    // Watchdog de execução travada. Resetar e devolver para pending resolve o
+    // caso transiente, mas sem teto vira loop infinito: a task é redespachada
+    // para sempre, QUEUE_TASK_STARTED dispara a cada volta e QUEUE_TASK_DONE
+    // nunca vem — o observador externo só vê "começou e não terminou".
+    static WATCHDOG_TIMEOUT_MS = 60_000;
+    static MAX_WATCHDOG_RESETS = 3;
+
+    // A cada quantos ticks preteridos uma task pronta vira registro de starvation.
+    static STARVATION_TICKS = 60;
+
     constructor({ events, audit, config, state, client, storage, transportIntentRegistry = null, taskGuards = null }) {
         this._events  = events;
         this._audit   = audit;
@@ -380,16 +390,33 @@ export class TaskQueue {
         this._promoteWaitingBuilds(now);
 
         // Watchdog: se _executing ficou true por mais de 60s, resetar e remarcar task
-        if (this._executing && this._executingStartedAt && (now - this._executingStartedAt) > 60_000) {
-            this._audit.error('TaskQueue', 'Watchdog: _executing travado há >60s — resetando');
+        if (this._executing && this._executingStartedAt && (now - this._executingStartedAt) > TaskQueue.WATCHDOG_TIMEOUT_MS) {
+            const stuckMs = now - this._executingStartedAt;
             this._executing = false;
             this._executingStartedAt = null;
-            // Remarcar tasks in-flight como pending
+
             for (const t of this._queue) {
-                if (t.status === 'in-flight') {
-                    t.status = 'pending';
-                    t.scheduledFor = now + 5_000;
+                if (t.status !== 'in-flight') continue;
+
+                t.watchdogResets = (t.watchdogResets ?? 0) + 1;
+                t.lastWatchdogResetAt = now;
+
+                if (t.watchdogResets >= TaskQueue.MAX_WATCHDOG_RESETS) {
+                    this._audit.error('TaskQueue',
+                        `Watchdog: [${t.id}] ${t.type} travou ${t.watchdogResets}x — desistindo`);
+                    this._failTask(t, {
+                        error: `Execução travada por mais de ${this._formatMs(stuckMs)} em ${t.watchdogResets} tentativas`,
+                        reasonCode: 'WATCHDOG_EXHAUSTED',
+                        fatal: true,
+                        outcomeClass: 'hard-fail',
+                    });
+                    continue;
                 }
+
+                this._audit.error('TaskQueue',
+                    `Watchdog: [${t.id}] ${t.type} travado há ${this._formatMs(stuckMs)} — ` +
+                    `reset ${t.watchdogResets}/${TaskQueue.MAX_WATCHDOG_RESETS}`);
+                this._reschedule(t, 5_000, 'WATCHDOG_RESET');
             }
             this._persist();
         }
@@ -408,6 +435,24 @@ export class TaskQueue {
 
             if (ready.length > 0) {
                 const nextTask = ready[0];
+
+                // Instrumentação de starvation: a fila despacha uma task por vez e
+                // ordena por fase antes de prioridade, então uma task de fase alta
+                // pode ser preterida indefinidamente por outras que se reagendam.
+                // Registrar quem passou na frente torna isso visível no log.
+                for (let i = 1; i < ready.length; i++) {
+                    const skipped = ready[i];
+                    skipped.skippedTicks = (skipped.skippedTicks ?? 0) + 1;
+                    if (skipped.skippedTicks % TaskQueue.STARVATION_TICKS === 0) {
+                        this._audit.warn('TaskQueue',
+                            `Starvation: [${skipped.id}] ${skipped.type} (fase ${skipped.phase}, prio ${skipped.priority}) ` +
+                            `preterida ${skipped.skippedTicks}x — à frente: [${nextTask.id}] ${nextTask.type} ` +
+                            `(fase ${nextTask.phase}, prio ${nextTask.priority})`,
+                            { cityId: skipped.cityId, skippedTicks: skipped.skippedTicks });
+                    }
+                }
+                nextTask.skippedTicks = 0;
+
                 this._executing = true;
                 this._executingStartedAt = Date.now();
                 nextTask.status = 'in-flight';

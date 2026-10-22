@@ -9,6 +9,20 @@ import { createSafeStorage } from './SafeStorage.js';
 const DEFAULT_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_SCENARIO_TIMEOUT_MS = 120_000;
 
+// Orçamento de espera por tipo de ação. O caminho real de confirmação
+// (navigate -> ação -> probe de estado) é serializado atrás do _sessionLock do
+// GameClient e disputa espaço com o heartbeat de fetchAllCities, então 120s é
+// otimista para TRANSPORT e BUILD: o cenário desiste antes de a task morrer.
+const TASK_WAIT_TIMEOUT_MS = Object.freeze({
+    transport: 240_000,
+    build:     240_000,
+});
+
+// O watchdog do cenário tem de ser estritamente maior que a espera interna da
+// task. Com os dois no mesmo valor eles corriam juntos, e quando a exceção
+// externa vencia, toda a evidência coletada pela espera interna era descartada.
+const SCENARIO_TIMEOUT_MARGIN_MS = 20_000;
+
 export class HealthCheckRunner {
     constructor({ events, state, queue, audit, config, storage, client, scenarioFactories = null }) {
         this._events  = events;
@@ -112,6 +126,7 @@ export class HealthCheckRunner {
                 endedAt: null,
                 elapsedMs: null,
                 error: null,
+                reasonCode: null,
                 evidence: [],
             })),
             lastError: null,
@@ -199,7 +214,7 @@ export class HealthCheckRunner {
                 title: 'Envio real de recursos via TaskQueue',
                 group: 'transport',
                 critical: true,
-                timeoutMs: DEFAULT_SCENARIO_TIMEOUT_MS,
+                timeoutMs: TASK_WAIT_TIMEOUT_MS.transport,
                 run: async (ctx) => {
                     const all = ctx.state.getAllCities() ?? [];
                     const destinations = all.filter(c => c?.islandId != null);
@@ -230,11 +245,12 @@ export class HealthCheckRunner {
                         reason: `HEALTHCHECK: ${qty} ${pick.resource} ${pick.from.name}→${pick.to.name}`,
                         module: 'HEALTHCHECK',
                         maxAttempts: 1,
-                    }, { timeoutMs: DEFAULT_SCENARIO_TIMEOUT_MS });
+                    }, { timeoutMs: TASK_WAIT_TIMEOUT_MS.transport });
 
                     return {
                         status: taskResult.status,
                         error: taskResult.error,
+                        reasonCode: taskResult.reasonCode ?? null,
                         evidence: [
                             `taskId=${taskResult.taskId}`,
                             `from=${pick.from.name} to=${pick.to.name}`,
@@ -249,7 +265,7 @@ export class HealthCheckRunner {
                 title: 'Upgrade real de construção via TaskQueue',
                 group: 'build',
                 critical: true,
-                timeoutMs: DEFAULT_SCENARIO_TIMEOUT_MS,
+                timeoutMs: TASK_WAIT_TIMEOUT_MS.build,
                 run: async (ctx) => {
                     const selected = _pickBuildCandidate(ctx.state);
                     if (!selected) {
@@ -277,11 +293,12 @@ export class HealthCheckRunner {
                         reason: `HEALTHCHECK: ${selected.slot.building} lv${selected.slot.level}→${selected.slot.level + 1}`,
                         module: 'HEALTHCHECK',
                         maxAttempts: 1,
-                    }, { timeoutMs: DEFAULT_SCENARIO_TIMEOUT_MS });
+                    }, { timeoutMs: TASK_WAIT_TIMEOUT_MS.build });
 
                     return {
                         status: taskResult.status,
                         error: taskResult.error,
+                        reasonCode: taskResult.reasonCode ?? null,
                         evidence: [
                             `taskId=${taskResult.taskId}`,
                             `city=${selected.city.name}`,
@@ -428,14 +445,16 @@ export class HealthCheckRunner {
             try {
                 const result = await this._withTimeout(
                     scenario.run(this._scenarioContext(scenario)),
-                    scenario.timeoutMs ?? DEFAULT_SCENARIO_TIMEOUT_MS,
+                    (scenario.timeoutMs ?? DEFAULT_SCENARIO_TIMEOUT_MS) + SCENARIO_TIMEOUT_MARGIN_MS,
                     `${scenario.id} timeout`
                 );
                 slot.status = result?.status ?? 'failed';
                 slot.error = result?.error ?? null;
+                slot.reasonCode = result?.reasonCode ?? null;
                 slot.evidence = Array.isArray(result?.evidence) ? result.evidence : [];
             } catch (err) {
                 slot.status = 'failed';
+                slot.reasonCode = 'SCENARIO_EXCEPTION';
                 slot.error = err?.message ?? String(err);
                 slot.evidence = [
                     ...(slot.evidence ?? []),
@@ -584,10 +603,10 @@ export class HealthCheckRunner {
         lines.push('');
         lines.push('## Scenario Matrix');
         lines.push('');
-        lines.push('| ID | Title | Status | Duration(ms) | Error |');
-        lines.push('|---|---|---|---:|---|');
+        lines.push('| ID | Title | Status | Reason | Duration(ms) | Error |');
+        lines.push('|---|---|---|---|---:|---|');
         for (const s of report.scenarios) {
-            lines.push(`| ${s.id} | ${s.title} | ${s.status} | ${s.elapsedMs ?? 0} | ${String(s.error ?? '').replace(/\|/g, '\\|')} |`);
+            lines.push(`| ${s.id} | ${s.title} | ${s.status} | ${s.reasonCode ?? ''} | ${s.elapsedMs ?? 0} | ${String(s.error ?? '').replace(/\|/g, '\\|')} |`);
         }
         lines.push('');
         lines.push('## Evidences');
@@ -632,6 +651,7 @@ export class HealthCheckRunner {
     } = {}) {
         const task = this._queue.add(taskData);
         const taskId = task.id;
+        const addedAt = Date.now();
         const evidence = [`taskAdded=${taskId}`];
 
         return new Promise((resolve) => {
@@ -642,6 +662,7 @@ export class HealthCheckRunner {
                 if (t?.id !== taskId) return;
                 startedAt = Date.now();
                 evidence.push(`taskStarted=${taskId}`);
+                evidence.push(`msUntilStarted=${startedAt - addedAt}`);
             });
             const offDone = this._events.on(this._events.E.QUEUE_TASK_DONE, ({ task: t }) => {
                 if (t?.id !== taskId || done) return;
@@ -683,6 +704,7 @@ export class HealthCheckRunner {
                         taskId,
                         evidence,
                         error: `Task ${taskId} bloqueada por guard (${outcome.reasonCode ?? 'GUARD'})`,
+                        reasonCode: outcome.reasonCode ?? 'GUARD',
                         outcome,
                     });
                     return;
@@ -696,6 +718,7 @@ export class HealthCheckRunner {
                         taskId,
                         evidence,
                         error: `Task ${taskId} inconclusiva (${outcome.reasonCode ?? 'INCONCLUSIVE'})`,
+                        reasonCode: outcome.reasonCode ?? 'INCONCLUSIVE',
                         outcome,
                     });
                     return;
@@ -709,6 +732,7 @@ export class HealthCheckRunner {
                         taskId,
                         evidence,
                         error: `Task ${taskId} falhou (${outcome.reasonCode ?? 'FAILED'})`,
+                        reasonCode: outcome.reasonCode ?? 'FAILED',
                         outcome,
                     });
                 }
@@ -761,13 +785,31 @@ export class HealthCheckRunner {
                         evidence.push(`scheduledForAtTimeout=${new Date(snapshot.scheduledFor).toISOString()}`);
                     }
                     evidence.push(`attempts=${snapshot.attempts ?? 0}/${snapshot.maxAttempts ?? '?'}`);
+                    evidence.push(`skippedTicks=${snapshot.skippedTicks ?? 0}`);
+                    evidence.push(`watchdogResets=${snapshot.watchdogResets ?? 0}`);
                     if (snapshot.lastOutcome) {
                         evidence.push(`lastOutcomeClass=${snapshot.lastOutcome.outcomeClass}`);
                         evidence.push(`lastReasonCode=${snapshot.lastOutcome.reasonCode ?? 'N/A'}`);
                     }
                 }
+                // Duas falhas de natureza completamente diferente caíam no mesmo
+                // "timeout": a fila nunca elegeu a task (starvation / guard), ou ela
+                // executou e a pós-validação não confirmou. Investigação diferente,
+                // correção diferente — o relatório precisa dizer qual foi.
+                const reasonCode = startedAt ? 'NO_CONFIRMATION' : 'NEVER_DISPATCHED';
+                const budgetS = Math.round(timeoutMs / 1000);
+                evidence.push(`dispatch=${startedAt ? 'started-unconfirmed' : 'never'}`);
+                evidence.push(`waitBudgetMs=${timeoutMs}`);
                 cleanup();
-                resolve({ status: 'timeout', taskId, evidence, error: `Timeout aguardando conclusão da task ${taskId}` });
+                resolve({
+                    status: 'timeout',
+                    taskId,
+                    evidence,
+                    reasonCode,
+                    error: startedAt
+                        ? `Task ${taskId} despachada, mas sem confirmação em ${budgetS}s`
+                        : `Task ${taskId} nunca foi despachada em ${budgetS}s — a fila não a elegeu`,
+                });
             }, timeoutMs);
 
             const cleanup = () => {

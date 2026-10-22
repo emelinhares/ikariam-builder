@@ -198,10 +198,49 @@ describe('HealthCheckRunner', () => {
 
     const result = await p;
     expect(result.status).toBe('timeout');
-    expect(result.error).toContain(`Timeout aguardando conclusão da task ${taskState.id}`);
+    expect(result.reasonCode).toBe('NO_CONFIRMATION');
+    expect(result.error).toContain('sem confirmação');
+    expect(result.evidence).toEqual(expect.arrayContaining(['dispatch=started-unconfirmed']));
     expect(result.evidence.some(e => e.startsWith('taskStatusAtTimeout='))).toBe(true);
     expect(result.evidence.some(e => e.startsWith('scheduledForAtTimeout='))).toBe(true);
     expect(result.evidence.some(e => e.startsWith('attempts='))).toBe(true);
+    expect(result.evidence.some(e => e.startsWith('skippedTicks='))).toBe(true);
+    expect(result.evidence.some(e => e.startsWith('watchdogResets='))).toBe(true);
+    expect(result.evidence.some(e => e.startsWith('msUntilStarted='))).toBe(true);
+  });
+
+  test('task que nunca foi despachada é distinguida de task sem confirmação', async () => {
+    const { runner, queue } = createHarness();
+    await runner.init();
+
+    // Mesma espera, mas QUEUE_TASK_STARTED nunca é emitido: a fila não elegeu
+    // a task. É uma falha de natureza diferente de "executou e não confirmou".
+    const taskState = {
+      id: 'task-nunca-despachada',
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 1,
+      skippedTicks: 137,
+      scheduledFor: Date.now() - 1_000,
+    };
+
+    queue.add.mockReturnValue({ id: taskState.id });
+    queue.getTaskById.mockImplementation(() => ({ ...taskState }));
+
+    const result = await runner._addTaskAndWait(
+      { type: 'TRANSPORT', cityId: 1, payload: {} },
+      { timeoutMs: 120, pollIntervalMs: 20 }
+    );
+
+    expect(result.status).toBe('timeout');
+    expect(result.reasonCode).toBe('NEVER_DISPATCHED');
+    expect(result.error).toContain('nunca foi despachada');
+    expect(result.evidence).toEqual(expect.arrayContaining([
+      'dispatch=never',
+      'skippedTicks=137',
+    ]));
+    // sem despacho não há o que medir até o início
+    expect(result.evidence.some(e => e.startsWith('msUntilStarted='))).toBe(false);
   });
 });
 
