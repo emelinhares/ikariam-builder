@@ -10,8 +10,13 @@ analise.json
 
 # Screenshots e logs
 *.png
-rec-*.txt
-rec_acao.txt
+!icons/*.png
+rec*.txt
+
+# Relatórios de health check (gerados em runtime)
+reports/
+erp-healthcheck-*.json
+erp-healthcheck-*.md
 
 # Scripts utilitários pontuais
 login.mjs
