@@ -189,14 +189,23 @@ describe('HealthCheckRunner', () => {
     queue.add.mockReturnValue({ id: taskState.id });
     queue.getTaskById.mockImplementation(() => ({ ...taskState }));
 
-    const p = runner._addTaskAndWait(
-      { type: 'TRANSPORT', cityId: 1, payload: {} },
-      { timeoutMs: 120, pollIntervalMs: 20 }
-    );
+    // Timers falsos: com timers reais e orçamento de 120ms a suíte inteira em
+    // paralelo pode atrasar o evento além do timeout e inverter o reasonCode.
+    vi.useFakeTimers();
+    let result;
+    try {
+      const p = runner._addTaskAndWait(
+        { type: 'TRANSPORT', cityId: 1, payload: {} },
+        { timeoutMs: 120, pollIntervalMs: 20 }
+      );
 
-    events.emit(events.E.QUEUE_TASK_STARTED, { task: { id: taskState.id } });
+      events.emit(events.E.QUEUE_TASK_STARTED, { task: { id: taskState.id } });
 
-    const result = await p;
+      await vi.advanceTimersByTimeAsync(200);
+      result = await p;
+    } finally {
+      vi.useRealTimers();
+    }
     expect(result.status).toBe('timeout');
     expect(result.reasonCode).toBe('NO_CONFIRMATION');
     expect(result.error).toContain('sem confirmação');
@@ -227,10 +236,18 @@ describe('HealthCheckRunner', () => {
     queue.add.mockReturnValue({ id: taskState.id });
     queue.getTaskById.mockImplementation(() => ({ ...taskState }));
 
-    const result = await runner._addTaskAndWait(
-      { type: 'TRANSPORT', cityId: 1, payload: {} },
-      { timeoutMs: 120, pollIntervalMs: 20 }
-    );
+    vi.useFakeTimers();
+    let result;
+    try {
+      const p = runner._addTaskAndWait(
+        { type: 'TRANSPORT', cityId: 1, payload: {} },
+        { timeoutMs: 120, pollIntervalMs: 20 }
+      );
+      await vi.advanceTimersByTimeAsync(200);
+      result = await p;
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(result.status).toBe('timeout');
     expect(result.reasonCode).toBe('NEVER_DISPATCHED');

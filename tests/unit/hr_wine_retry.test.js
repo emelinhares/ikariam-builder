@@ -43,17 +43,25 @@ describe('HR wine emergency retry coordination', () => {
     const hr = new HR({ events, audit, config, state, queue });
     hr.init();
 
-    const now = Date.now();
-    hr._wineEmergencyCooldown.set(city.id, now);
+    // O HR recua o cooldown para exatamente Date.now() - (COOLDOWN - retry),
+    // que aqui dá 8min cravados. Com relógio real, basta 1ms entre o Date.now()
+    // do teste e o do handler para a comparação cair para 7min59s999.
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      hr._wineEmergencyCooldown.set(city.id, now);
 
-    events.emit(events.E.COO_WINE_EMERGENCY_FAILED, {
-      cityId: city.id,
-      retryInMs: 2 * 60 * 1000,
-    });
+      events.emit(events.E.COO_WINE_EMERGENCY_FAILED, {
+        cityId: city.id,
+        retryInMs: 2 * 60 * 1000,
+      });
 
-    const lastEmit = hr._wineEmergencyCooldown.get(city.id);
-    expect(lastEmit).toBeLessThan(now);
-    expect(now - lastEmit).toBeGreaterThanOrEqual(8 * 60 * 1000);
+      const lastEmit = hr._wineEmergencyCooldown.get(city.id);
+      expect(lastEmit).toBeLessThan(now);
+      expect(now - lastEmit).toBe(8 * 60 * 1000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('resets emergency cooldown when emergency WINE_ADJUST fails', () => {
