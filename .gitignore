@@ -13,6 +13,12 @@ analise.json
 !icons/*.png
 rec*.txt
 
+# Capturas brutas de sessão (dados reais da conta; os derivados em
+# docs/ikariam-capture/derived/ continuam versionados)
+docs/ikariam-capture/semantic-erp.json
+docs/ikariam-capture/semantic-raw.json
+docs/ikariam-capture/session-reconstruction.json
+
 # Relatórios de health check (gerados em runtime)
 reports/
 erp-healthcheck-*.json
