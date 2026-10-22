@@ -47,11 +47,11 @@ chrome://extensions → Modo desenvolvedor → Carregar sem compactação → se
 
 ---
 
-## 4. REDE (Builder.js — interceptor XHR/fetch)
+## 4. REDE (inject/inject.js — interceptor XHR/fetch)
 
 | # | Teste | Esperado | Status |
 |---|-------|----------|--------|
-| 4.1 | Navegar entre cidades no jogo | Console: `[Builder] city:changed` ou evento emitido | ☐ |
+| 4.1 | Navegar entre cidades no jogo | `DC_HEADER_DATA` emitido e `StateManager.getActiveCityId()` acompanha | ☐ |
 | 4.2 | Qualquer ação no jogo (clicar edifício) | `Events.emit('network:response', ...)` disparado | ☐ |
 | 4.3 | `ResourceCache.getAll()` após navegar | Array com dados da cidade atual | ☐ |
 | 4.4 | Token CSRF atualizado: `Game.getToken()` | Token não-vazio após resposta XHR | ☐ |
@@ -98,43 +98,12 @@ chrome://extensions → Modo desenvolvedor → Carregar sem compactação → se
 
 ---
 
-## 8. WINE BALANCE (WineBalance.js)
+## 8-10. REMOVIDOS
 
-| # | Teste | Esperado | Status |
-|---|-------|----------|--------|
-| 8.1 | Ativar WineBalance na config | Toggle fica ativo | ☐ |
-| 8.2 | `WineBalance.statusOf(cityId)` | `{hoursLeft, critical, low, needed}` correto | ☐ |
-| 8.3 | `WineBalance.allStatuses()` | Array com status de todas as cidades (exceto fonte) | ☐ |
-| 8.4 | Cidade com vinho < 6h → `WineBalance.check()` | Port recebe tarefa `wine_critical` | ☐ |
-| 8.5 | `WineBalance.getSourceCity()` | Cidade com maior produção de vinho | ☐ |
-
----
-
-## 9. PORT (Port.js)
-
-| # | Teste | Esperado | Status |
-|---|-------|----------|--------|
-| 9.1 | `Port.enqueue([{type:'wine', ...}])` | Tarefa na fila | ☐ |
-| 9.2 | Inspecionar request real com DevTools Network | `capacity=5`, `max_capacity=5` no body | ☐ |
-| 9.3 | `islandId` no request | ID da ilha DESTINO (não origem) | ☐ |
-| 9.4 | `currentCityId` no request | ID da cidade ORIGEM (após navegação) | ☐ |
-| 9.5 | Fila com goal + wine → `Port.getQueue()[0].type` | `'goal'` (maior prioridade) | ☐ |
-| 9.6 | Envio real (monitorar Network) | Request para `/index.php` com action=transportOperations | ☐ |
-| 9.7 | Delay entre envios | 4-7 segundos entre shipments (observar no console) | ☐ |
-
----
-
-## 10. GOALS / PATROL (Goals.js + Patrol.js)
-
-| # | Teste | Esperado | Status |
-|---|-------|----------|--------|
-| 10.1 | Adicionar meta via UI (Aba Metas) | Meta aparece na lista | ☐ |
-| 10.2 | Ativar meta + iniciar Patrol | Console: `[Patrol] Visitando cidade X` | ☐ |
-| 10.3 | Meta com recursos locais disponíveis | Construção iniciada via AJAX | ☐ |
-| 10.4 | Meta com recursos insuficientes (< 4h local) | Patrol agendado para exato momento | ☐ |
-| 10.5 | Meta com recursos > 4h de produção | Transporte solicitado ao Port | ☐ |
-| 10.6 | `Patrol.getSchedule()` | Map com próximos checks por cidade | ☐ |
-| 10.7 | Parar Patrol → `Patrol.isActive()` | `false` | ☐ |
+As seções 8 (WineBalance), 9 (Port) e 10 (Goals/Patrol) testavam módulos da
+arquitetura anterior, desligada e removida do código. A cobertura equivalente
+hoje é: vinho em `modules/HR.js` e `modules/WineSustainPolicy.js`, transporte em
+`modules/COO.js` e `modules/TaskQueue.js`, metas em `modules/GoalEngine.js`.
 
 ---
 
@@ -159,8 +128,8 @@ chrome://extensions → Modo desenvolvedor → Carregar sem compactação → se
 | A4 | `fetchCosts` sem `.accesshint` | `Game.fetchCosts(...)` retorna números, não NaN | ☐ |
 | A5 | `currentCityId` = cidade atual da sessão | Navegar manualmente e verificar no request | ☐ |
 | A6 | `getServerTime` offset correto | `Game.getServerTime()` bate com horário do servidor | ☐ |
-| A7 | Loop 250ms (não 50ms) | `Builder.DETECTION_INTERVAL_MS` = 250 | ☐ |
-| A8 | setTimeout recursivo (não setInterval) | Revisar código: sem `setInterval` em Builder.js | ☐ |
+| A7 | Tick da fila configurável | `taskQueueTickFocusMs` = 1000 em foco, `taskQueueTickBackgroundMs` = 5000 | ☐ |
+| A8 | setTimeout recursivo (não setInterval) | Revisar `TaskQueue._tick` e `scheduleRefresh` em inject.js | ☐ |
 
 ---
 

@@ -88,7 +88,7 @@ Evitar leitura completa de toda a documentação quando a tarefa for local.
 
 ## 5) “Se a tarefa for X, abra Y”
 
-- “Bug em consumo/cache de recurso” → [`modules/ResourceCache.js`](modules/ResourceCache.js), [`modules/ResourceBalance.js`](modules/ResourceBalance.js), [`tests/unit/resourcecache.test.js`](tests/unit/resourcecache.test.js)
+- “Bug em consumo/cache de recurso” → [`modules/ResourceCache.js`](modules/ResourceCache.js), [`tests/unit/resourcecache.test.js`](tests/unit/resourcecache.test.js)
 - “Build não entra/falha/duplica” → [`modules/CFO.js`](modules/CFO.js), [`modules/TaskQueue.js`](modules/TaskQueue.js), [`modules/GameClient.js`](modules/GameClient.js)
 - “Transporte atrasado ou payload errado” → [`modules/COO.js`](modules/COO.js), [`modules/GameClient.js`](modules/GameClient.js), [`ENDPOINTS.md`](ENDPOINTS.md)
 - “Problema de UI” → [`modules/UIBridge.js`](modules/UIBridge.js), [`ui/panel.js`](ui/panel.js), [`UI.md`](UI.md)
