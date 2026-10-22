@@ -31,5 +31,9 @@ inspect.mjs
 test_session.mjs
 dump_ajax_buildings.mjs
 
+# Claude Code — configuração local por máquina e restos de worktree
+.claude/settings.local.json
+.claude/worktrees/
+
 # IDE
 .continue/
