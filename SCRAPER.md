@@ -5,7 +5,8 @@
 > Seletores hipotéticos ou não validados são marcados explicitamente.
 >
 > Servidor de referência: `s73-br.ikariam.gameforge.com`
-> Implementação: `scraper_explore.mjs` + `modules/BuildingScraper.mjs`
+> Implementação: `tools/scraper_explore.mjs` + `modules/BuildingScraper.mjs`
+> Execute a partir da raiz do repositório: `node tools/scraper_explore.mjs`
 
 ---
 

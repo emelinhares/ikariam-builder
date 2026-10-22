@@ -134,7 +134,7 @@ import { initRecPanel }  from '../ui/rec-panel.js';
 // ─── MODO REC-ONLY ────────────────────────────────────────────────────────────
 // true  → apenas DataCollector ativo, REC ligado automaticamente, painel mínimo
 // false → ERP completo (automação, fila, painel completo)
-const ERP_VERSION = '1.4.0'; // 2026-03-29: CFO urgency-based score (warehouse/townhall/port/academy/tavern), producer-priority source
+const ERP_VERSION = '5.1.0'; // manter em sincronia com package.json e manifest.json
 
 const REC_ONLY = false;
 

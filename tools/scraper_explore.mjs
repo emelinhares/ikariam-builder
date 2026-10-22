@@ -6,7 +6,7 @@
 
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync } from 'fs';
-import { scrapeBuildingsFromCity } from './modules/BuildingScraper.mjs';
+import { scrapeBuildingsFromCity } from '../modules/BuildingScraper.mjs';
 
 // ── Configuração ─────────────────────────────────────────────────────────────
 
