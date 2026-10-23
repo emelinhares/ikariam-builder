@@ -180,6 +180,39 @@ cidade. Com 8 cidades o probing passaria dos 60 s do heartbeat e o ERP ficaria
 **permanentemente** em estado de probing. O sistema tem um teto de cidades embutido
 que ninguém escreveu de propósito.
 
+### Os 24,6 s não são do jogo — são do próprio ERP
+
+Medido na mesma sessão, disparando os **mesmos 5 GETs** sem nenhum delay artificial:
+
+```
+por cidade          667, 664, 705, 666, 692 ms
+total servidor      3,4 s
+total via ERP      24,6 s
+→ servidor          13,8 %
+→ sono do ERP       86,2 %   (21,2 s)
+```
+
+A variação entre as cinco é de 6%. Servidor que aplica throttling não responde assim:
+apareceria tempo crescente, 429, ou atraso escalonado. **O jogo não está atrasando
+nada.** Os 21,2 s são `humanDelay`, e há **dois empilhados** por cidade:
+
+- `GameClient._enqueue` → `humanDelay(800, 2500)` antes de **todo** request
+- `StateManager.fetchAllCities` → `humanDelay(1200, 2000)` depois de cada cidade
+
+O segundo é provavelmente redundante: o `_enqueue` já espaça todo request que sai do
+cliente. Some o `fetchMilitaryAdvisor` e o `navigate` de retorno (com até 3 tentativas,
+cada uma passando pelo `_enqueue`) e fecham-se os 24,6 s.
+
+**O erro não é o delay.** Espaçar requests é anti-detecção deliberada e faz sentido
+num jogo cujos termos proíbem automação. O erro é **dormir dentro de uma seção
+crítica**: o `fetchAllCities` segura o `_sessionLock` e mantém `_probing = true`
+durante os 21 s em que não está fazendo absolutamente nada, e nesse intervalo toda
+task que tenta rodar leva 30 s de castigo.
+
+Direção de correção: manter o espaçamento, parar de tratá-lo como exclusivo. Soltar o
+lock durante o sono, ou marcar `_probing` apenas na janela real de request (3,4 s em
+vez de 24,6 s), já muda a fração de bloqueio de 41% para ~6%.
+
 ### A contradição no coração disso
 
 `GameClient.navigate(cityId)` e `GameClient.probeCityData(cityId)` emitem **exatamente
