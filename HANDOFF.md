@@ -65,16 +65,110 @@ Passos:
 
 5. **Leia o relatório** e classifique cada falha pelo `reasonCode`. A coluna `Reason` existe no markdown agora.
 
+## A Fase 3 JÁ RODOU — resultado em 22/10/2026
+
+Três execuções da suíte `full` na conta xEmEx (Cyclops, s76-br, 5 cidades). Os JSONs
+estão na pasta de Downloads do usuário. Nenhum cenário falhou por erro do jogo:
+**todos os problemas são da fila**. Resumo:
+
+| Execução | transport | build | wine | workers |
+|---|---|---|---|---|
+| 22:05 | `NEVER_DISPATCHED` 240s | `NEVER_DISPATCHED` 240s | `NEVER_DISPATCHED` 120s | `NEVER_DISPATCHED` 120s |
+| 22:14 | `DUPLICATE_TASK` | `NO_CONFIRMATION` 240s | `DUPLICATE_TASK` | `NO_CONFIRMATION` 120s |
+| 22:16 | `PROBING_IN_PROGRESS` | `PROBING_IN_PROGRESS` | `DUPLICATE_TASK` | `PROBING_IN_PROGRESS` |
+
+`state_snapshot`, `donation_flow` e `queue_guardrails` passaram nas três. A doação
+passa porque chama `client.donateIslandResource` direto, **sem passar pela fila** —
+o que confirma que o `GameClient` e a sessão do jogo estão saudáveis. O problema
+está entre `TaskQueue.add` e a execução.
+
+### Descoberta 1 — não é starvation de fase
+
+Minha hipótese principal estava errada. Em todos os `NEVER_DISPATCHED` a evidência
+traz **`skippedTicks=0`**. O contador só incrementa para tasks que estavam em `ready`
+e perderam a ordenação. Zero significa que a task **nunca entrou em `ready`**.
+
+A causa é o gate do `_tick`: `if (!this._executing) { ... }`. Enquanto uma task
+executa, o bloco inteiro é pulado e `ready` nem é calculado. Com a fila saturada
+(`pending=7` a `9` nas execuções), uma sucessão de tasks mantém `_executing` quase
+sempre true e as novas nunca são consideradas. É **head-of-line blocking** num
+executor de slot único, não disputa de prioridade.
+
+E `watchdogResets=0` confirma: `_executing` nunca ficou travado mais de 60s de uma
+vez — eram várias tasks curtas em sequência.
+
+> **Isto é também um ponto cego da instrumentação que eu mesmo escrevi.** O contador
+> de starvation em `_tick` só enxerga quem perde dentro de `ready`. Precisa de um
+> segundo contador para "tempo pendente sem nunca ser considerado". Corrija isso
+> antes de confiar no próximo relatório.
+
+### Descoberta 2 — o probing bloqueia quase tudo
+
+A execução das 22:16 mostra o mecanismo cru: `PROBING_IN_PROGRESS` em três dos
+quatro cenários, cada um reagendado com **`delayMs=30000`**.
+
+Em `TaskQueue._execute`, quando `state.isProbing()` é true, só passa o que
+`_canRunDuringProbing` aprova — e isso é apenas `WINE_ADJUST` e `TRANSPORT` com
+`payload.wineEmergency`. Todo o resto leva 30s de penalidade. O heartbeat de
+`fetchAllCities` roda a cada 60s sobre 5 cidades; se a janela de probing cobre uma
+fração relevante desse minuto, tasks normais ficam ricocheteando.
+
+**Suspeita principal para a Fase 4.** Investigue a razão entre duração do probing e
+intervalo do heartbeat (`heartbeatFocusMs`, 60s). Opções: encurtar a janela de
+probing, aumentar o intervalo, permitir que tasks já despachadas terminem, ou
+reagendar para o fim do probing em vez de 30s fixos.
+
+### Descoberta 3 — laço de redespacho a 1 Hz sem consumir tentativa
+
+Na execução das 22:14, o `build_upgrade` emitiu **`QUEUE_TASK_STARTED` cerca de 240
+vezes, uma por segundo** (veja a sequência de `msUntilStarted` subindo de 464 até
+239066 de ~1000 em ~1000, que é o `taskQueueTickFocusMs`). O mesmo em
+`workers_science`, 120 vezes.
+
+No fim: **`attempts=0/1`**, `watchdogResets=0`, `taskStatusAtTimeout=pending`, e
+**nenhuma entrada `outcomeClass=`** na evidência.
+
+Ou seja: a task é despachada, emite STARTED, e volta para `pending` **sem registrar
+outcome e sem incrementar `attempts`**. Como o contador nunca avança, `maxAttempts`
+nunca protege, e como cada volta é rápida, o watchdog de 60s nunca dispara. Laço
+infinito silencioso.
+
+O caminho do probing (Descoberta 2) **não** é este, porque ele chama
+`_recordTaskOutcome` e apareceria como `outcomeClass=guard_reschedule`. Procure um
+retorno antecipado depois do `emit(QUEUE_TASK_STARTED)` que não registra outcome.
+Candidato forte: o bloco de **preempção** logo antes do emit (cede a vez para task
+de fase menor, faz `task.status = 'pending'` e retorna) — confirme se há caminho
+equivalente *depois* do emit, e verifique `_runGuards`, `_guardBuild` e
+`_guardTransport`.
+
+### Descoberta 4 — a suíte não é idempotente entre execuções
+
+`DUPLICATE_TASK` aparece nas execuções 2 e 3 porque tasks das execuções anteriores
+**continuam pendentes na fila** (`pending` subiu de 7 para 9). A suíte colide com o
+próprio lixo. Além disso, o `wine_adjust` reutiliza uma task do módulo **HR**
+(`existingModule=HR`), não da própria suíte.
+
+Isso tem uma consequência pior no modo `MANUAL`: o filtro do `_tick` só libera task
+com `module === 'HEALTHCHECK'` registrada em `_manualHealthCheckTasks`. Uma task do
+HR reaproveitada **nunca** será despachada em MANUAL, por construção. Vale limpar a
+fila antes de cada execução, ou dar à suíte um identificador próprio que não
+deduplique contra tasks dos módulos de negócio.
+
 ## Fase 4 — correção, guiada pela evidência
 
-Só depois do relatório. Hipóteses mapeadas, em ordem de probabilidade:
+Ordem sugerida, agora que há evidência real:
 
-| Hipótese | Onde olhar | Correção provável |
-|---|---|---|
-| Starvation de fase | `TaskQueue._tick`, ordenação `phase → priority` | Envelhecimento de prioridade, ou reserva de slot por fase |
-| Travamento sob `_sessionLock` | `GameClient.acquireSession`, `navigate` com 3 tentativas e backoff | Timeout por operação dentro do lock |
-| Pós-validação não confirma | `_validateBuildOutcome`, `_validateTransportOutcome` | Confirmar por outro sinal além de `underConstruction` / contagem de frota |
-| Contrato do jogo mudou | `ENDPOINTS.md` vs. resposta real | Atualizar payload no `GameClient`; `plans/HYBRID_ENDPOINT_DOM_STRATEGY.md` já desenha o fallback por DOM |
+1. **Corrigir o ponto cego da instrumentação** (Descoberta 1) — sem isso o próximo
+   relatório mente de novo. Contador de tempo pendente sem ser considerado.
+2. **Laço de redespacho** (Descoberta 3) — é o bug mais claro e mais grave: consome
+   requests ao jogo a 1 Hz indefinidamente. Achar o retorno antecipado sem outcome.
+3. **Contenção do probing** (Descoberta 2) — é o que trava a operação normal.
+4. **Idempotência da suíte** (Descoberta 4) — para que os relatórios seguintes sejam
+   comparáveis entre si.
+
+Hipóteses que o relatório **descartou**: starvation de fase, travamento sob
+`_sessionLock`, e mudança de contrato do jogo (a doação real passou nas três
+execuções, e nenhum cenário reportou erro de HTTP ou parsing).
 
 ## Armadilhas
 
