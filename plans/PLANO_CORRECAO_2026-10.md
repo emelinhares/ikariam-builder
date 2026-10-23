@@ -26,6 +26,24 @@ aberta.** Não gaste tempo repetindo esse caminho.
 
 ---
 
+## Estado da execução (23/10/2026, commit 6a3f5b2)
+
+| Item | Estado |
+|---|---|
+| A1 laço de redespacho | **feito** — invariante no ponto de emissão + marcadores de estágio |
+| A2 penalidade de probing | **feito** — 30s → 5s, configurável |
+| A3 delay duplicado | **feito** — ~8s a menos por ciclo |
+| A4 ponto cego da instrumentação | **feito** — `blockedTicks` |
+| A5 idempotência da suíte | **parcial** — restos cancelados; dedup contra outros módulos em aberto |
+| B1 cidade de sessão | **aberto** — precisa do modo REC contra clique real |
+| B2 escrita rotaciona token | **aberto** |
+| C1–C3, D1–D3 | não iniciados |
+
+Efeito esperado da janela de probing: 24,6s → ~16s (A3), e a penalidade deixa
+de ultrapassá-la (A2). A fração de bloqueio cai de 41% para a ordem de 25%, e
+some o ciclo que se auto-sustentava. **Ainda não medido ao vivo** — exige nova
+execução da suíte com a extensão recarregada.
+
 ## A. Correções — bugs confirmados por evidência
 
 ### A1. Laço de redespacho a 1 Hz *(crítico)*
