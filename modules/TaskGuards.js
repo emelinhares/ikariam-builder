@@ -1,5 +1,6 @@
 import { GameError } from './GameClient.js';
 import { TASK_TYPE } from './taskTypes.js';
+import { WINE_USE } from '../data/wine.js';
 
 export class TaskGuards {
     constructor({ state, client, audit, config, getCFO, reschedule, cancelTask, getPendingTasks }) {
@@ -184,9 +185,20 @@ export class TaskGuards {
 
         const wineStock = Number(city.resources?.wine ?? 0);
         const targetWineLevel = Number(task.payload?.wineLevel ?? city.tavern?.wineLevel ?? 0);
-        const requiresWine = targetWineLevel > 0;
+        const currentWineLevel = Number(city.tavern?.wineLevel ?? 0);
 
-        if (wineStock > 0 || !requiresWine) return;
+        // Baixar o nível reduz consumo e nunca precisa de estoque.
+        const requiresWine = targetWineLevel > 0 && targetWineLevel > currentWineLevel;
+
+        // Antes bastava ter 1 unidade: `wineStock > 0`. Mas servir no nível N consome
+        // WINE_USE[N] por hora, então uma cidade com 2 de vinho e alvo nível 1 (4/h)
+        // passava no guard e era recusada pelo servidor. Medido na conta real em
+        // 23/10/2026: 48 das 50 tasks do histórico eram exatamente este caso.
+        const consumoPorHora = WINE_USE[targetWineLevel] ?? 0;
+        const horasMinimas = this._config?.get?.('wineAdjustMinCoverageHours') ?? 1;
+        const estoqueNecessario = consumoPorHora * horasMinimas;
+
+        if (!requiresWine || wineStock >= estoqueNecessario) return;
 
         const pendingTasks = typeof this._getPendingTasks === 'function'
             ? this._getPendingTasks()
@@ -207,8 +219,8 @@ export class TaskGuards {
         this._reschedule(task, delayMs, reasonCode);
         throw new GameError('GUARD',
             hasPendingEmergencyWineTransport
-                ? `GUARD WINE_ADJUST: ${city.name} sem vinho disponível (0u) — aguardando transporte de emergência`
-                : `GUARD WINE_ADJUST: ${city.name} sem vinho disponível (0u) — aguardando reposição`,
+                ? `GUARD WINE_ADJUST: ${city.name} tem ${wineStock}u, precisa de ${estoqueNecessario}u para o nível ${targetWineLevel} — aguardando transporte de emergência`
+                : `GUARD WINE_ADJUST: ${city.name} tem ${wineStock}u, precisa de ${estoqueNecessario}u para o nível ${targetWineLevel} — aguardando reposição`,
             { code: reasonCode }
         );
     }

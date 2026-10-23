@@ -181,6 +181,45 @@ describe('TaskGuards', () => {
     expect(reschedule).toHaveBeenCalledWith(task, 1_200_000, 'GUARD_TRANSPORT_NO_FREE_BOATS');
   });
 
+  function cidadeComVinho(cityMap, wine, wineLevel = 0) {
+    cityMap.set(101, {
+      id: 101, name: 'Alpha', underConstruction: -1,
+      lockedPositions: new Set(), freeTransporters: 20, maxTransporters: 20,
+      buildings: {}, tavern: { wineLevel }, resources: { wine },
+    });
+    return {
+      type: TASK_TYPE.WINE_ADJUST, cityId: 101,
+      payload: { wineLevel: 1, wineEmergency: true }, status: 'pending',
+    };
+  }
+
+  test('bloqueia quando o estoque não cobre o consumo do nível alvo', async () => {
+    // WINE_USE[1] = 4/h. Estoque 2 passava no guard antigo (`wine > 0`) e era
+    // recusado pelo servidor — 48 das 50 tasks do histórico eram este caso.
+    const { guards, reschedule, cityMap } = createHarness();
+    const task = cidadeComVinho(cityMap, 2);
+
+    await expect(guards.guardWineAdjust(task)).rejects.toThrow(/tem 2u, precisa de 4u/i);
+    expect(reschedule).toHaveBeenCalled();
+  });
+
+  test('libera quando o estoque cobre o consumo do nível alvo', async () => {
+    const { guards, reschedule, cityMap } = createHarness();
+    const task = cidadeComVinho(cityMap, 4);
+
+    await expect(guards.guardWineAdjust(task)).resolves.toBeUndefined();
+    expect(reschedule).not.toHaveBeenCalled();
+  });
+
+  test('baixar o nível de serviço nunca exige estoque', async () => {
+    const { guards, reschedule, cityMap } = createHarness();
+    const task = cidadeComVinho(cityMap, 0, 5);   // taberna servindo 5, alvo 1
+    task.payload.wineLevel = 1;
+
+    await expect(guards.guardWineAdjust(task)).resolves.toBeUndefined();
+    expect(reschedule).not.toHaveBeenCalled();
+  });
+
   test('guardWineAdjust reschedules when city has zero wine and target level > 0', async () => {
     const { guards, reschedule, cityMap } = createHarness();
     cityMap.set(101, {
@@ -202,7 +241,7 @@ describe('TaskGuards', () => {
       status: 'pending',
     };
 
-    await expect(guards.guardWineAdjust(task)).rejects.toThrow(/sem vinho disponível/i);
+    await expect(guards.guardWineAdjust(task)).rejects.toThrow(/tem 0u, precisa de 4u/i);
     expect(reschedule).toHaveBeenCalledWith(task, 60_000, 'GUARD_WINE_STOCK_EMPTY');
   });
 

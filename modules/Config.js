@@ -31,6 +31,8 @@ const DEFAULTS = Object.freeze({
     // ── HR ────────────────────────────────────────────────────────────────────
     wineEmergencyHours:        4,      // alerta P0 se vinho restante < X horas
     wineTargetSatisfaction:    1,      // satisfação alvo (+1)
+    wineAdjustMinCoverageHours: 1,    // horas de consumo que o estoque precisa cobrir
+                                       // antes de subir o nível de serviço da taberna
 
     // ── CSO ───────────────────────────────────────────────────────────────────
     capitalRiskThreshold:      40_000, // ouro exposto que aciona dispersão (~1 navio)

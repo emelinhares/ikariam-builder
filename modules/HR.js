@@ -380,7 +380,26 @@ export class HR {
 
         if (sustain.needsTavernAdjustment && !this._queue.hasPendingType(TASK_TYPE.WINE_ADJUST, city.id)) {
             const targetLevel = Math.max(0, sustain.targetWineLevel);
-            if (targetLevel !== (city.tavern?.wineLevel ?? 0)) {
+            const nivelAtual = city.tavern?.wineLevel ?? 0;
+
+            // Subir o nível de serviço consome WINE_USE[nível] por hora. Criar a task
+            // sem estoque para sustentá-la só entope o executor: ela é despachada,
+            // o servidor recusa por falta de recurso, e o ciclo recomeça. Medido na
+            // conta real: 48 das 50 tasks do histórico eram exatamente isto.
+            // Baixar o nível é sempre permitido — reduz consumo.
+            const consumoAlvo = WINE_USE[targetLevel] ?? 0;
+            const horasMinimas = this._config?.get?.('wineAdjustMinCoverageHours') ?? 1;
+            const estoque = Number(city.resources?.wine ?? 0);
+            const subindo = targetLevel > nivelAtual;
+
+            if (subindo && estoque < consumoAlvo * horasMinimas) {
+                this._audit.warn('HR',
+                    `Vinho ${city.name}: taberna ${nivelAtual}→${targetLevel} adiada — ` +
+                    `estoque ${estoque}u não cobre ${consumoAlvo * horasMinimas}u. ` +
+                    `A emergência já foi emitida; aguardando importação.`,
+                    { cityId: city.id }
+                );
+            } else if (targetLevel !== nivelAtual) {
                 this._queue.add({
                     type: TASK_TYPE.WINE_ADJUST,
                     priority: 0,
