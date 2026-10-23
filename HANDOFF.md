@@ -154,6 +154,77 @@ HR reaproveitada **nunca** será despachada em MANUAL, por construção. Vale li
 fila antes de cada execução, ou dar à suíte um identificador próprio que não
 deduplique contra tasks dos módulos de negócio.
 
+## Descoberta 5 — o problema é de projeto, não de encanamento (medido ao vivo)
+
+Medição real na conta, com a fila em MANUAL para não competir:
+
+```
+fetchAllCities (5 cidades)   24,6 s
+heartbeatFocusMs             60,0 s
+fila bloqueada               41 % do tempo
+penalidade PROBING           30 s  =  1,22 × a janela que a causou
+```
+
+`StateManager.fetchAllCities` segura o **session lock** do `GameClient` durante o
+laço inteiro: para cada cidade faz um GET e depois `humanDelay(1200, 2000)`, mais o
+`fetchMilitaryAdvisor`, mais um `navigate` de retorno que ainda tenta até 3 vezes com
+backoff. Com 5 cidades isso dá 24,6 s — e roda a cada 60 s.
+
+Durante todo esse tempo `_probing` é true, e qualquer task que não seja emergência de
+vinho leva **30 s** de castigo. Como 30 s é maior que a janela de 24,6 s, a task
+penalizada acorda dentro ou às portas da **próxima** janela. É um ciclo que se
+sustenta sozinho: a fila não está lenta, está estruturalmente impedida.
+
+E escala mal. O custo é linear no número de cidades por causa do `humanDelay` fixo por
+cidade. Com 8 cidades o probing passaria dos 60 s do heartbeat e o ERP ficaria
+**permanentemente** em estado de probing. O sistema tem um teto de cidades embutido
+que ninguém escreveu de propósito.
+
+### A contradição no coração disso
+
+`GameClient.navigate(cityId)` e `GameClient.probeCityData(cityId)` emitem **exatamente
+o mesmo request**:
+
+```
+/index.php?view=port&cityId=X&position=N&backgroundView=city
+          &currentCityId=X&activeTab=tabSendTransporter&ajax=1
+```
+
+Mas os comentários do código afirmam coisas opostas sobre ele:
+
+- em `navigate`: *"Isso força o servidor a estabelecer X como cidade ativa"*
+- em `fetchAllCities`: *"probeCityData é um GET simples — NÃO altera a cidade ativa no servidor"*
+
+As duas não podem estar certas. E a arquitetura inteira depende da resposta: se o
+probe **não** move a sessão, então o session lock de 24,6 s protege contra um perigo
+inexistente e pode ser removido quase por inteiro. Se o probe **move**, então
+`fetchAllCities` deixa o servidor na última cidade sondada enquanto `_activeCityId`
+foi deliberadamente não atualizado — e o ERP fica dessincronizado do servidor depois
+de cada heartbeat, o que explicaria ações caindo na cidade errada e guards girando.
+
+**Verificado ao vivo:** ler dados de uma cidade arbitrária funciona sem navegar antes.
+Com o navegador em BAD E (61748), o probe de BAD C (61747) voltou com
+`backgroundData.id = 61747`. Leitura não exige navegação.
+
+**Não verificado:** se esse mesmo request move a sessão do servidor. Tentei usar
+`?view=city&ajax=1` como testemunha neutra, mas ele devolve 291 bytes sem
+`updateGlobalData` — não serve. **Resolva isto primeiro**, é a pergunta da qual tudo
+depende. Receita sugerida: ligar o modo REC, trocar de cidade clicando no próprio
+jogo, e comparar o que o jogo faz com o que o `navigate` faz. O jogo é a fonte da
+verdade; o `ENDPOINTS.md` é hipótese de março, de outro servidor.
+
+### O que isso diz sobre a pergunta "o agente anterior entendeu o site?"
+
+Entendeu os contratos HTTP individuais muito bem — os endpoints funcionam, a doação
+real passou em três execuções seguidas. O que não foi entendido é o **modelo de
+sessão**: o código trata "qual cidade está ativa" como um recurso global, exclusivo e
+caro, e por isso serializa tudo atrás de um lock. Toda a dor — executor de slot único,
+`_sessionLock`, `_probing`, penalidade de 30 s, head-of-line blocking — descende dessa
+única premissa, que está documentada de forma contraditória e nunca foi testada.
+
+Antes de otimizar a fila, responda se a premissa é verdadeira. Se não for, a correção
+não é ajustar timeouts: é **deixar de serializar leituras**, e o problema evapora.
+
 ## Fase 4 — correção, guiada pela evidência
 
 Ordem sugerida, agora que há evidência real:
