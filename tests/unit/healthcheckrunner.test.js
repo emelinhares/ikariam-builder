@@ -34,6 +34,10 @@ function createHarness({ scenarioFactories } = {}) {
     getPending: vi.fn(() => []),
     getHistory: vi.fn(() => []),
     getTaskById: vi.fn(() => null),
+    getActive: vi.fn(() => []),
+    cancel: vi.fn(),
+    allowManualHealthCheckTask: vi.fn(() => true),
+    revokeManualHealthCheckTask: vi.fn(),
   };
   const audit = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
   const config = { get: vi.fn((key) => (key === 'healthCheckCooldownMs' ? 1000 : undefined)) };
@@ -178,6 +182,25 @@ describe('HealthCheckRunner', () => {
     ]));
     expect(result.evidence.some(e => e.startsWith('nextScheduledFor='))).toBe(true);
     expect(result.evidence.some(e => e.startsWith('attempts='))).toBe(true);
+  });
+
+  test('cancela tasks deixadas por execução anterior antes de iniciar', async () => {
+    const { runner, queue } = createHarness();
+    await runner.init();
+
+    const restos = [
+      { id: 'resto-1', module: 'HEALTHCHECK' },
+      { id: 'resto-2', module: 'HEALTHCHECK' },
+      { id: 'do-hr',   module: 'HR' },        // de outro módulo: não é nosso para cancelar
+    ];
+    queue.getActive.mockReturnValue(restos);
+
+    const cancelados = runner._cancelarTasksDeExecucaoAnterior();
+
+    expect(cancelados).toBe(2);
+    expect(queue.cancel).toHaveBeenCalledWith('resto-1');
+    expect(queue.cancel).toHaveBeenCalledWith('resto-2');
+    expect(queue.cancel).not.toHaveBeenCalledWith('do-hr');
   });
 
   test('em timeout real inclui snapshot da task nas evidências e status timeout', async () => {

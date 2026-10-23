@@ -44,6 +44,7 @@ const DEFAULTS = Object.freeze({
     humanDelayMaxMs:           2500,   // delay máximo entre ações (ms)
     plannerWakeLeadMs:         5 * 60_000,
     plannerWakeMinIntervalMs:  2 * 60_000,
+    probingRescheduleMs:       5_000,  // espera de task bloqueada por fetchAllCities
     taskQueueTickFocusMs:      1_000,
     taskQueueTickBackgroundMs: 5_000,
 

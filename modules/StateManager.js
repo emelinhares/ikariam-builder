@@ -3,7 +3,6 @@
 // Coordena fetchAllCities pausando builds durante navegação entre cidades.
 
 import { deepClone } from './utils.js';
-import { humanDelay } from './utils.js';
 import { createEmptyResources } from './resourceContracts.js';
 import { CityIslandMapper } from './CityIslandMapper.js';
 import { CityStateUpdater } from './CityStateUpdater.js';
@@ -259,8 +258,12 @@ export class StateManager {
                 try {
                     // probeCityData é um GET simples — NÃO altera a cidade ativa no servidor.
                     // Não atualizar _activeCityId aqui para não desincronizar do estado real do servidor.
+                    // O GameClient._enqueue já espaça TODO request que sai do cliente
+                    // (humanDelayMinMs..humanDelayMaxMs). O delay que havia aqui era
+                    // um segundo espaçamento empilhado sobre aquele, e respondia por
+                    // ~8s dos 24,6s medidos com 5 cidades. Remover não altera o
+                    // intervalo entre requests — só para de contá-lo duas vezes.
                     await gameClient.probeCityData(cityId);
-                    await humanDelay(1200, 2000);
                 } catch (err) {
                     this._audit.error('StateManager', `fetchAllCities erro em cidade ${cityId}: ${err.message}`);
                 }

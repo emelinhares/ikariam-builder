@@ -102,6 +102,15 @@ export class HealthCheckRunner {
 
         const runId = `hc_${nanoid(8)}`;
         this._abortRequested = false;
+
+        // Tasks de execuções anteriores continuavam pendentes e faziam a suíte colidir
+        // com o próprio lixo: cenários reportavam DUPLICATE_TASK contra tasks que ela
+        // mesma havia criado antes, e a fila crescia de execução para execução.
+        const restos = this._cancelarTasksDeExecucaoAnterior();
+        if (restos > 0) {
+            this._audit.warn('HealthCheck',
+                `${restos} task(s) de execução anterior canceladas antes de iniciar ${runId}`);
+        }
         this._status = {
             ...this._status,
             runId,
@@ -175,6 +184,17 @@ export class HealthCheckRunner {
 
         this._audit.info('HealthCheck', `Relatório exportado: ${files.join(', ')}`);
         return { ok: true, files };
+    }
+
+    /** Remove da fila as tasks deixadas por execuções anteriores da suíte. */
+    _cancelarTasksDeExecucaoAnterior() {
+        const ativas = this._queue?.getActive?.() ?? [];
+        const restos = ativas.filter(t => t?.module === 'HEALTHCHECK');
+        for (const t of restos) {
+            this._queue?.cancel?.(t.id);
+            this._queue?.revokeManualHealthCheckTask?.(t.id);
+        }
+        return restos.length;
     }
 
     _buildScenarioPlan(suite) {
@@ -805,6 +825,9 @@ export class HealthCheckRunner {
                     }
                     evidence.push(`attempts=${snapshot.attempts ?? 0}/${snapshot.maxAttempts ?? '?'}`);
                     evidence.push(`skippedTicks=${snapshot.skippedTicks ?? 0}`);
+                    evidence.push(`blockedTicks=${snapshot.blockedTicks ?? 0}`);
+                    evidence.push(`dispatchCount=${snapshot.dispatchCount ?? 0}`);
+                    evidence.push(`lastStage=${snapshot.lastStage ?? snapshot.stage ?? 'N/A'}`);
                     evidence.push(`watchdogResets=${snapshot.watchdogResets ?? 0}`);
                     if (snapshot.lastOutcome) {
                         evidence.push(`lastOutcomeClass=${snapshot.lastOutcome.outcomeClass}`);

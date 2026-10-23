@@ -45,6 +45,13 @@ export class TaskQueue {
     // A cada quantos ticks preteridos uma task pronta vira registro de starvation.
     static STARVATION_TICKS = 60;
 
+    // Um _execute que retorna sem registrar outcome e sem avançar attempts deixa a
+    // task em pending com o mesmo scheduledFor, e o tick seguinte a redespacha. Vira
+    // laço a 1 Hz invisível: maxAttempts nunca é consumido, e o watchdog nunca vê
+    // execução longa porque cada volta é rápida. Medido ao vivo em 22/10/2026:
+    // 240 QUEUE_TASK_STARTED em 240s com attempts=0/1 e nenhum outcome.
+    static MAX_DISPATCHES_WITHOUT_PROGRESS = 8;
+
     constructor({ events, audit, config, state, client, storage, transportIntentRegistry = null, taskGuards = null }) {
         this._events  = events;
         this._audit   = audit;
@@ -439,6 +446,17 @@ export class TaskQueue {
             this._persist();
         }
 
+        if (this._executing) {
+            // Ponto cego do contador de starvation: ele só compara quem está dentro
+            // de `ready`, e `ready` nem é calculado enquanto algo executa. Uma task
+            // pronta que espera o executor liberar marcava zero em tudo.
+            for (const t of this._queue) {
+                if (t.status === 'pending' && t.scheduledFor <= now) {
+                    t.blockedTicks = (t.blockedTicks ?? 0) + 1;
+                }
+            }
+        }
+
         if (!this._executing) {
             const ready = this._queue
                 .filter(t => t.status === 'pending' && t.scheduledFor <= now &&
@@ -471,6 +489,7 @@ export class TaskQueue {
                     }
                 }
                 nextTask.skippedTicks = 0;
+                nextTask.blockedTicks = 0;
 
                 this._executing = true;
                 this._executingStartedAt = Date.now();
@@ -545,6 +564,25 @@ export class TaskQueue {
 
         this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
 
+        // Invariante: todo despacho tem de produzir progresso — ou consome attempt,
+        // ou registra outcome. Sem isso a task volta a pending inalterada e o tick
+        // seguinte a redespacha para sempre. O `finally` confere e zera o contador.
+        task.dispatchCount = (task.dispatchCount ?? 0) + 1;
+        task.stage = 'started';
+        const progressoAntes = `${task.attempts}|${task.outcomeHistory?.length ?? 0}`;
+
+        const semProgresso = task.dispatchCount - (task.dispatchCountAtLastProgress ?? 0);
+        if (semProgresso > TaskQueue.MAX_DISPATCHES_WITHOUT_PROGRESS) {
+            this._failTask(task, {
+                error: `Laço de redespacho: ${semProgresso} despachos sem progresso, ` +
+                       `último estágio alcançado "${task.lastStage ?? task.stage}"`,
+                reasonCode: 'DISPATCH_LOOP_DETECTED',
+                fatal: true,
+                outcomeClass: 'hard-fail',
+            });
+            return;
+        }
+
         if (task.type === TASK_TYPE.TRANSPORT) {
             this._transportIntentRegistry?.markDispatched?.(task.payload?.intentId, task.id);
         }
@@ -614,8 +652,15 @@ export class TaskQueue {
             if (this._state.isProbing()) {
                 const canBypassProbing = this._canRunDuringProbing(task);
                 if (!canBypassProbing) {
-                    // NOISE: atrasar menos (é baixa prioridade, não crítico)
-                    const delayMs = task.type === TASK_TYPE.NOISE ? 10_000 : 30_000;
+                    // Antes eram 30s fixos — maior que a própria janela de probing
+                    // (medida em 24,6s, e ~16s depois de remover o delay duplicado).
+                    // A task penalizada acordava dentro da janela seguinte, num ciclo
+                    // que se sustentava sozinho. Com o tick de 1s, uma espera curta
+                    // reavalia logo após o probing terminar; cada reavaliação registra
+                    // outcome, então a detecção de laço acima não é acionada por isto.
+                    const delayMs = task.type === TASK_TYPE.NOISE
+                        ? 10_000
+                        : (this._config.get('probingRescheduleMs') ?? 5_000);
                     this._reschedule(task, delayMs, 'PROBING_IN_PROGRESS');
                     this._audit.debug('TaskQueue',
                         `Task [${task.id}] ${task.type} pausada durante fetchAllCities — reagendando em ${delayMs / 1000}s`
@@ -641,11 +686,14 @@ export class TaskQueue {
             // 3. Adquirir session lock — garante exclusividade durante navigate + action.
             // fetchAllCities também adquire este lock, então nunca se interpõe entre
             // o navigate do guard e o dispatch da task.
+            task.stage = 'aguardando-session-lock';
             const dispatchResult = await this._client.acquireSession(async () => {
                 // 3a. Guards específicos por tipo (navigate acontece aqui dentro)
+                task.stage = 'guards';
                 await this._runGuards(task);
 
                 // 3b. Executar via GameClient
+                task.stage = 'dispatch';
                 task.lastDispatchedAt = Date.now();
                 return await this._dispatch(task);
             });
@@ -659,6 +707,7 @@ export class TaskQueue {
                 nextStep: 'task_complete',
             });
 
+            task.stage = 'pos-validacao';
             const outcome = await this._postValidateTaskOutcome(task, {
                 validationBaseline,
                 executionStartedAt,
@@ -835,6 +884,12 @@ export class TaskQueue {
             }
 
         } finally {
+            // Houve progresso se o attempt avançou ou se um outcome foi registrado.
+            const progressoDepois = `${task.attempts}|${task.outcomeHistory?.length ?? 0}`;
+            if (progressoDepois !== progressoAntes) {
+                task.dispatchCountAtLastProgress = task.dispatchCount;
+            }
+            task.lastStage = task.stage;
             this._executing = false;
             this._executingStartedAt = null;
         }

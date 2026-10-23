@@ -149,7 +149,85 @@ describe('TaskQueue — watchdog com teto', () => {
   });
 });
 
+describe('TaskQueue — laço de redespacho', () => {
+  test('falha a task quando o despacho se repete sem produzir progresso', async () => {
+    const { queue, audit } = createHarness();
+    delete queue._execute;            // o harness stuba; aqui queremos o método real
+    const task = makeTask();
+    queue._queue = [task];
+
+    // simula o estado observado ao vivo: despachada muitas vezes, attempts parado
+    task.dispatchCount = TaskQueue.MAX_DISPATCHES_WITHOUT_PROGRESS;
+    task.dispatchCountAtLastProgress = 0;
+    task.lastStage = 'guards';
+
+    await queue._execute(task);
+
+    expect(task.status).toBe('failed');
+    expect(task.terminalReasonCode).toBe('DISPATCH_LOOP_DETECTED');
+    expect(queue._queue).not.toContain(task);
+    expect(audit.error).toHaveBeenCalledWith(
+      'TaskQueue',
+      expect.stringContaining('guards'),       // o estágio entra na mensagem
+      expect.anything(),
+    );
+  });
+
+  test('progresso real zera o contador de despachos', async () => {
+    const { queue } = createHarness();
+    delete queue._execute;
+    const task = makeTask();
+    queue._queue = [task];
+
+    queue._runGuards = vi.fn(async () => {});
+    queue._dispatch = vi.fn(async () => { throw new Error('falha transitória'); });
+
+    await queue._execute(task);
+
+    // o catch consumiu attempt e registrou outcome: isso é progresso
+    expect(task.attempts).toBe(1);
+    expect(task.dispatchCount).toBe(1);
+    expect(task.dispatchCountAtLastProgress).toBe(1);
+    expect(task.status).toBe('pending');
+  });
+
+  test('bloqueio por probing usa espera curta em vez de 30s fixos', async () => {
+    const { queue } = createHarness();
+    delete queue._execute;
+    const task = makeTask();
+    queue._queue = [task];
+    queue._state.isProbing = () => true;
+
+    const antes = Date.now();
+    await queue._execute(task);
+    const espera = task.scheduledFor - antes;
+
+    expect(task.lastBlockerCode).toBe('PROBING_IN_PROGRESS');
+    expect(espera).toBeLessThan(10_000);          // antes eram 30_000
+    expect(espera).toBeGreaterThanOrEqual(4_000);
+    // reagendamento por guard registra outcome, então não conta como laço
+    expect(task.dispatchCountAtLastProgress).toBe(task.dispatchCount);
+  });
+});
+
 describe('TaskQueue — starvation', () => {
+  test('conta os ticks em que a task pronta nem chega a ser considerada', () => {
+    const { queue } = createHarness();
+    const esperando = makeTask({ id: 'esperando' });
+    queue._queue = [esperando];
+
+    // executor ocupado: o bloco de `ready` nem é calculado
+    queue._executing = true;
+    queue._executingStartedAt = Date.now();
+
+    for (let i = 0; i < 5; i++) tickOnce(queue);
+
+    expect(esperando.blockedTicks).toBe(5);
+    // o contador antigo nao enxergava este caso — era o ponto cego
+    expect(esperando.skippedTicks ?? 0).toBe(0);
+  });
+
+
   test('conta e registra a task pronta que é preterida tick após tick', () => {
     const { queue, audit } = createHarness();
     const sustento = makeTask({ id: 'sustento', type: 'WINE_ADJUST', phase: 1 });
