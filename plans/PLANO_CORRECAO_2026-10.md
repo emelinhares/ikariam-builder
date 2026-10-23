@@ -44,6 +44,71 @@ de ultrapassá-la (A2). A fração de bloqueio cai de 41% para a ordem de 25%, e
 some o ciclo que se auto-sustentava. **Ainda não medido ao vivo** — exige nova
 execução da suíte com a extensão recarregada.
 
+## Execução 4 — medida depois das correções (23/10, `hc_2bCGV2Do`)
+
+```
+janela de probing     24.638 ms  ->  15.831 ms   (-35,7 %)
+fração do minuto           41,1 %  ->      26,4 %
+penalidade / janela        1,22 x  ->       0,32 x
+passRate                   42,9 %  ->      57,1 %
+```
+
+| Cenário | 3 execuções anteriores | execução 4 |
+|---|---|---|
+| state_snapshot | passed ×3 | passed |
+| **transport_dispatch** | NEVER_DISPATCHED / DUPLICATE / PROBING | **passed (40 s)** |
+| build_upgrade | NEVER_DISPATCHED / NO_CONFIRMATION / PROBING | timeout / NEVER_DISPATCHED (240 s) |
+| donation_flow | passed ×3 | passed (5 s) |
+| wine_adjust | NEVER_DISPATCHED / DUPLICATE ×2 | inconclusive / **WINE_LEVEL_UNCHANGED** (10 s) |
+| workers_science | NEVER_DISPATCHED / NO_CONFIRMATION / PROBING | blocked / PROBING_IN_PROGRESS (12 s) |
+| queue_guardrails | passed ×3 | passed |
+
+Três dos quatro cenários quebrados mudaram de categoria: `transport_dispatch`
+**passa pela primeira vez**; `wine_adjust` deixa de colidir com lixo da execução
+anterior (A5) e produz um veredito de negócio real; `workers_science` falha em 12 s
+com causa nomeada em vez de pendurar 120 s. O que sobrou é diagnóstico, não mistério.
+
+### Por que `build_upgrade` continua sem despachar — e não é a fila
+
+Evidência da própria task, com a instrumentação nova:
+
+```
+taskStatusAtTimeout = waiting_resources
+dispatchCount       = 0
+blockedTicks        = 157
+skippedTicks        = 30
+attempts            = 0/1
+```
+
+`waiting_resources` **não** é `pending`, então o filtro de `ready` em `_tick` a exclui
+por completo: ela nunca foi candidata. Não é starvation nem probing. A cidade não tem
+material para o upgrade.
+
+O histórico da fila confirma e amplia:
+
+```
+SERVER_REFUSED_INSUFFICIENT_RESOURCES   48
+TRANSPORT_SERVER_ACCEPTED                1   ← o transporte desta execução
+WINE_LEVEL_UNCHANGED                     1
+```
+
+**48 das 50 tasks no histórico falharam porque o servidor recusou por falta de
+recurso.** O ERP está decidindo ações que a conta não pode pagar, o servidor recusa,
+e o executor de slot único fica ocupado com isso — o que explica os 157 ticks de
+bloqueio de todo o resto.
+
+Isto desloca o problema de camada: já não é encanamento de fila, é **decisão de
+negócio**. CFO e COO aprovam sem verificar saldo, ou verificam contra um estado
+desatualizado. É o novo item de topo, e deve vir antes de qualquer otimização
+adicional de fila.
+
+### Efeito colateral visível: poluição por NOISE
+
+Na inspeção da fila durante a execução, 9 das 15 tasks pendentes eram `NOISE`, todas
+com `dispatchCount = 0` e ~35 `skippedTicks`. NOISE é fase 5, a mais baixa, então
+perde para tudo e se acumula indefinidamente enquanto o CSO continua gerando. Precisa
+de teto ou de descarte por idade.
+
 ## A. Correções — bugs confirmados por evidência
 
 ### A1. Laço de redespacho a 1 Hz *(crítico)*
