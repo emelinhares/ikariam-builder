@@ -210,6 +210,43 @@ describe('TaskQueue — laço de redespacho', () => {
   });
 });
 
+describe('TaskQueue — expiração de task nunca despachada', () => {
+  test('o tick expira task que passou do SLA sem nunca rodar', () => {
+    const { queue, events } = createHarness();
+    // NOISE tem SLA padrão de 30min; esta nasceu há 31.
+    const velha = makeTask({
+      id: 'velha', type: 'NOISE', phase: 5, priority: 50,
+      createdAt: Date.now() - 31 * 60_000,
+    });
+    const nova = makeTask({ id: 'nova' });
+    queue._queue = [velha, nova];
+
+    tickOnce(queue);
+
+    expect(velha.status).toBe('failed');
+    expect(velha.terminalReasonCode).toBe('TASK_SLA_TIMEOUT_UNDISPATCHED');
+    expect(velha.dispatchCount ?? 0).toBe(0);   // nunca foi despachada
+    expect(queue._queue).not.toContain(velha);
+    expect(queue._queue).toContain(nova);       // a nova sobrevive
+  });
+
+  test('não expira task em execução', () => {
+    const { queue } = createHarness();
+    const emVoo = makeTask({
+      id: 'em-voo', type: 'NOISE', status: 'in-flight',
+      createdAt: Date.now() - 31 * 60_000,
+    });
+    queue._queue = [emVoo];
+    queue._executing = true;
+    queue._executingStartedAt = Date.now();
+
+    tickOnce(queue);
+
+    expect(emVoo.status).toBe('in-flight');
+    expect(queue._queue).toContain(emVoo);
+  });
+});
+
 describe('TaskQueue — starvation', () => {
   test('conta os ticks em que a task pronta nem chega a ser considerada', () => {
     const { queue } = createHarness();

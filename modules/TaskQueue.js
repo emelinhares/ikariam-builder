@@ -321,7 +321,7 @@ export class TaskQueue {
     /** Verifica se há task de um tipo pendente para uma cidade. */
     hasPendingType(type, cityId) {
         return this._queue.some(t =>
-            t.type === type && t.cityId === cityId &&
+            t.type === type && (!cityId || t.cityId === cityId) &&
             (t.status === 'pending' || t.status === 'in-flight')
         );
     }
@@ -444,6 +444,22 @@ export class TaskQueue {
                 this._reschedule(t, 5_000, 'WATCHDOG_RESET');
             }
             this._persist();
+        }
+
+        // O SLA de task só era avaliado dentro de _execute, então uma task que
+        // nunca chega a ser despachada nunca expirava e ficava na fila para sempre.
+        // Medido na conta real: 9 tasks NOISE acumuladas, todas com dispatchCount 0.
+        // Varrer aqui faz o prazo valer também para quem nunca roda.
+        for (const t of [...this._queue]) {
+            if (t.status === 'in-flight') continue;
+            if (!this._hasTaskTimedOut(t)) continue;
+            this._failTask(t, {
+                error: `SLA excedido sem nunca ser despachada ` +
+                       `(${this._formatMs(this._getTaskAgeMs(t))} > ${this._formatMs(this._getTaskTimeoutMs(t))})`,
+                reasonCode: 'TASK_SLA_TIMEOUT_UNDISPATCHED',
+                fatal: false,
+                outcomeClass: 'hard-fail',
+            });
         }
 
         if (this._executing) {

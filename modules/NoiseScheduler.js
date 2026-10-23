@@ -20,6 +20,12 @@ export class NoiseScheduler {
         this._noiseCounter = 0;
         this._nextNoiseAt = this._newNoiseThreshold();
 
+        // Ruído existe para intercalar tráfego inofensivo entre ações reais. Um
+        // segundo ruído pendente não acrescenta mimetismo nenhum: NOISE é a fase
+        // mais baixa, perde a ordenação para tudo e só se empilha. Medido na conta
+        // real: 9 pendentes, nenhuma jamais despachada.
+        if (this._queue.hasPendingType?.(TASK_TYPE.NOISE)) return;
+
         const views = ['embassy', 'barracks', 'museum', 'academy', 'temple'];
         const view = views[Math.floor(Math.random() * views.length)];
         const cities = this._state.getAllCities();
