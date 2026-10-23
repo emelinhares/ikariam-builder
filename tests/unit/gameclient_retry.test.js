@@ -21,6 +21,16 @@ function createClient() {
 }
 
 describe('GameClient retry helper and circuit breaker', () => {
+  test('permite validar pelo estado quando resposta de build não traz endUpgradeTime', async () => {
+    const { client } = createClient();
+    client._postWithContext = vi.fn(async () => ({ text: '{}', endUpgradeTime: null }));
+
+    const pending = client.upgradeBuilding(101, 3, 'workshop', 12);
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.hybridOutcome).toEqual(expect.objectContaining({ outcomeClass: 'inconclusive' }));
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));

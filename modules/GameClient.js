@@ -192,12 +192,16 @@ export class GameClient {
 
             if (!endUpgradeTime || endUpgradeTime <= 0) {
                 this._audit.warn('GameClient',
-                    `upgradeBuilding: endUpgradeTime=${endUpgradeTime} — rejeitado silenciosamente`);
-                throw new GameError(
-                    'GUARD',
-                    `Build rejeitada — endUpgradeTime=${endUpgradeTime}`,
-                    { code: 'HYBRID_INCONCLUSIVE_BUILD' }
-                );
+                    `upgradeBuilding: endUpgradeTime=${endUpgradeTime} — confirmando por estado`);
+                return {
+                    text,
+                    hybridOutcome: this._makeHybridOutcome({
+                        actionType: 'BUILD',
+                        responseSignals: ['endUpgradeTime_missing'],
+                        outcomeClass: 'inconclusive',
+                        nextStep: 'post_validate',
+                    }),
+                };
             }
 
             const eta = new Date(endUpgradeTime * 1000).toLocaleTimeString('pt-BR');
@@ -261,6 +265,7 @@ export class GameClient {
 
                 // Confirmar via fleetMoveList ou provideFeedback type:10
                 let confirmed = false;
+                let confirmedBy = null;
                 try {
                     const data = JSON.parse(result.text.trim());
                     if (Array.isArray(data)) {
@@ -269,6 +274,7 @@ export class GameClient {
                             const entries = Array.isArray(fleetCmd[1])
                                 ? fleetCmd[1] : Object.values(fleetCmd[1] ?? {});
                             confirmed = true;
+                            confirmedBy = 'fleetMoveList';
                             for (const m of entries) {
                                 const origin = m.originCityName ?? m.originCityId ?? fromCityId;
                                 const target = m.targetCityName ?? m.targetCityId ?? toCityId;
@@ -283,6 +289,7 @@ export class GameClient {
                             const fb = data.find(c => Array.isArray(c) && c[0] === 'provideFeedback');
                             if (Array.isArray(fb?.[1]) && fb[1].find(f => f?.type === 10)) {
                                 confirmed = true;
+                                confirmedBy = 'provideFeedback:type10';
                                 this._audit.info('GameClient',
                                     `✓ sendTransport aceito via provideFeedback — from=${fromCityId} to=${toCityId}`);
                             }
@@ -301,7 +308,7 @@ export class GameClient {
                     ...result,
                     hybridOutcome: this._makeHybridOutcome({
                         actionType: 'TRANSPORT',
-                        responseSignals: ['fleetMoveList_or_feedback10'],
+                        responseSignals: [confirmedBy],
                         outcomeClass: 'success',
                         nextStep: 'task_complete',
                     }),

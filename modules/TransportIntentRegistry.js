@@ -242,6 +242,16 @@ export class TransportIntentRegistry {
             }
         }
 
+        // Um plano persistido sem task, reserva ou frota correspondente ficou órfão
+        // (por exemplo, após cancelamento de um health check antes do despacho).
+        if (record?.status === TRANSPORT_INTENT_STATUS.PLANNED &&
+            record.evidence?.includes('plannedBy=HEALTHCHECK') &&
+            evidence.length === 1 && evidence[0] === 'registryActive=PLANNED') {
+            this.markFailed(intentId, 'ORPHANED_PLANNED_INTENT');
+            return { intentId, hasEvidence: false, evidence: ['orphanedPlannedIntent=true'],
+                status: TRANSPORT_INTENT_STATUS.FAILED, shouldSkipEnqueue: false };
+        }
+
         const hasEvidence = evidence.length > 0;
         if (hasEvidence) {
             const updated = this._records.get(intentId) ?? {

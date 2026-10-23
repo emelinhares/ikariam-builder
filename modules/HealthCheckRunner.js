@@ -82,6 +82,10 @@ export class HealthCheckRunner {
             return { ok: false, code: 'ALREADY_RUNNING', message: 'Health Check já em execução' };
         }
 
+        if (this._state.isProbing?.()) {
+            return { ok: false, code: 'STATE_PROBING', message: 'Aguarde a coleta de cidades terminar' };
+        }
+
         const now = Date.now();
         if (this._status.cooldownUntil && now < this._status.cooldownUntil) {
             return {
@@ -175,6 +179,9 @@ export class HealthCheckRunner {
 
     _buildScenarioPlan(suite) {
         const all = (this._scenarioFactories ?? this._defaultScenarioFactories()).map(f => f());
+        if (suite === 'dispatch') {
+            return all.filter(s => s.id === 'transport_dispatch' || s.id === 'build_upgrade');
+        }
         if (suite === 'critical') {
             return all.filter(s => s.critical);
         }
@@ -362,6 +369,7 @@ export class HealthCheckRunner {
                     return {
                         status: taskResult.status,
                         error: taskResult.error,
+                        reasonCode: taskResult.reasonCode ?? null,
                         evidence: [`city=${city.name}`, `wineLevel=${targetLevel}`, ...taskResult.evidence],
                     };
                 },
@@ -398,6 +406,7 @@ export class HealthCheckRunner {
                     return {
                         status: taskResult.status,
                         error: taskResult.error,
+                        reasonCode: taskResult.reasonCode ?? null,
                         evidence: [
                             `city=${city.name}`,
                             `academyPos=${academy.position}`,
@@ -649,8 +658,18 @@ export class HealthCheckRunner {
         pollIntervalMs = 500,
         guardRescheduleGraceMs = 2_000,
     } = {}) {
-        const task = this._queue.add(taskData);
+        const task = this._queue.add({ ...taskData, healthCheckRunId: this._status.runId });
         const taskId = task.id;
+        if (task.healthCheckRunId !== this._status.runId) {
+            return Promise.resolve({
+                status: 'blocked',
+                taskId,
+                reasonCode: 'DUPLICATE_TASK',
+                error: `Task equivalente já existe na fila (${taskId})`,
+                evidence: [`existingTask=${taskId}`, `existingModule=${task.module ?? 'N/A'}`],
+            });
+        }
+        this._queue.allowManualHealthCheckTask?.(taskId);
         const addedAt = Date.now();
         const evidence = [`taskAdded=${taskId}`];
 
@@ -815,6 +834,10 @@ export class HealthCheckRunner {
             const cleanup = () => {
                 clearTimeout(timer);
                 clearInterval(pollTimer);
+                this._queue.revokeManualHealthCheckTask?.(taskId);
+                if (this._queue.getTaskById?.(taskId)?.status === 'pending') {
+                    this._queue.cancel?.(taskId);
+                }
                 offStarted();
                 offDone();
                 offFailed();
@@ -870,6 +893,10 @@ function _pickBuildCandidate(state) {
     ]);
 
     for (const city of cities) {
+        const activeBuild = city?.underConstruction;
+        if (activeBuild != null && activeBuild !== false &&
+            Number.isInteger(Number(activeBuild)) && Number(activeBuild) >= 0) continue;
+        if (city.buildings?.some(b => b?.isUpgrading)) continue;
         const candidates = (city.buildings || []).filter(b => {
             if (!b?.building || b.building.includes('buildingGround') || b.building.includes('constructionSite')) return false;
             if (SKIP.has(b.building)) return false;

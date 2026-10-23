@@ -70,6 +70,12 @@ async function waitUntilDone(runner, timeoutMs = 2000) {
 }
 
 describe('HealthCheckRunner', () => {
+  test('aguarda a coleta de cidades antes de iniciar', () => {
+    const { runner, state, queue } = createHarness();
+    state.isProbing = () => true;
+    expect(runner.start({ suite: 'full' })).toEqual(expect.objectContaining({ ok: false, code: 'STATE_PROBING' }));
+    expect(queue.add).not.toHaveBeenCalled();
+  });
   test('executa suíte custom e gera relatório final', async () => {
     const { runner, storage } = createHarness({
       scenarioFactories: [
@@ -148,7 +154,7 @@ describe('HealthCheckRunner', () => {
       scheduledFor: Date.now(),
     };
 
-    queue.add.mockReturnValue({ id: taskState.id });
+    queue.add.mockImplementation((task) => ({ ...task, id: taskState.id }));
     queue.getTaskById.mockImplementation(() => ({ ...taskState }));
 
     const p = runner._addTaskAndWait(
@@ -186,7 +192,7 @@ describe('HealthCheckRunner', () => {
       scheduledFor: Date.now() + 500,
     };
 
-    queue.add.mockReturnValue({ id: taskState.id });
+    queue.add.mockImplementation((task) => ({ ...task, id: taskState.id }));
     queue.getTaskById.mockImplementation(() => ({ ...taskState }));
 
     // Timers falsos: com timers reais e orçamento de 120ms a suíte inteira em
@@ -233,7 +239,7 @@ describe('HealthCheckRunner', () => {
       scheduledFor: Date.now() - 1_000,
     };
 
-    queue.add.mockReturnValue({ id: taskState.id });
+    queue.add.mockImplementation((task) => ({ ...task, id: taskState.id }));
     queue.getTaskById.mockImplementation(() => ({ ...taskState }));
 
     vi.useFakeTimers();

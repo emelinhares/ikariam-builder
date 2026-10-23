@@ -63,6 +63,29 @@ function createHarness({ city, fleetMovements = [], client: clientOverrides = {}
 }
 
 describe('TaskQueue action outcomes', () => {
+  test('confirma despacho pelo feedback de sucesso quando a frota ainda não apareceu', async () => {
+    const { queue } = createHarness();
+    const task = { id: 'transport-feedback', type: 'TRANSPORT', cityId: 101,
+      payload: { fromCityId: 101, toCityId: 202, cargo: { sulfur: 500 } } };
+    const outcome = await queue._postValidateTaskOutcome(task, {
+      validationBaseline: { transportCount: 0 },
+      executionStartedAt: Date.now(),
+      dispatchResult: { hybridOutcome: { responseSignals: ['provideFeedback:type10'] } },
+    });
+    expect(outcome.reasonCode).toBe('TRANSPORT_SERVER_ACCEPTED');
+    expect(outcome.outcomeClass).toBe('success');
+  });
+  test('não atribui ao health check uma obra que já estava em andamento', async () => {
+    const city = { id: 101, underConstruction: 3,
+      buildings: [{ position: 3, level: 12, isUpgrading: true }] };
+    const { queue } = createHarness({ city });
+    const task = { id: 'existing-build', type: 'BUILD', cityId: 101, payload: { position: 3 } };
+    const outcome = await queue._postValidateTaskOutcome(task, {
+      validationBaseline: { build: { underConstruction: 3, level: 12, isUpgrading: true } },
+      executionStartedAt: Date.now(),
+    });
+    expect(outcome.outcomeClass).toBe('inconclusive');
+  });
   test('BUILD success only when post-state confirms construction evidence', async () => {
     const city = {
       id: 101,

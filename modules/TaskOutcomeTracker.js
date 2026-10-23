@@ -81,7 +81,7 @@ export class TaskOutcomeTracker {
             case TASK_TYPE.BUILD:
                 return await this._validateBuildOutcome(task, validationBaseline, executionStartedAt);
             case TASK_TYPE.TRANSPORT:
-                return await this._validateTransportOutcome(task, validationBaseline, executionStartedAt);
+                return await this._validateTransportOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
             case TASK_TYPE.WINE_ADJUST:
                 return await this._validateWineAdjustOutcome(task, validationBaseline, executionStartedAt, dispatchResult);
             case TASK_TYPE.WORKER_REALLOC:
@@ -111,7 +111,11 @@ export class TaskOutcomeTracker {
         evidence.push(`slotLevelBefore=${baseline?.build?.level ?? 'N/A'}`);
         evidence.push(`slotLevelAfter=${nowLevel}`);
 
-        const hasUpgradeEvidence = nowUC === expectedPos || slot?.isUpgrading === true || (Number.isFinite(nowLevel) && nowLevel > Number(baseline?.build?.level ?? -1));
+        const beforeUC = baseline?.build?.underConstruction;
+        const alreadyUpgrading = (beforeUC != null && Number(beforeUC) === expectedPos) || baseline?.build?.isUpgrading === true;
+        const hasUpgradeEvidence = !alreadyUpgrading &&
+            (nowUC === expectedPos || slot?.isUpgrading === true || (Number.isFinite(nowLevel) && nowLevel > Number(baseline?.build?.level ?? -1)));
+        evidence.push(`alreadyUpgradingBefore=${alreadyUpgrading}`);
         return this._createTaskOutcome(task, {
             executionStartedAt,
             outcomeClass: hasUpgradeEvidence ? 'success' : 'inconclusive',
@@ -121,20 +125,24 @@ export class TaskOutcomeTracker {
         });
     }
 
-    async _validateTransportOutcome(task, baseline, executionStartedAt) {
+    async _validateTransportOutcome(task, baseline, executionStartedAt, dispatchResult = null) {
         const evidence = [];
         try { await this._client.fetchMilitaryAdvisor(); evidence.push('fetchMilitaryAdvisor=ok'); }
         catch (err) { evidence.push(`fetchMilitaryAdvisor=error:${err.message}`); }
         const before = Number(baseline?.transportCount ?? 0);
         const after = this._countRelevantTransportMovements(task);
+        const serverAccepted = dispatchResult?.hybridOutcome?.responseSignals?.includes('provideFeedback:type10') === true;
         evidence.push(`transportCountBefore=${before}`);
         evidence.push(`transportCountAfter=${after}`);
+        evidence.push(`serverFeedbackAccepted=${serverAccepted}`);
+        const confirmed = after > before || serverAccepted;
         return this._createTaskOutcome(task, {
             executionStartedAt,
-            outcomeClass: after > before ? 'success' : 'inconclusive',
-            reasonCode: after > before ? 'TRANSPORT_MOVEMENT_CONFIRMED' : 'TRANSPORT_POST_STATE_NOT_CONFIRMED',
+            outcomeClass: confirmed ? 'success' : 'inconclusive',
+            reasonCode: after > before ? 'TRANSPORT_MOVEMENT_CONFIRMED' :
+                (serverAccepted ? 'TRANSPORT_SERVER_ACCEPTED' : 'TRANSPORT_POST_STATE_NOT_CONFIRMED'),
             evidence,
-            nextStep: after > before ? 'none' : 'retry',
+            nextStep: confirmed ? 'none' : 'retry',
         });
     }
 

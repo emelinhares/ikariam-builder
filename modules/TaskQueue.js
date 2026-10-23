@@ -75,6 +75,7 @@ export class TaskQueue {
         this._queue      = [];   // Task[]
         this._done       = [];   // últimas 50 tasks concluídas (histórico UI)
         this._executing  = false;
+        this._manualHealthCheckTasks = new Set();
 
         this._taskOutcomeTracker = new TaskOutcomeTracker({
             events,
@@ -274,7 +275,12 @@ export class TaskQueue {
     cancel(taskId) {
         const idx = this._queue.findIndex(t => t.id === taskId);
         if (idx === -1) return false;
+        const task = this._queue[idx];
         this._queue.splice(idx, 1);
+        this._manualHealthCheckTasks.delete(taskId);
+        if (task.type === TASK_TYPE.TRANSPORT && task.status === 'pending') {
+            this._transportIntentRegistry?.markFailed?.(task.payload?.intentId, 'TASK_CANCELLED');
+        }
         this._persist();
         this._events.emit(this._events.E.QUEUE_TASK_CANCELLED, { taskId });
         return true;
@@ -379,6 +385,18 @@ export class TaskQueue {
         this._audit.info('TaskQueue', `OperationMode alterado para ${mode}`);
     }
 
+    /** Autoriza somente uma task criada por um health check iniciado pelo usuário. */
+    allowManualHealthCheckTask(taskId) {
+        const task = this._queue.find(t => t.id === taskId);
+        if (task?.module !== 'HEALTHCHECK') return false;
+        this._manualHealthCheckTasks.add(taskId);
+        return true;
+    }
+
+    revokeManualHealthCheckTask(taskId) {
+        this._manualHealthCheckTasks.delete(taskId);
+    }
+
     // ── Loop principal ────────────────────────────────────────────────────────
 
     _tick() {
@@ -421,9 +439,10 @@ export class TaskQueue {
             this._persist();
         }
 
-        if (!this._executing && mode !== 'MANUAL') {
+        if (!this._executing) {
             const ready = this._queue
-                .filter(t => t.status === 'pending' && t.scheduledFor <= now)
+                .filter(t => t.status === 'pending' && t.scheduledFor <= now &&
+                    (mode !== 'MANUAL' || (t.module === 'HEALTHCHECK' && this._manualHealthCheckTasks.has(t.id))))
                 .sort((a, b) =>
                     // 1. Fase mais urgente primeiro (menor número = mais urgente)
                     (a.phase    - b.phase)    ||
@@ -484,8 +503,6 @@ export class TaskQueue {
             this._persist();
         }
 
-        this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
-
         if (this._hasTaskTimedOut(task)) {
             const timeoutReason = `SLA de task excedido (${this._formatMs(this._getTaskAgeMs(task))} > ${this._formatMs(this._getTaskTimeoutMs(task))})`;
             this._failTask(task, {
@@ -511,6 +528,8 @@ export class TaskQueue {
             t !== task &&
             t.status === 'pending' &&
             t.scheduledFor <= now &&
+            (this._config.get('operationMode') !== 'MANUAL' ||
+                (t.module === 'HEALTHCHECK' && this._manualHealthCheckTasks.has(t.id))) &&
             (t.phase ?? TASK_PHASE.LOGISTICA) < (task.phase ?? TASK_PHASE.LOGISTICA)
         );
         if (moreUrgent) {
@@ -523,6 +542,8 @@ export class TaskQueue {
             this._persist();
             return; // _executing permanece false — próximo _tick pega moreUrgent
         }
+
+        this._events.emit(this._events.E.QUEUE_TASK_STARTED, { task });
 
         if (task.type === TASK_TYPE.TRANSPORT) {
             this._transportIntentRegistry?.markDispatched?.(task.payload?.intentId, task.id);
@@ -543,7 +564,7 @@ export class TaskQueue {
         try {
             // 1. OperationMode
             const mode = this._config.get('operationMode');
-            if (mode === 'MANUAL') {
+            if (mode === 'MANUAL' && !(task.module === 'HEALTHCHECK' && this._manualHealthCheckTasks.has(task.id))) {
                 task.status = 'blocked';
                 this._persist();
                 this._recordTaskOutcome(task, this._createTaskOutcome(task, {
@@ -1313,7 +1334,10 @@ export class TaskQueue {
         evidence.push(`slotLevelBefore=${baseline?.build?.level ?? 'N/A'}`);
         evidence.push(`slotLevelAfter=${nowLevel}`);
 
-        const hasUpgradeEvidence = (
+        const beforeUC = baseline?.build?.underConstruction;
+        const alreadyUpgrading = (beforeUC != null && Number(beforeUC) === expectedPos) || baseline?.build?.isUpgrading === true;
+        evidence.push(`alreadyUpgradingBefore=${alreadyUpgrading}`);
+        const hasUpgradeEvidence = !alreadyUpgrading && (
             nowUC === expectedPos
             || slot?.isUpgrading === true
             || (Number.isFinite(nowLevel) && nowLevel > Number(baseline?.build?.level ?? -1))
@@ -1338,7 +1362,7 @@ export class TaskQueue {
         });
     }
 
-    async _validateTransportOutcome(task, baseline, executionStartedAt) {
+    async _validateTransportOutcome(task, baseline, executionStartedAt, dispatchResult = null) {
         const evidence = [];
         try {
             await this._client.fetchMilitaryAdvisor();
@@ -1349,14 +1373,26 @@ export class TaskQueue {
 
         const before = Number(baseline?.transportCount ?? 0);
         const after = this._countRelevantTransportMovements(task);
+        const serverAccepted = dispatchResult?.hybridOutcome?.responseSignals?.includes('provideFeedback:type10') === true;
         evidence.push(`transportCountBefore=${before}`);
         evidence.push(`transportCountAfter=${after}`);
+        evidence.push(`serverFeedbackAccepted=${serverAccepted}`);
 
         if (after > before) {
             return this._createTaskOutcome(task, {
                 executionStartedAt,
                 outcomeClass: 'success',
                 reasonCode: 'TRANSPORT_MOVEMENT_CONFIRMED',
+                evidence,
+                nextStep: 'none',
+            });
+        }
+
+        if (serverAccepted) {
+            return this._createTaskOutcome(task, {
+                executionStartedAt,
+                outcomeClass: 'success',
+                reasonCode: 'TRANSPORT_SERVER_ACCEPTED',
                 evidence,
                 nextStep: 'none',
             });
@@ -1516,6 +1552,7 @@ export class TaskQueue {
     }
 
     _moveToHistory(task) {
+        this._manualHealthCheckTasks.delete(task.id);
         task.completedAt = Date.now();
         this._done.push(task);
         if (this._done.length > 50) this._done.shift();

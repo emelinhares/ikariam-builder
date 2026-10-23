@@ -1,6 +1,21 @@
 import { TransportIntentRegistry, TRANSPORT_INTENT_STATUS } from '../../modules/TransportIntentRegistry.js';
 
 describe('TransportIntentRegistry', () => {
+  test('libera plano de health check sem task ou transporte correspondente', () => {
+    const storage = { get: vi.fn(async () => null), set: vi.fn(async () => {}) };
+    const queue = { getActive: () => [], getHistory: () => [], getTransportReservations: () => [] };
+    const registry = new TransportIntentRegistry({ storage, queue, audit: { warn: vi.fn() } });
+    registry.ensureFromTaskData({
+      type: 'TRANSPORT', module: 'HEALTHCHECK', cityId: 101,
+      payload: { fromCityId: 101, toCityId: 202, cargo: { sulfur: 500 } },
+    });
+
+    const result = registry.reconcileEquivalent({
+      purpose: 'generic', fromCityId: 101, toCityId: 202, resource: 'sulfur', amount: 500,
+    });
+    expect(result.shouldSkipEnqueue).toBe(false);
+    expect(result.status).toBe(TRANSPORT_INTENT_STATUS.FAILED);
+  });
   test('gera intentId estável por finalidade/origem/destino/recurso/bucket', () => {
     const id1 = TransportIntentRegistry.buildIntentId({
       purpose: 'jitBuild',

@@ -40,7 +40,7 @@ function createHarness() {
   queue._persist = vi.fn();
   queue._execute = vi.fn(async () => {});
 
-  return { queue, events, audit };
+  return { queue, events, audit, config };
 }
 
 function makeTask(over = {}) {
@@ -65,6 +65,48 @@ function tickOnce(queue) {
   queue._tick();
   clearTimeout(queue._tickTimer);
 }
+
+describe('TaskQueue — health check em MANUAL', () => {
+  test('despacha apenas a task autorizada da suíte', () => {
+    const { queue, config } = createHarness();
+    config.get.mockImplementation((key) => ({
+      operationMode: 'MANUAL',
+      taskQueueTickFocusMs: 1_000,
+    }[key]));
+    const ordinary = makeTask({ id: 'ordinary', phase: 1 });
+    const staleHealthCheck = makeTask({ id: 'stale', module: 'HEALTHCHECK', phase: 1 });
+    const authorized = makeTask({ id: 'authorized', module: 'HEALTHCHECK', phase: 2 });
+    queue._queue = [ordinary, staleHealthCheck, authorized];
+
+    expect(queue.allowManualHealthCheckTask('ordinary')).toBe(false);
+    expect(queue.allowManualHealthCheckTask('authorized')).toBe(true);
+    tickOnce(queue);
+
+    expect(queue._execute).toHaveBeenCalledWith(authorized);
+    expect(ordinary.status).toBe('pending');
+    expect(staleHealthCheck.status).toBe('pending');
+  });
+
+  test('task comum pendente não preempta health check autorizado', async () => {
+    const { queue, config, events, audit } = createHarness();
+    config.get.mockImplementation((key) => ({ operationMode: 'MANUAL' }[key]));
+    const ordinary = makeTask({ id: 'ordinary', type: 'WINE_ADJUST', phase: 1 });
+    const healthCheck = makeTask({ id: 'health', type: 'BUILD', module: 'HEALTHCHECK', phase: 3, status: 'in-flight' });
+    queue._queue = [ordinary, healthCheck];
+    queue.allowManualHealthCheckTask('health');
+    queue._executing = true;
+    queue._execute = TaskQueue.prototype._execute.bind(queue);
+    queue._hasTaskTimedOut = () => false;
+    queue._captureHybridPathDecision = () => ({ pathDecision: 'endpoint' });
+    queue._captureValidationBaseline = () => null;
+    queue._probeBeforeRedispatch = async () => { throw new Error('probe interrompido no teste'); };
+
+    await queue._execute(healthCheck);
+
+    expect(events.emit).toHaveBeenCalledWith(events.E.QUEUE_TASK_STARTED, { task: healthCheck });
+    expect(audit.debug.mock.calls.some(([, message]) => message?.includes('Preempção:'))).toBe(false);
+  });
+});
 
 describe('TaskQueue — watchdog com teto', () => {
   test('reagenda nas primeiras vezes e falha a task ao esgotar o teto', () => {
