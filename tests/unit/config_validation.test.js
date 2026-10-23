@@ -17,6 +17,27 @@ describe('Config validation + deep merge', () => {
     expect(mbp.marble).toBe(Infinity);
   });
 
+  test('sobe em MANUAL por padrão, sem configuração salva', async () => {
+    // O Planner e o heartbeat começam logo após o boot. Se o padrão fosse
+    // FULL-AUTO, carregar a extensão já seria agir no jogo.
+    const storage = { get: vi.fn(async () => null), set: vi.fn(async () => {}) };
+    const cfg = new Config(storage);
+    await cfg.init();
+
+    expect(cfg.get('operationMode')).toBe('MANUAL');
+  });
+
+  test('configuração salva prevalece sobre o padrão', async () => {
+    const storage = {
+      get: vi.fn(async () => ({ operationMode: 'FULL-AUTO' })),
+      set: vi.fn(async () => {}),
+    };
+    const cfg = new Config(storage);
+    await cfg.init();
+
+    expect(cfg.get('operationMode')).toBe('FULL-AUTO');
+  });
+
   test('set validates type/range', async () => {
     const storage = { get: vi.fn(async () => null), set: vi.fn(async () => {}) };
     const cfg = new Config(storage);

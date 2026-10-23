@@ -65,6 +65,10 @@ export async function createIntegrationHarness({ cities = [], hooks = {}, enable
 
   const config = new Config(storage);
   await config.init();
+  // Estes testes exercitam o fluxo de execução, não o padrão de fábrica.
+  // O default é MANUAL de propósito (a extensão sobe sem agir), então o modo
+  // é fixado aqui para que os cenários não dependam dele.
+  await config.set('operationMode', 'FULL-AUTO');
 
   const state = new StateManager({ events, audit, config });
   for (const city of cities) seedCity(state, city);

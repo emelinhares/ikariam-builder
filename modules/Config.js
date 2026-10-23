@@ -8,7 +8,10 @@ const DEFAULTS = Object.freeze({
     // 'SEMI'      : executa, mas pede confirmação em ações de alto impacto
     // 'MANUAL'    : suspende execução — usuário dispara manualmente via UI
     // 'SAFE'      : só executa se a cidade tem confiança HIGH (dados < 60s)
-    operationMode: 'FULL-AUTO',
+    // Padrão conservador: a extensão sobe sem agir. O Planner e o heartbeat
+    // começam logo após o boot, então subir em FULL-AUTO significa agir no
+    // jogo antes de qualquer conferência. Troque pelo seletor do painel.
+    operationMode: 'MANUAL',
 
     // ── CFO ───────────────────────────────────────────────────────────────────
     roiThreshold:              2.0,    // ROI mínimo para aprovar construção (×)
