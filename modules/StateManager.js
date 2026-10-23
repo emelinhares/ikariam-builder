@@ -243,7 +243,25 @@ export class StateManager {
         }
 
         this._probing = true;
-        const cityIds = this.getAllCityIds();
+        this._lastProbedAt ??= new Map();
+
+        // O custo do probing é linear no número de cidades, e o lock fica preso o
+        // tempo todo. Com 5 cidades são ~16s de um heartbeat de 60s; com 8 passaria
+        // do heartbeat inteiro e o ERP ficaria permanentemente sondando — um teto de
+        // cidades que ninguém escreveu de propósito.
+        //
+        // A janela passa a ser limitada por fração do heartbeat em vez de pelo número
+        // de cidades. Sonda-se em ordem de quem está mais desatualizado, até o
+        // orçamento acabar; o resto espera o ciclo seguinte. Com o padrão atual
+        // (1/3 de 60s = 20s) todas as 5 cidades continuam entrando, então para esta
+        // conta nada muda — o limite só age quando o império cresce.
+        const fracao = this._config?.get?.('maxProbeFractionOfHeartbeat') ?? 0.33;
+        const heartbeat = this._config?.get?.('heartbeatFocusMs') ?? 60_000;
+        const orcamentoMs = Math.max(5_000, Math.round(heartbeat * fracao));
+
+        const cityIds = [...this.getAllCityIds()].sort(
+            (a, b) => (this._lastProbedAt.get(a) ?? 0) - (this._lastProbedAt.get(b) ?? 0)
+        );
         // Cidade real no servidor antes do fetchAllCities (probeCityData não muda sessão)
         const serverCityBefore = Number(
             globalThis.ikariam?.model?.relatedCityData?.selectedCityId ?? 0
@@ -253,8 +271,14 @@ export class StateManager {
 
         // Session lock: impede que tasks do TaskQueue (navigate + action) se interponham
         // durante os probes. O lock é liberado apenas após navigate de retorno ao final.
+        let sondadas = 0;
+        const inicioProbe = Date.now();
+
         await gameClient.acquireSession(async () => {
             for (const cityId of cityIds) {
+                // Sempre sonda ao menos uma, para que nenhuma cidade fique parada
+                // indefinidamente mesmo com orçamento apertado.
+                if (sondadas > 0 && Date.now() - inicioProbe >= orcamentoMs) break;
                 try {
                     // probeCityData é um GET simples — NÃO altera a cidade ativa no servidor.
                     // Não atualizar _activeCityId aqui para não desincronizar do estado real do servidor.
@@ -264,6 +288,8 @@ export class StateManager {
                     // ~8s dos 24,6s medidos com 5 cidades. Remover não altera o
                     // intervalo entre requests — só para de contá-lo duas vezes.
                     await gameClient.probeCityData(cityId);
+                    this._lastProbedAt.set(cityId, Date.now());
+                    sondadas++;
                 } catch (err) {
                     this._audit.error('StateManager', `fetchAllCities erro em cidade ${cityId}: ${err.message}`);
                 }
@@ -294,7 +320,11 @@ export class StateManager {
         // Relatório de ciclo — snapshot técnico de todas as cidades
         this._emitCycleReport();
 
-        this._audit.info('StateManager', 'fetchAllCities concluído');
+        const naoSondadas = cityIds.length - sondadas;
+        this._audit.info('StateManager',
+            `fetchAllCities concluído — ${sondadas}/${cityIds.length} cidades em ` +
+            `${Date.now() - inicioProbe}ms (orçamento ${orcamentoMs}ms)` +
+            (naoSondadas > 0 ? `; ${naoSondadas} ficaram para o próximo ciclo` : ''));
         this._events.emit(this._events.E.STATE_ALL_FRESH, { ts: this.lastFullRefresh });
     }
 

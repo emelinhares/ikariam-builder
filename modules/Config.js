@@ -41,6 +41,8 @@ const DEFAULTS = Object.freeze({
 
     // ── Timing ───────────────────────────────────────────────────────────────
     heartbeatFocusMs:          60_000, // intervalo heartbeat com aba em foco
+    maxProbeFractionOfHeartbeat: 0.33, // teto da janela de probing como fração do
+                                       // heartbeat; o que não couber vai para o ciclo seguinte
     heartbeatBackgroundMs:     300_000,// intervalo heartbeat com aba em background
     humanDelayMinMs:           800,    // delay mínimo entre ações (ms)
     humanDelayMaxMs:           2500,   // delay máximo entre ações (ms)
