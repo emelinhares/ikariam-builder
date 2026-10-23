@@ -258,6 +258,27 @@ caro, e por isso serializa tudo atrás de um lock. Toda a dor — executor de sl
 Antes de otimizar a fila, responda se a premissa é verdadeira. Se não for, a correção
 não é ajustar timeouts: é **deixar de serializar leituras**, e o problema evapora.
 
+## Testes de capacidade do servidor (22/10, conta real)
+
+| Teste | Resultado |
+|---|---|
+| 5 leituras sequenciais sem delay | 3.395 ms (667, 664, 705, 666, 692) |
+| As mesmas 5 **em paralelo** | 1.314 ms, todas 200, todas com a cidade correta |
+| Via `fetchAllCities` | 24.638 ms |
+| `actionRequest` em 4 leituras | 1 valor distinto — estável, igual ao `ikariam.model` |
+
+O servidor aceita leitura concorrente de cidades diferentes e não rotaciona o token em
+leitura. Não há throttling.
+
+**Correção de um veredito anterior:** cheguei a concluir que o probe não move a cidade
+de sessão, usando o `<title>` de `/index.php?view=city` como testemunha. O controle
+invalidou isso — nem `view=city&cityId=X` sem `ajax` alterou a testemunha. **A
+testemunha não serve e a pergunta continua aberta.** Não repita esse caminho; use o
+modo REC contra um clique real do jogo.
+
+O plano completo de correções está em
+[plans/PLANO_CORRECAO_2026-10.md](plans/PLANO_CORRECAO_2026-10.md).
+
 ## Fase 4 — correção, guiada pela evidência
 
 Ordem sugerida, agora que há evidência real:
